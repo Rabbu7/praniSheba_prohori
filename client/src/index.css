@@ -135,3 +135,38 @@ body {
   background-color: var(--color-surface, #f9f9f8);
   color: var(--color-on-surface, #1a1c1c);
 }
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Animations from Stitch reference */
+@keyframes borderPulse {
+  0% { box-shadow: -2px 0 8px rgba(217, 119, 6, 0); }
+  50% { box-shadow: -4px 0 12px rgba(217, 119, 6, 0.5); }
+  100% { box-shadow: -2px 0 8px rgba(217, 119, 6, 0); }
+}
+
+.animate-border-pulse {
+  animation: borderPulse 2.5s infinite ease-in-out;
+}
+
+@keyframes glowPulse {
+  0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4); }
+  70% { box-shadow: 0 0 0 4px rgba(22, 163, 74, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+}
+
+.animate-glow-pulse {
+  animation: glowPulse 2s infinite;
+}
+
+/* Value changed highlight transition */
+.card-highlight-flash {
+  animation: flashHighlight 1s ease-out;
+}
+
+@keyframes flashHighlight {
+  0% { background-color: rgba(37, 99, 235, 0.15); }
+  100% { background-color: #FFFFFF; }
+}
