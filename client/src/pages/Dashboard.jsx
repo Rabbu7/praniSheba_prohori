@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import useLatestReading from '../hooks/useLatestReading';
+import useReadingsHistory from '../hooks/useReadingsHistory';
 import Sidebar from '../components/layout/Sidebar';
 import Header from '../components/layout/Header';
 import StatusBadge from '../components/common/StatusBadge';
 import ReadingsPanel from '../components/dashboard/ReadingsPanel';
+import HistoryTabs from '../components/dashboard/HistoryTabs';
+import HistoryTable from '../components/dashboard/HistoryTable';
+import TrendChart from '../components/dashboard/TrendChart';
 
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -24,7 +28,10 @@ function formatRelativeTime(date) {
 }
 
 export default function Dashboard() {
-  const { data: reading, error } = useLatestReading();
+  const readingsLogRef = useRef(null);
+  const { data: reading, error: latestError } = useLatestReading();
+  const [range, setRange] = useState('7d');
+  const { data: historyData, loading: historyLoading } = useReadingsHistory(range);
 
   const isOnline = reading?.created_at
     ? Date.now() - new Date(reading.created_at).getTime() < ONLINE_THRESHOLD_MS
@@ -32,11 +39,14 @@ export default function Dashboard() {
 
   const status = isOnline ? 'online' : 'offline';
   const lastUpdatedDate = reading?.created_at ? new Date(reading.created_at) : null;
+  const handleHistoryClick = () => {
+    readingsLogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
     <div className="bg-background text-on-background font-body-sm antialiased h-screen flex overflow-hidden">
       {/* Navigation Sidebar */}
-      <Sidebar />
+      <Sidebar onHistoryClick={handleHistoryClick} />
 
       {/* Main Content Canvas */}
       <main className="flex-1 md:ml-sidebar-width mt-[64px] md:mt-0 h-full overflow-y-auto w-full bg-background relative">
@@ -60,7 +70,7 @@ export default function Dashboard() {
           </div>
 
           {/* Inline Error State Handling */}
-          {error ? (
+          {latestError ? (
             <div className="bg-surface-white border border-error/30 rounded-lg p-6 flex flex-col items-center justify-center text-center my-6 shadow-sm">
               <span className="material-symbols-outlined text-error text-4xl mb-2">cloud_off</span>
               <h3 className="font-headline-md text-headline-md font-bold text-on-background mb-1">
@@ -78,11 +88,30 @@ export default function Dashboard() {
                 <ReadingsPanel reading={reading} />
               </div>
 
-              {/* Right Column: Chart & History Section Placeholder (Stage 7b) */}
-              <div className="lg:col-span-9">
-                <div className="bg-surface-white border border-[#D1D5DB] rounded-lg p-6 flex items-center justify-center min-h-[400px] text-secondary font-medium">
-                  Chart & History Panel Placeholder (Stage 7b)
-                </div>
+              {/* Right Column: Analysis Panel (Chart + History Log) */}
+              <div className="lg:col-span-9 space-y-6">
+                {/* Trend Chart Section */}
+                <section className="bg-surface-white border border-[#D1D5DB] rounded-lg p-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-headline-md text-headline-md font-bold text-on-background flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary">monitoring</span>
+                      Environmental Trends Analysis
+                    </h3>
+                    <HistoryTabs range={range} onChange={setRange} />
+                  </div>
+                  <TrendChart data={historyData} loading={historyLoading} range={range} />
+                </section>
+
+                {/* History Log Section */}
+                <section ref={readingsLogRef} id="readings-log" className="space-y-3">
+                  <div className="flex justify-between items-center px-1">
+                    <span className="text-secondary font-label-caps text-label-caps uppercase tracking-wider">
+                      Range Selection
+                    </span>
+                    <HistoryTabs range={range} onChange={setRange} />
+                  </div>
+                  <HistoryTable data={historyData} loading={historyLoading} />
+                </section>
               </div>
             </div>
           )}

@@ -1,14 +1,13 @@
 import React from 'react';
+import logo from '../../assets/logo.jpeg';
 
-export default function Sidebar() {
+export default function Sidebar({ onHistoryClick }) {
   return (
     <>
       {/* Desktop Sidebar */}
       <nav className="hidden md:flex fixed left-0 top-0 h-screen w-sidebar-width flex-col py-6 px-0 border-r border-border-subtle bg-[#0F172A] z-10">
         <div className="px-2 mb-8 flex flex-col items-center">
-          <div className="w-12 h-12 rounded-full bg-white p-1 flex items-center justify-center font-bold text-primary text-xl shadow-sm">
-            P
-          </div>
+          <img src={logo} alt="Prohori Logo" className="w-12 h-auto rounded-full" />
         </div>
         <div className="flex-1 px-2 space-y-4 flex flex-col items-center">
           <a
@@ -22,6 +21,10 @@ export default function Sidebar() {
             className="flex items-center justify-center w-12 h-12 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-300 ease-in-out"
             href="#"
             title="History"
+            onClick={(event) => {
+              event.preventDefault();
+              onHistoryClick?.();
+            }}
           >
             <span className="material-symbols-outlined">history</span>
           </a>
@@ -50,7 +53,15 @@ export default function Sidebar() {
           <span className="material-symbols-outlined">dashboard</span>
           <span className="text-[10px] mt-0.5">Dashboard</span>
         </a>
-        <a className="flex flex-col items-center text-gray-400 hover:text-white" href="#" title="History">
+        <a
+          className="flex flex-col items-center text-gray-400 hover:text-white"
+          href="#"
+          title="History"
+          onClick={(event) => {
+            event.preventDefault();
+            onHistoryClick?.();
+          }}
+        >
           <span className="material-symbols-outlined">history</span>
           <span className="text-[10px] mt-0.5">History</span>
         </a>
