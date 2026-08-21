@@ -1,9 +1,38 @@
 import React from 'react';
+import useLatestReading from '../hooks/useLatestReading';
 import Sidebar from '../components/layout/Sidebar';
 import Header from '../components/layout/Header';
-import SensorCard from '../components/dashboard/SensorCard';
+import StatusBadge from '../components/common/StatusBadge';
+import ReadingsPanel from '../components/dashboard/ReadingsPanel';
+
+const ONLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
+function formatRelativeTime(date) {
+  if (!date) return '—';
+  const now = new Date();
+  const updated = new Date(date);
+  const diffInSeconds = Math.floor((now - updated) / 1000);
+
+  if (isNaN(diffInSeconds) || diffInSeconds < 0) return 'Just now';
+  if (diffInSeconds < 60) return 'Just now';
+  const mins = Math.floor(diffInSeconds / 60);
+  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
 
 export default function Dashboard() {
+  const { data: reading, error } = useLatestReading();
+
+  const isOnline = reading?.created_at
+    ? Date.now() - new Date(reading.created_at).getTime() < ONLINE_THRESHOLD_MS
+    : false;
+
+  const status = isOnline ? 'online' : 'offline';
+  const lastUpdatedDate = reading?.created_at ? new Date(reading.created_at) : null;
+
   return (
     <div className="bg-background text-on-background font-body-sm antialiased h-screen flex overflow-hidden">
       {/* Navigation Sidebar */}
@@ -12,7 +41,7 @@ export default function Dashboard() {
       {/* Main Content Canvas */}
       <main className="flex-1 md:ml-sidebar-width mt-[64px] md:mt-0 h-full overflow-y-auto w-full bg-background relative">
         {/* Sticky Header */}
-        <Header deviceId="G3036" status="online" lastUpdated="2 mins ago" />
+        <Header deviceId="G3036" status={status} lastUpdated={lastUpdatedDate} />
 
         {/* Content Container */}
         <div className="p-container-padding md:p-8 max-w-[1600px] mx-auto pb-24 md:pb-8">
@@ -20,65 +49,43 @@ export default function Dashboard() {
           <div className="md:hidden flex flex-col gap-2 mb-stack-md">
             <div className="flex items-center justify-between">
               <h2 className="font-headline-md text-headline-md font-bold text-on-background">Dashboard</h2>
-              <span className="flex items-center px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] text-xs font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-status-online mr-1.5 animate-glow-pulse"></span>
-                Online
-              </span>
+              <StatusBadge status={status} />
             </div>
             <div className="flex justify-between items-center">
               <span className="font-body-sm text-body-sm text-secondary">Device: G3036</span>
-              <span className="font-body-sm text-body-sm text-secondary font-medium">Updated: 2 mins ago</span>
+              <span className="font-body-sm text-body-sm text-secondary font-medium">
+                Updated: {formatRelativeTime(lastUpdatedDate)}
+              </span>
             </div>
           </div>
 
-          {/* Main Grid Layout for Mock Verification */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left Column: 4 Sensor Cards rendered in isolation */}
-            <div className="lg:col-span-3 space-y-4">
-              <SensorCard
-                label="Ammonia (NH3)"
-                value={12.4}
-                unit="ppm"
-                zone="warning"
-                icon="science"
-                trend={{ direction: 'up', delta: 1.2, message: 'vs last hour' }}
-              />
-
-              <SensorCard
-                label="Methane (CH4)"
-                value={4.1}
-                unit="ppm"
-                zone="safe"
-                icon="co2"
-                trend="Stable trend detected"
-              />
-
-              <SensorCard
-                label="Humidity"
-                value={68}
-                unit="%"
-                zone="safe"
-                icon="water_drop"
-                trend="Within target: 60-70%"
-              />
-
-              <SensorCard
-                label="Temperature"
-                value={74.2}
-                unit="°F"
-                zone="safe"
-                icon="thermostat"
-                trend="Optimal conditions"
-              />
+          {/* Inline Error State Handling */}
+          {error ? (
+            <div className="bg-surface-white border border-error/30 rounded-lg p-6 flex flex-col items-center justify-center text-center my-6 shadow-sm">
+              <span className="material-symbols-outlined text-error text-4xl mb-2">cloud_off</span>
+              <h3 className="font-headline-md text-headline-md font-bold text-on-background mb-1">
+                Unable to reach Prohori server
+              </h3>
+              <p className="text-secondary text-body-sm max-w-md">
+                Please check backend connectivity or network connection. Re-trying automatically...
+              </p>
             </div>
+          ) : (
+            /* Main Grid Layout */
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left Column: Current Readings Grid */}
+              <div className="lg:col-span-3">
+                <ReadingsPanel reading={reading} />
+              </div>
 
-            {/* Right Column: Placeholder for future chart/table */}
-            <div className="lg:col-span-9">
-              <div className="bg-surface-white border border-[#D1D5DB] rounded-lg p-6 flex items-center justify-center min-h-[400px] text-secondary font-medium">
-                Chart & History Panel Placeholder
+              {/* Right Column: Chart & History Section Placeholder (Stage 7b) */}
+              <div className="lg:col-span-9">
+                <div className="bg-surface-white border border-[#D1D5DB] rounded-lg p-6 flex items-center justify-center min-h-[400px] text-secondary font-medium">
+                  Chart & History Panel Placeholder (Stage 7b)
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
     </div>
