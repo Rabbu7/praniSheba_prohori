@@ -139,6 +139,8 @@ prohori-dashboard/
 
 No sockets or push events in Phase 1 — frontend polls `/latest` on an interval (see `useLatestReading.js`).
 
+**Note:** as of the current demo phase, `history`'s "window" is implemented as a document-count cutoff rather than a literal calendar-time cutoff — see "Known Temporary Workarounds" below. The response shape and sort order described above are unaffected; only how the set of returned documents is selected has changed temporarily.
+
 ## Future: Real-Time Upgrade Path (not Phase 1 — for context only)
 
 When a later phase upgrades to true real-time push, the intended approach is: MongoDB Change Streams on the backend detecting new inserts into `G3036`, pushed to clients via Socket.IO as a `new-reading` event. On the frontend, only `useLatestReading.js` should need to change (swap its polling loop for a socket listener) — components consuming its returned data should not need changes if this hook's return shape stays the same.
@@ -170,6 +172,18 @@ Implementation notes:
 - Suggested field to add to API responses: `zone: "safe" | "warning" | "danger"` per metric, e.g. `{ ammonia: 12.4, ammonia_zone: "warning", ... }`.
 - This phase is **visual indication only** — colored badges/borders on the dashboard. No push notifications, email, SMS, or sound alerts. Those remain a later-phase feature.
 - If the company revises any threshold values, update this table first — it's the source of truth for the alert logic.
+
+## Known Temporary Workarounds (Demo Phase — Remove Before Production)
+
+The seeded MongoDB dataset (1,779 docs, spanning roughly Sept 18 – Nov 24 2024) is stale relative to the current date, and was logged in **bursts** rather than continuously — many readings per minute during active periods, then long real-world gaps (days to weeks) with nothing logged at all. This breaks naive "give me the last N days" queries, so two temporary workarounds currently live in `getHistory` (`server/src/controllers/readingsController.js`):
+
+1. **Anchor timestamp, not wall-clock time.** Cutoffs are computed relative to the most recent document's `created_at`, not `Date.now()`. Without this, querying against 635+ day old data would return an empty result every time, since "now" is nowhere near the dataset.
+
+2. **Document-count window, not calendar-time window.** `getHistory` returns the most recent **300 documents** for `range=7d` and the most recent **1,200 documents** for `range=30d`, rather than filtering by a literal 7-day / 30-day `created_at` range. This was necessary because the bursty logging pattern meant a literal calendar window often landed inside a silent gap and returned only minutes of real data — visually unconvincing and not representative of what the dashboard will look like once the device logs continuously.
+
+   **Known side effect:** because logging density varies across the dataset, the row-count cutoffs do not correspond to literal 7/30-day spans. At time of writing, the "7d" tab actually spans **Nov 7 – Nov 24 (~17 real days)** and the "30d" tab spans **Sept 18 – Nov 24 (~67 real days, essentially the full dataset)**. The tab labels (`7d`/`30d`) currently describe a *row count*, not an actual time span — flagged to the team; whether to relabel the tabs (e.g. "Recent"/"Extended") pending real-time data, or leave as-is for the internal demo, is an open decision awaiting supervisor input.
+
+**Revert both workarounds** once the physical device is logging continuously in real time — replace the count-based `.limit()` query with a genuine `Date.now()`-relative `$gte` filter on `created_at`, same as the original design intent. Search `TODO(revert-for-production)` in `readingsController.js` to find both spots quickly.
 
 ## Out of Scope for This Phase (do not build yet)
 

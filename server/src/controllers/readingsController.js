@@ -46,16 +46,20 @@ const getHistory = async (req, res, next) => {
       days = 7;
     }
 
-    // TODO(revert-for-production): TEMPORARY DEMO LOGIC — anchors the 7d/30d window to the latest reading's
-    // own timestamp instead of the current wall-clock time, so historical/stale
-    // demo data still populates the chart and table. Revert to Date.now()-based
-    // cutoff once the device is actively writing fresh data. See AGENTS.md.
-    const latestDoc = await Reading.findOne().sort({ created_at: -1 }).select('created_at').lean();
-    const anchorTime = latestDoc ? new Date(latestDoc.created_at).getTime() : Date.now();
-    const cutoffDate = new Date(anchorTime - days * 24 * 60 * 60 * 1000);
-    const readings = await Reading.find({ created_at: { $gte: cutoffDate } })
-      .sort({ created_at: 1 })
+    // TEMPORARY DEMO LOGIC — the seeded dataset is bursty (long gaps between
+    // logging sessions), so a literal 7/30-DAY time window often captures only
+    // a few minutes of real data. Using a document count instead guarantees a
+    // continuous, demo-friendly trend regardless of real gaps in the data.
+    // Revert to a true time-window cutoff once the device logs continuously.
+    // See AGENTS.md > Known Temporary Workarounds.
+    const COUNT_BY_RANGE = { '7d': 300, '30d': 1200 };
+    const limit = COUNT_BY_RANGE[days === 30 ? '30d' : '7d'];
+
+    const readings = await Reading.find()
+      .sort({ created_at: -1 })
+      .limit(limit)
       .lean();
+    readings.reverse();
 
     const result = readings.map((reading) => ({
       ...reading,
