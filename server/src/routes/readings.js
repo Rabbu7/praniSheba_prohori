@@ -4,7 +4,9 @@ const {
 	getLatest,
 	getHistory,
 	getDailyAverages,
-	getLog
+	getLog,
+	getCalendar,
+	getDay
 } = require('../controllers/readingsController');
 
 // GET /api/readings/latest
@@ -18,5 +20,11 @@ router.get('/daily-averages', getDailyAverages);
 
 // GET /api/readings/log
 router.get('/log', getLog);
+
+// GET /api/readings/calendar
+router.get('/calendar', getCalendar);
+
+// GET /api/readings/day/:date
+router.get('/day/:date', getDay);
 
 module.exports = router;

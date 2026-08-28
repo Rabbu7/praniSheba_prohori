@@ -170,9 +170,161 @@ const getLog = async (req, res, next) => {
   }
 };
 
+const roundToOneDecimal = (value) => Math.round((value + Number.EPSILON) * 10) / 10;
+
+const getMinMaxPipeline = (start, end) => [
+  {
+    $match: {
+      created_at: {
+        $gte: start,
+        $lt: end
+      }
+    }
+  },
+  {
+    $group: {
+      _id: {
+        $dateToString: {
+          format: '%Y-%m-%d',
+          date: '$created_at'
+        }
+      },
+      ammonia_min: { $min: '$ammonia' },
+      ammonia_max: { $max: '$ammonia' },
+      methane_min: { $min: '$methane' },
+      methane_max: { $max: '$methane' },
+      humidity_min: { $min: '$humidity' },
+      humidity_max: { $max: '$humidity' },
+      temperature_min: { $min: '$temperature' },
+      temperature_max: { $max: '$temperature' }
+    }
+  },
+  { $sort: { _id: 1 } }
+];
+
+const formatMinMaxReading = (average) => {
+  const minimums = {
+    ammonia: roundToOneDecimal(average.ammonia_min),
+    methane: roundToOneDecimal(average.methane_min),
+    humidity: roundToOneDecimal(average.humidity_min),
+    temperature: roundToOneDecimal(average.temperature_min)
+  };
+  const maximums = {
+    ammonia: roundToOneDecimal(average.ammonia_max),
+    methane: roundToOneDecimal(average.methane_max),
+    humidity: roundToOneDecimal(average.humidity_max),
+    temperature: roundToOneDecimal(average.temperature_max)
+  };
+  const minimumZones = getZones(minimums);
+  const maximumZones = getZones(maximums);
+
+  return {
+    date: average._id,
+    ammonia_min: minimums.ammonia,
+    ammonia_max: maximums.ammonia,
+    ammonia_min_zone: minimumZones.ammonia_zone,
+    ammonia_max_zone: maximumZones.ammonia_zone,
+    methane_min: minimums.methane,
+    methane_max: maximums.methane,
+    methane_min_zone: minimumZones.methane_zone,
+    methane_max_zone: maximumZones.methane_zone,
+    humidity_min: minimums.humidity,
+    humidity_max: maximums.humidity,
+    humidity_min_zone: minimumZones.humidity_zone,
+    humidity_max_zone: maximumZones.humidity_zone,
+    temperature_min: minimums.temperature,
+    temperature_max: maximums.temperature,
+    temperature_min_zone: minimumZones.temperature_zone,
+    temperature_max_zone: maximumZones.temperature_zone
+  };
+};
+
+const getUtcMonthBounds = (month) => {
+  const isValidMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(month || '');
+  // Invalid or missing months default to the current UTC month for consistency.
+  const monthKey = isValidMonth
+    ? month
+    : new Date().toISOString().slice(0, 7);
+  const [year, monthNumber] = monthKey.split('-').map(Number);
+
+  return {
+    start: new Date(Date.UTC(year, monthNumber - 1, 1)),
+    end: new Date(Date.UTC(year, monthNumber, 1))
+  };
+};
+
+/**
+ * Fetch daily minimums and maximums for a UTC calendar month.
+ * GET /api/readings/calendar?month=YYYY-MM
+ */
+const getCalendar = async (req, res, next) => {
+  try {
+    const { start, end } = getUtcMonthBounds(req.query.month);
+
+    // Grouping uses UTC calendar days, matching daily-averages; revisit timezone
+    // handling for Bangladesh-based users when the date display is finalized.
+    const days = await Reading.aggregate(getMinMaxPipeline(start, end));
+    return res.json(days.map(formatMinMaxReading));
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getUtcDayBounds = (date) => {
+  const isValidDate = /^\d{4}-\d{2}-\d{2}$/.test(date || '');
+  const parsedDate = isValidDate ? new Date(`${date}T00:00:00.000Z`) : null;
+  const isRealDate = parsedDate && !Number.isNaN(parsedDate.getTime())
+    && parsedDate.toISOString().slice(0, 10) === date;
+
+  if (!isRealDate) {
+    return null;
+  }
+
+  return {
+    start: parsedDate,
+    end: new Date(parsedDate.getTime() + 24 * 60 * 60 * 1000)
+  };
+};
+
+/**
+ * Fetch daily minimums and maximums for one UTC calendar day.
+ * GET /api/readings/day/:date
+ */
+const getDay = async (req, res, next) => {
+  try {
+    const bounds = getUtcDayBounds(req.params.date);
+
+    if (!bounds) {
+      return res.status(400).json({
+        error: {
+          message: 'Invalid date; expected YYYY-MM-DD',
+          status: 400
+        }
+      });
+    }
+
+    const [day] = await Reading.aggregate(getMinMaxPipeline(bounds.start, bounds.end));
+
+    if (!day) {
+      return res.status(404).json({
+        error: {
+          message: 'No readings found for this date',
+          status: 404
+        }
+      });
+    }
+
+    return res.json(formatMinMaxReading(day));
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getLatest,
   getHistory,
   getDailyAverages,
-  getLog
+  getLog,
+  getCalendar,
+  getDay
 };
