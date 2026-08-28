@@ -216,6 +216,7 @@ The original seeded MongoDB dataset (1,779 docs, spanning roughly Sept 18 – No
 **Now that the simulator writes continuously in real time**, these workarounds should be revisited:
 - Cutoffs can likely switch back to genuine `Date.now()`-relative `$gte` filters on `created_at`, since "now" and the data will actually be close together going forward.
 - The document-count `.limit()` approach may no longer be necessary for `daily-averages` or `log`, since continuous data won't have the same bursty-gap problem — confirm this holds once the simulator has been running for a few days before removing the workaround entirely.
+- `daily-averages` groups readings into calendar days via `$dateToString` on `created_at` with no explicit `timezone` option, so grouping is currently in UTC. Once the simulator (or physical device) is producing continuous real-world timestamps, verify day boundaries look correct for a Bangladesh-based user (UTC+6) — a reading logged late in the BD evening could currently get grouped into the *next* UTC day. Revisit alongside the count-windowing fix; may need `timezone: "Asia/Dhaka"` added to the `$dateToString` stage in `getDailyAverages` (readingsController.js).
 
 ## Out of Scope for This Phase (do not build yet)
 
