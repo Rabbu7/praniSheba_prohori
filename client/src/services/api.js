@@ -13,3 +13,8 @@ export const getReadingsHistory = async (range) => {
   const response = await api.get(`/api/readings/history?range=${range}`);
   return response.data;
 };
+
+export const getReadingsLog = async (page = 1, limit = 20) => {
+  const response = await api.get(`/api/readings/log?page=${page}&limit=${limit}`);
+  return response.data;
+};

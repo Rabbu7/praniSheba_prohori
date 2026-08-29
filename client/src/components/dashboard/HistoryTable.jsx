@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { formatAbsoluteDate } from '../../utils/dateFormatter';
 
 const zoneTextColor = {
@@ -7,19 +7,7 @@ const zoneTextColor = {
   danger: 'text-status-danger font-medium',
 };
 
-export default function HistoryTable({ data = [], loading = false }) {
-  const [currentPage, setCurrentPage] = useState(1);
-
-  // Sort most recent first for display table without mutating original array
-  const displayData = Array.isArray(data) ? [...data].reverse() : [];
-  const rowsPerPage = 20;
-  const totalPages = Math.ceil(displayData.length / rowsPerPage);
-  const pageStart = (currentPage - 1) * rowsPerPage;
-  const paginatedData = displayData.slice(pageStart, pageStart + rowsPerPage);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [data]);
+export default function HistoryTable({ data = [], loading = false, page = 1, totalPages = 1, onPageChange = () => {} }) {
 
   return (
     <div className="bg-surface-white border border-[#D1D5DB] rounded-lg p-6">
@@ -44,14 +32,14 @@ export default function HistoryTable({ data = [], loading = false }) {
                   Loading history…
                 </td>
               </tr>
-            ) : displayData.length === 0 ? (
+            ) : !Array.isArray(data) || data.length === 0 ? (
               <tr>
                 <td colSpan={5} className="py-6 px-4 text-center text-secondary">
-                  No readings in this range
+                  No readings available
                 </td>
               </tr>
             ) : (
-              paginatedData.map((row, index) => (
+              data.map((row, index) => (
                 <tr key={row._id || index} className="even:bg-surface-container-low/50 hover:bg-surface-container-low transition-colors">
                   <td className="py-3 px-4 font-mono text-on-background">
                     {formatAbsoluteDate(row.created_at)}
@@ -79,19 +67,19 @@ export default function HistoryTable({ data = [], loading = false }) {
           <button
             type="button"
             className="px-3 py-2 rounded-md hover:bg-surface-container-low disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            onClick={() => setCurrentPage((page) => page - 1)}
-            disabled={currentPage === 1}
+            onClick={() => onPageChange(page - 1)}
+            disabled={page === 1}
           >
             ‹ Prev
           </button>
           <span>
-            Page {currentPage} of {totalPages}
+            Page {page} of {totalPages}
           </span>
           <button
             type="button"
             className="px-3 py-2 rounded-md hover:bg-surface-container-low disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            onClick={() => setCurrentPage((page) => page + 1)}
-            disabled={currentPage === totalPages}
+            onClick={() => onPageChange(page + 1)}
+            disabled={page === totalPages}
           >
             Next ›
           </button>
