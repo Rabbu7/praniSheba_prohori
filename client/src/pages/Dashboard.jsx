@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import useLatestReading from '../hooks/useLatestReading';
 import useReadingsHistory from '../hooks/useReadingsHistory';
 import Sidebar from '../components/layout/Sidebar';
@@ -6,7 +6,6 @@ import Header from '../components/layout/Header';
 import StatusBadge from '../components/common/StatusBadge';
 import ReadingsPanel from '../components/dashboard/ReadingsPanel';
 import HistoryTabs from '../components/dashboard/HistoryTabs';
-import HistoryTable from '../components/dashboard/HistoryTable';
 import TrendChart from '../components/dashboard/TrendChart';
 
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
@@ -28,7 +27,6 @@ function formatRelativeTime(date) {
 }
 
 export default function Dashboard() {
-  const readingsLogRef = useRef(null);
   const { data: reading, error: latestError } = useLatestReading();
   const [range, setRange] = useState('7d');
   const { data: historyData, loading: historyLoading } = useReadingsHistory(range);
@@ -39,19 +37,16 @@ export default function Dashboard() {
 
   const status = isOnline ? 'online' : 'offline';
   const lastUpdatedDate = reading?.created_at ? new Date(reading.created_at) : null;
-  const handleHistoryClick = () => {
-    readingsLogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
 
   return (
     <div className="bg-background text-on-background font-body-sm antialiased h-screen flex overflow-hidden">
       {/* Navigation Sidebar */}
-      <Sidebar onHistoryClick={handleHistoryClick} />
+      <Sidebar />
 
       {/* Main Content Canvas */}
       <main className="flex-1 md:ml-sidebar-width mt-[64px] md:mt-0 h-full overflow-y-auto w-full bg-background relative">
         {/* Sticky Header */}
-        <Header deviceId="G3036" status={status} lastUpdated={lastUpdatedDate} />
+        <Header title="Dashboard" deviceId="G3036" status={status} lastUpdated={lastUpdatedDate} />
 
         {/* Content Container */}
         <div className="p-container-padding md:p-8 max-w-[1600px] mx-auto pb-24 md:pb-8">
@@ -102,16 +97,6 @@ export default function Dashboard() {
                   <TrendChart data={historyData} loading={historyLoading} range={range} />
                 </section>
 
-                {/* History Log Section */}
-                <section ref={readingsLogRef} id="readings-log" className="space-y-3">
-                  <div className="flex justify-between items-center px-1">
-                    <span className="text-secondary font-label-caps text-label-caps uppercase tracking-wider">
-                      Range Selection
-                    </span>
-                    <HistoryTabs range={range} onChange={setRange} />
-                  </div>
-                  <HistoryTable data={historyData} loading={historyLoading} />
-                </section>
               </div>
             </div>
           )}

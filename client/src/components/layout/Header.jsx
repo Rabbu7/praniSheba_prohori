@@ -20,7 +20,7 @@ function formatRelativeTime(date) {
   return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
-export default function Header({ deviceId = 'G3036', status = 'online', lastUpdated = null }) {
+export default function Header({ title = 'Dashboard', deviceId = 'G3036', status = 'online', lastUpdated = null }) {
   const formattedTime = formatRelativeTime(lastUpdated);
 
   return (
@@ -39,7 +39,7 @@ export default function Header({ deviceId = 'G3036', status = 'online', lastUpda
       {/* Desktop Header */}
       <header className="hidden md:flex justify-between items-center px-container-padding py-4 w-full border-b border-border-subtle bg-surface-white sticky top-0 z-20 h-[72px]">
         <div className="flex items-center gap-4">
-          <h2 className="font-headline-md text-headline-md font-bold text-on-background">Dashboard</h2>
+          <h2 className="font-headline-md text-headline-md font-bold text-on-background">{title}</h2>
           <div className="h-6 w-px bg-border-subtle"></div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
