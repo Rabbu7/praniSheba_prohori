@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getReadingsHistory } from '../services/api';
+import { getDailyAverages } from '../services/api';
 
 export default function useReadingsHistory(range) {
   const [data, setData] = useState(null);
@@ -12,7 +12,7 @@ export default function useReadingsHistory(range) {
 
     const fetchHistory = async () => {
       try {
-        const result = await getReadingsHistory(range);
+        const result = await getDailyAverages(range);
         if (!cancelled) {
           setData(result);
           setError(null);

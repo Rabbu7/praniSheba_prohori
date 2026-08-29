@@ -40,7 +40,7 @@ export default function Dashboard() {
         <Header title="Dashboard" deviceId="G3036" status={status} lastUpdated={lastUpdatedDate} />
 
         {/* Content Container */}
-        <div className="p-container-padding md:p-8 max-w-[1600px] mx-auto pb-24 md:pb-8">
+        <div className="p-container-padding md:p-8 max-w-[1600px] mx-auto pb-24 md:pb-8 md:h-[calc(100vh-72px)] md:flex md:flex-col">
           {/* Mobile Header Sub-Bar */}
           <div className="md:hidden flex flex-col gap-2 mb-stack-md">
             <div className="flex items-center justify-between">
@@ -68,7 +68,7 @@ export default function Dashboard() {
             </div>
           ) : (
             /* Main Grid Layout */
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-1 min-h-0">
               {/* Left Column: Current Readings Grid */}
               <div className="lg:col-span-3">
                 <ReadingsPanel reading={reading} />
@@ -77,7 +77,7 @@ export default function Dashboard() {
               {/* Right Column: Analysis Panel (Chart + History Log) */}
               <div className="lg:col-span-9 space-y-6">
                 {/* Trend Chart Section */}
-                <section className="bg-surface-white border border-[#D1D5DB] rounded-lg p-6">
+                <section className="bg-surface-white border border-[#D1D5DB] rounded-lg p-6 h-full flex flex-col">
                   <div className="flex justify-between items-center mb-6">
                     <h3 className="font-headline-md text-headline-md font-bold text-on-background flex items-center gap-2">
                       <span className="material-symbols-outlined text-primary">monitoring</span>

@@ -16,6 +16,18 @@ export function formatAbsoluteDate(dateInput) {
   });
 }
 
+export function formatChartDate(dateInput) {
+  if (!dateInput) return '';
+
+  const date = new Date(`${dateInput}T00:00:00`);
+  if (isNaN(date.getTime())) return '';
+
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 export function formatChartTime(dateInput, range = '7d') {
   if (!dateInput) return '';
   const date = new Date(dateInput);

@@ -14,6 +14,11 @@ export const getReadingsHistory = async (range) => {
   return response.data;
 };
 
+export const getDailyAverages = async (range) => {
+  const response = await api.get(`/api/readings/daily-averages?range=${range}`);
+  return response.data;
+};
+
 export const getReadingsLog = async (page = 1, limit = 20) => {
   const response = await api.get(`/api/readings/log?page=${page}&limit=${limit}`);
   return response.data;
