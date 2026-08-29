@@ -14,7 +14,8 @@ const PORT = process.env.PORT || 5000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
 const io = new SocketIOServer(server, {
   cors: {
-    origin: CLIENT_ORIGIN
+    origin: CLIENT_ORIGIN,
+    methods: ['GET', 'POST']
   }
 });
 
@@ -37,14 +38,18 @@ app.use('/api/readings', readingsRouter);
 // Centralized error handler
 app.use(errorHandler);
 
-// Connect to MongoDB before starting real-time services.
-connectDB().then(() => {
-  if (process.env.NODE_ENV !== 'test') {
-    watchReadingChanges(io);
-    server.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  }
-});
+connectDB()
+  .then(() => {
+    if (process.env.NODE_ENV !== 'test') {
+      watchReadingChanges(io);
+      server.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+      });
+    }
+  })
+  .catch((error) => {
+    console.error(`MongoDB Connection Error: ${error.message}`);
+    process.exit(1);
+  });
 
 module.exports = app;

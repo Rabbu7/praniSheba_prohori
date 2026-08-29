@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getLatestReading } from '../services/api';
-
-const POLL_INTERVAL_MS = 12000;
+import socket from '../services/socket';
 
 export default function useLatestReading() {
   const [data, setData] = useState(null);
@@ -21,18 +20,23 @@ export default function useLatestReading() {
       } catch (err) {
         if (!cancelled) setError(err);
       } finally {
-        // Only clear loading on the very first fetch
         if (!cancelled) setLoading(false);
       }
     };
 
-    fetchLatest();
+    const handleNewReading = (payload) => {
+      if (!cancelled) {
+        setData(payload);
+        setError(null);
+      }
+    };
 
-    const interval = setInterval(fetchLatest, POLL_INTERVAL_MS);
+    fetchLatest();
+    socket.on('new-reading', handleNewReading);
 
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      socket.off('new-reading', handleNewReading);
     };
   }, []);
 
