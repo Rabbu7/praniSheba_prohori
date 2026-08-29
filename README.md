@@ -23,3 +23,5 @@ Monitoring dashboard for the "Prohori" cowshed IoT sensor product (ammonia, meth
 2. `cp .env.example .env` (fill in your `MONGO_URI`)
 3. `pip install -r requirements.txt`
 4. `python simulate_device.py`
+
+//can you see
