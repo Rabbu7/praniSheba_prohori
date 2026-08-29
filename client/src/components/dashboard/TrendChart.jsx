@@ -14,7 +14,7 @@ import { formatChartDate } from '../../utils/dateFormatter';
 export default function TrendChart({ data = [], loading = false, range = '7d' }) {
   if (loading) {
     return (
-      <div className="w-full flex-1 min-h-0 flex items-center justify-center text-secondary font-medium">
+      <div className="w-full h-[420px] flex items-center justify-center text-secondary font-medium">
         Loading chart…
       </div>
     );
@@ -22,7 +22,7 @@ export default function TrendChart({ data = [], loading = false, range = '7d' })
 
   if (!Array.isArray(data) || data.length === 0) {
     return (
-      <div className="w-full flex-1 min-h-0 flex items-center justify-center text-secondary font-medium">
+      <div className="w-full h-[420px] flex items-center justify-center text-secondary font-medium">
         No data available for chart
       </div>
     );
@@ -31,7 +31,7 @@ export default function TrendChart({ data = [], loading = false, range = '7d' })
   {/* TODO: threshold reference bands - future enhancement */}
 
   return (
-    <div className="w-full flex-1 min-h-0">
+    <div className="w-full h-[420px]">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
           <CartesianGrid stroke="#F0F0EE" strokeDasharray="3 3" vertical={false} />

@@ -49,7 +49,7 @@ export default function ReadingsPanel({ reading = null, previousReading = null }
   }, [reading]);
 
   return (
-    <div className="space-y-4 h-full overflow-y-auto">
+    <div className="space-y-3 h-full overflow-y-auto">
       <SensorCard
         label="Ammonia (NH3)"
         value={reading?.ammonia ?? null}

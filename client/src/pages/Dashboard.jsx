@@ -40,7 +40,7 @@ export default function Dashboard() {
         <Header title="Dashboard" deviceId="G3036" status={status} lastUpdated={lastUpdatedDate} />
 
         {/* Content Container */}
-        <div className="p-container-padding md:p-8 max-w-[1600px] mx-auto pb-24 md:pb-8 md:h-[calc(100vh-72px)] md:flex md:flex-col">
+        <div className="p-container-padding md:p-8 max-w-[1600px] mx-auto pb-24 md:pb-8">
           {/* Mobile Header Sub-Bar */}
           <div className="md:hidden flex flex-col gap-2 mb-stack-md">
             <div className="flex items-center justify-between">
@@ -68,7 +68,7 @@ export default function Dashboard() {
             </div>
           ) : (
             /* Main Grid Layout */
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-1 min-h-0">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Left Column: Current Readings Grid */}
               <div className="lg:col-span-3">
                 <ReadingsPanel reading={reading} />

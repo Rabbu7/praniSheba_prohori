@@ -30,7 +30,7 @@ export default function SensorCard({
 
   return (
     <div
-      className={`bg-surface-white border border-[#D1D5DB] rounded-lg p-5 relative overflow-hidden flex flex-col justify-between hover:-translate-y-1 hover:shadow-md transition-all duration-300 ease-in-out cursor-default ${
+      className={`bg-surface-white border border-[#D1D5DB] rounded-lg p-4 relative overflow-hidden flex flex-col justify-between hover:-translate-y-1 hover:shadow-md transition-all duration-300 ease-in-out cursor-default ${
         changed ? 'card-highlight-flash' : ''
       }`}
     >
@@ -42,7 +42,7 @@ export default function SensorCard({
       ></div>
 
       {/* Header */}
-      <div className="flex justify-between items-start mb-2">
+      <div className="flex justify-between items-start mb-1.5">
         <div className="flex items-center gap-2">
           <span className="font-label-caps text-label-caps text-secondary uppercase tracking-wider">
             {label}
@@ -54,14 +54,14 @@ export default function SensorCard({
 
       {/* Value & Unit */}
       <div className="flex items-baseline gap-2 mt-1">
-        <span className="font-display-data text-display-data-mobile md:text-display-data text-on-background">
+        <span className="font-display-data text-[28px] md:text-[32px] text-on-background">
           {displayValue}
         </span>
         {unit && <span className="font-unit-label text-unit-label text-secondary">{unit}</span>}
       </div>
 
       {/* Footer / Trend */}
-      <div className="mt-3 flex items-center text-sm border-t border-border-subtle pt-3">
+      <div className="mt-3 flex items-center text-sm border-t border-border-subtle pt-2">
         {trend && typeof trend === 'object' && trend.delta !== undefined ? (
           <>
             <span className={`material-symbols-outlined ${zoneConfig.text} text-[16px] mr-1`}>
