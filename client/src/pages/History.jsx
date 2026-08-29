@@ -3,16 +3,18 @@ import Header from '../components/layout/Header';
 import Sidebar from '../components/layout/Sidebar';
 import HistoryTable from '../components/dashboard/HistoryTable';
 import useReadingsLog from '../hooks/useReadingsLog';
+import useDeviceStatus from '../hooks/useDeviceStatus';
 
 export default function History() {
   const [page, setPage] = useState(1);
   const { data, totalPages, loading, error } = useReadingsLog(page, 20);
+  const { status, lastUpdated } = useDeviceStatus();
 
   return (
     <div className="bg-background text-on-background font-body-sm antialiased h-screen flex overflow-hidden">
       <Sidebar />
       <main className="flex-1 md:ml-sidebar-width mt-[64px] md:mt-0 h-full overflow-y-auto w-full bg-background relative">
-        <Header title="Reading Log" />
+        <Header title="Reading Log" deviceId="G3036" status={status} lastUpdated={lastUpdated} />
         <div className="p-container-padding md:p-8 max-w-[1600px] mx-auto pb-24 md:pb-8">
           {error ? (
             <div className="bg-surface-white border border-error/30 rounded-lg p-6 flex flex-col items-center justify-center text-center my-6 shadow-sm">

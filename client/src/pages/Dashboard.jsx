@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import useLatestReading from '../hooks/useLatestReading';
+import useDeviceStatus from '../hooks/useDeviceStatus';
 import useReadingsHistory from '../hooks/useReadingsHistory';
 import Sidebar from '../components/layout/Sidebar';
 import Header from '../components/layout/Header';
@@ -7,8 +7,6 @@ import StatusBadge from '../components/common/StatusBadge';
 import ReadingsPanel from '../components/dashboard/ReadingsPanel';
 import HistoryTabs from '../components/dashboard/HistoryTabs';
 import TrendChart from '../components/dashboard/TrendChart';
-
-const ONLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
 function formatRelativeTime(date) {
   if (!date) return '—';
@@ -27,16 +25,9 @@ function formatRelativeTime(date) {
 }
 
 export default function Dashboard() {
-  const { data: reading, error: latestError } = useLatestReading();
+  const { reading, status, lastUpdated: lastUpdatedDate, error: latestError } = useDeviceStatus();
   const [range, setRange] = useState('7d');
   const { data: historyData, loading: historyLoading } = useReadingsHistory(range);
-
-  const isOnline = reading?.created_at
-    ? Date.now() - new Date(reading.created_at).getTime() < ONLINE_THRESHOLD_MS
-    : false;
-
-  const status = isOnline ? 'online' : 'offline';
-  const lastUpdatedDate = reading?.created_at ? new Date(reading.created_at) : null;
 
   return (
     <div className="bg-background text-on-background font-body-sm antialiased h-screen flex overflow-hidden">
