@@ -18,3 +18,13 @@ export const getReadingsLog = async (page = 1, limit = 20) => {
   const response = await api.get(`/api/readings/log?page=${page}&limit=${limit}`);
   return response.data;
 };
+
+export const getCalendarMonth = async (month) => {
+  const response = await api.get(`/api/readings/calendar?month=${month}`);
+  return response.data;
+};
+
+export const getDayDetail = async (date) => {
+  const response = await api.get(`/api/readings/day/${date}`);
+  return response.data;
+};
