@@ -1,7 +1,8 @@
 import React from 'react';
+import { NavLink } from 'react-router-dom';
 import logo from '../../assets/logo.jpeg';
 
-export default function Sidebar({ onHistoryClick }) {
+export default function Sidebar() {
   return (
     <>
       {/* Desktop Sidebar */}
@@ -10,24 +11,39 @@ export default function Sidebar({ onHistoryClick }) {
           <img src={logo} alt="Prohori Logo" className="w-12 h-auto rounded-full" />
         </div>
         <div className="flex-1 px-2 space-y-4 flex flex-col items-center">
-          <a
-            className="flex items-center justify-center w-12 h-12 text-white bg-primary-container/20 rounded-lg transition-all duration-300 ease-in-out hover:bg-primary-container/40"
-            href="#"
+          <NavLink
+            to="/"
+            className={({ isActive }) => `flex items-center justify-center w-12 h-12 rounded-lg transition-all duration-300 ease-in-out ${
+              isActive
+                ? 'text-white bg-primary-container/20 hover:bg-primary-container/40'
+                : 'text-gray-400 hover:text-white hover:bg-white/10'
+            }`}
             title="Dashboard"
           >
             <span className="material-symbols-outlined">dashboard</span>
-          </a>
-          <a
-            className="flex items-center justify-center w-12 h-12 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-300 ease-in-out"
-            href="#"
+          </NavLink>
+          <NavLink
+            to="/history"
+            className={({ isActive }) => `flex items-center justify-center w-12 h-12 rounded-lg transition-all duration-300 ease-in-out ${
+              isActive
+                ? 'text-white bg-primary-container/20 hover:bg-primary-container/40'
+                : 'text-gray-400 hover:text-white hover:bg-white/10'
+            }`}
             title="History"
-            onClick={(event) => {
-              event.preventDefault();
-              onHistoryClick?.();
-            }}
           >
             <span className="material-symbols-outlined">history</span>
-          </a>
+          </NavLink>
+          <NavLink
+            to="/calendar"
+            className={({ isActive }) => `flex items-center justify-center w-12 h-12 rounded-lg transition-all duration-300 ease-in-out ${
+              isActive
+                ? 'text-white bg-primary-container/20 hover:bg-primary-container/40'
+                : 'text-gray-400 hover:text-white hover:bg-white/10'
+            }`}
+            title="Calendar"
+          >
+            <span className="material-symbols-outlined">calendar_month</span>
+          </NavLink>
           <a
             className="flex items-center justify-center w-12 h-12 text-gray-600 cursor-not-allowed rounded-lg transition-all duration-300 ease-in-out"
             href="#"
@@ -49,22 +65,30 @@ export default function Sidebar({ onHistoryClick }) {
 
       {/* Mobile Bottom Navigation Bar */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0F172A] border-t border-white/10 flex items-center justify-around z-20 px-4">
-        <a className="flex flex-col items-center text-white" href="#" title="Dashboard">
+        <NavLink
+          to="/"
+          className={({ isActive }) => `flex flex-col items-center ${isActive ? 'text-white' : 'text-gray-400 hover:text-white'}`}
+          title="Dashboard"
+        >
           <span className="material-symbols-outlined">dashboard</span>
           <span className="text-[10px] mt-0.5">Dashboard</span>
-        </a>
-        <a
-          className="flex flex-col items-center text-gray-400 hover:text-white"
-          href="#"
+        </NavLink>
+        <NavLink
+          to="/history"
+          className={({ isActive }) => `flex flex-col items-center ${isActive ? 'text-white' : 'text-gray-400 hover:text-white'}`}
           title="History"
-          onClick={(event) => {
-            event.preventDefault();
-            onHistoryClick?.();
-          }}
         >
           <span className="material-symbols-outlined">history</span>
           <span className="text-[10px] mt-0.5">History</span>
-        </a>
+        </NavLink>
+        <NavLink
+          to="/calendar"
+          className={({ isActive }) => `flex flex-col items-center ${isActive ? 'text-white' : 'text-gray-400 hover:text-white'}`}
+          title="Calendar"
+        >
+          <span className="material-symbols-outlined">calendar_month</span>
+          <span className="text-[10px] mt-0.5">Calendar</span>
+        </NavLink>
         <a
           className="flex flex-col items-center text-gray-600 cursor-not-allowed"
           href="#"

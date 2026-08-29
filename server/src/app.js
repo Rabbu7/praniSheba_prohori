@@ -1,19 +1,26 @@
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
+const { Server: SocketIOServer } = require('socket.io');
 const connectDB = require('./config/db');
 const readingsRouter = require('./routes/readings');
 const errorHandler = require('./middleware/errorHandler');
+const watchReadingChanges = require('./sockets/changeStream');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
-
-// Connect to MongoDB
-connectDB();
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: CLIENT_ORIGIN
+  }
+});
 
 // CORS setup
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173'
+  origin: CLIENT_ORIGIN
 }));
 
 // Body parser
@@ -30,11 +37,14 @@ app.use('/api/readings', readingsRouter);
 // Centralized error handler
 app.use(errorHandler);
 
-// Start server if not in test environment
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-}
+// Connect to MongoDB before starting real-time services.
+connectDB().then(() => {
+  if (process.env.NODE_ENV !== 'test') {
+    watchReadingChanges(io);
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  }
+});
 
 module.exports = app;

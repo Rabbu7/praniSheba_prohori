@@ -169,7 +169,7 @@ prohori-dashboard/
 - `GET /api/readings/latest` → single most recent document + zone classifications (still available; used as an initial-load fallback before the socket connects)
 - `GET /api/readings/daily-averages?range=7d|30d` → array of `{ date, ammonia_avg, methane_avg, humidity_avg, temperature_avg, ...zones }`, one entry per day
 - `GET /api/readings/log?page=&limit=` → paginated, unbounded, newest-first array of documents with zones
-- `GET /api/readings/calendar?month=YYYY-MM` → array of `{ date, ammonia_min, ammonia_max, methane_min, methane_max, humidity_min, humidity_max, temperature_min, temperature_max }` per day in the month
+- `GET /api/readings/calendar?month=YYYY-MM` → array of `{ date, ammonia_min, ammonia_max, ammonia_min_zone, ammonia_max_zone, methane_min, methane_max, methane_min_zone, methane_max_zone, humidity_min, humidity_max, humidity_min_zone, humidity_max_zone, temperature_min, temperature_max, temperature_min_zone, temperature_max_zone }` per day in the month — min and max are each classified independently per the resolved rule below
 - `GET /api/readings/day/:date` → full min/max detail for one day (calendar drill-down)
 - `GET /health` → basic server health check, returns `{ status: "ok" }`
 - **Socket.IO event:** `new-reading` → emitted on each new insert into `G3036` (via Change Streams), payload shape matches `/api/readings/latest`
@@ -204,7 +204,8 @@ Implementation notes:
 - **Humidity and temperature are two-sided** — both too low AND too high are unsafe. Threshold logic must check both directions, not just a single upper bound.
 - **Methane has a large gap** between its warning ceiling (5,000 ppm) and danger floor (50,000 ppm) — implement exactly as given; do not interpolate an extra band unless the company clarifies otherwise.
 - Zone classification is computed **server-side** (in the controller, alongside each reading/average) so the frontend just renders a `zone` field rather than re-implementing the threshold logic.
-- For daily averages, zone is computed off the **averaged** value per day (open question flagged to the team: whether to instead classify off that day's min/max extremes — current default is average-based unless revised).
+- For daily averages (Dashboard chart), zone is computed off the **averaged** value per day — resolved, not an open question.
+- For the Calendar page's min/max view, **min and max are classified independently** against the threshold table per metric per day (e.g. a day's ammonia min could be Safe while its max is Warning) — this gives a more informative range picture than collapsing the day to one zone.
 - This phase is **visual indication only** — colored badges/borders/cells. No push notifications, email, SMS, or sound alerts. Those remain a later-phase feature.
 - If the company revises any threshold values, update this table first — it's the source of truth for the alert logic.
 
@@ -215,6 +216,7 @@ The original seeded MongoDB dataset (1,779 docs, spanning roughly Sept 18 – No
 **Now that the simulator writes continuously in real time**, these workarounds should be revisited:
 - Cutoffs can likely switch back to genuine `Date.now()`-relative `$gte` filters on `created_at`, since "now" and the data will actually be close together going forward.
 - The document-count `.limit()` approach may no longer be necessary for `daily-averages` or `log`, since continuous data won't have the same bursty-gap problem — confirm this holds once the simulator has been running for a few days before removing the workaround entirely.
+- `daily-averages` groups readings into calendar days via `$dateToString` on `created_at` with no explicit `timezone` option, so grouping is currently in UTC. Once the simulator (or physical device) is producing continuous real-world timestamps, verify day boundaries look correct for a Bangladesh-based user (UTC+6) — a reading logged late in the BD evening could currently get grouped into the *next* UTC day. Revisit alongside the count-windowing fix; may need `timezone: "Asia/Dhaka"` added to the `$dateToString` stage in `getDailyAverages` (readingsController.js).
 
 ## Out of Scope for This Phase (do not build yet)
 
