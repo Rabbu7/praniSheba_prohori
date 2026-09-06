@@ -10,56 +10,107 @@
 Reference product: https://iot.pranisheba.com.bd/#/home
 Company site: https://www.pranisheba.com.bd/-eng
 
-## Current Phase: Phase 2 — COMPLETE
+## Current Phase: Phase 3 (IN PROGRESS)
 
-Phase 2 added **real-time push** (Socket.IO + MongoDB Change Streams, replacing polling), a **Python device simulator** (writes synthetic readings into `G3036` since the physical device isn't live yet), **daily-average charting**, an **unbounded Reading Log page**, and a **Calendar min/max view**. Routing was introduced — three pages instead of one. See `PAGES.md` for exact screens/sections in scope.
+Phase 3 replaces the Phase 2 Python simulator (which wrote directly to MongoDB) with a **live MQTT pipeline**, since the goal is to eventually consume real device data over MQTT rather than direct DB writes.
 
-All sub-stages (8a–8e) are done and verified working end-to-end: docs, Stitch designs, backend endpoints + real-time wiring, Python simulator, and frontend routing/wiring (including Socket.IO client integration, History and Calendar page builds, and the Dashboard chart's swap to daily-averages).
+**Why not use the physical device yet:** the supervisor confirmed the real Prohori hardware/broker topics (`farm_controller/CATTLE_CTRL_001/event`, etc., explored during broker investigation) are currently offline/paused, and don't publish all 4 required fields (only `temperature`, `humidity`, and an unrelated `thi` field were observed — no `ammonia`/`methane`). Rather than wait on hardware, the supervisor asked us to build a **mimic device** that publishes realistic fake readings over MQTT, so the *real* MQTT→MongoDB pipeline can be built and proven now, and swapped for the physical device later with zero code changes (same pattern as the Phase 2 simulator → real device swap).
 
-### Real-time architecture (IMPLEMENTED)
-- Backend watches `G3036` via MongoDB Change Streams (`server/src/sockets/changeStream.js`), requires Atlas replica set — already true for the existing cluster.
-- On insert, backend emits a `new-reading` Socket.IO event with the zone-classified document (same shape as the `/api/readings/latest` response).
-- Change stream errors trigger a 5-second delayed reconnect rather than crashing the process; reconnect logic guards against stacking multiple concurrent streams.
-- `server/src/app.js` wraps Express in `http.createServer`, attaches a `socket.io` Server instance reusing the same `CLIENT_ORIGIN` CORS config as the REST API. Change stream init happens after `connectDB()` resolves.
-- Frontend: `client/src/services/socket.js` exports a single shared `socket.io-client` instance. `useLatestReading.js` does one initial REST fetch (fallback before the socket connects), then subscribes to `new-reading` and updates state directly — no more polling loop. Hook's return shape (`{ data, loading, error }`) is unchanged from Phase 1, so no consuming component needed to change.
+**Scope for this pass of Phase 3: a single mimic device.** Multi-device simulation (3+ concurrent mimic devices) was considered but explicitly deferred to a future phase to de-risk the first-ever MQTT integration — get one device working end-to-end before adding concurrency/differentiation complexity.
 
-### Device Simulator (IMPLEMENTED)
-- Top-level folder: `simulator/` (Python, a separate process from `server/` and `client/`).
-- Writes directly to `iotdb.G3036` on a ~60s interval, matching the exact schema — `device_id`, `ammonia`, `methane`, `humidity`, `temperature`, `timestamp`, `created_at`.
-- Values random-walk within realistic ranges (occasionally drifting into warning/danger, including a methane spike-persistence mechanism that overrides a single tick's written value without corrupting the underlying walk state) for a believable demo.
-- Reads `MONGO_URI` from its own `simulator/.env` (reuses the same Atlas connection string as `server/.env`, but is a distinct process — never merged into `server/`).
-- This is the only writer to `G3036`; `server/` remains read-only, same as Phase 1.
-- Run via `cd simulator && python -m venv venv && source venv/bin/activate (or venv/Scripts/activate on Windows) && pip install -r requirements.txt`, then populate `.env` from `.env.example` and run `python simulate_device.py`.
+### Phase 3 Architecture
+
+```
+mimic-device/ (Python, paho-mqtt)
+      │  publishes fake readings on an interval
+      ▼
+MQTT Broker (152.42.179.228:1885, user "apsIoT")
+      │  topic: prohori/G3036/reading
+      ▼
+mqtt-bridge/ (Python, paho-mqtt subscriber + pymongo)
+      │  parses payload, maps to Reading schema, inserts
+      ▼
+MongoDB Atlas — iotdb.G3036
+      │  Change Streams (existing, unchanged)
+      ▼
+server/ (Socket.IO `new-reading` event — existing, unchanged)
+      ▼
+client/ dashboard (existing, unchanged)
+```
+
+**Key point:** everything downstream of `G3036` (Change Streams → Socket.IO → frontend) requires **zero changes** for Phase 3. The mimic device + bridge together just become the new writer, replacing `simulator/`, using the exact same `device_id` (`"G3036"`) and schema the old simulator used — so nothing else needs to know the data's origin changed.
+
+### MQTT Topic & Payload Contract (CONFIRMED — source of truth for Phase 3)
+
+- **Broker:** `152.42.179.228`, port `1885`
+- **Auth:** username `apsIoT`, password via env var (never hardcoded — see Conventions)
+- **Topic:** `prohori/G3036/reading` — a clean custom topic chosen for our mimic device (deliberately does NOT reuse the real device's `farm_controller/...` topic naming, since that belongs to different hardware/system)
+- **Payload (JSON), published by `mimic-device/`, consumed by `mqtt-bridge/`:**
+
+```json
+{
+  "device_id": "G3036",
+  "ammonia": 12.4,
+  "methane": 15.8,
+  "humidity": 68,
+  "temperature": 74.2,
+  "timestamp": 1726644978
+}
+```
+
+  - All 4 required sensor fields must always be present — `ammonia`, `methane`, `humidity`, `temperature`.
+  - `device_id` is always the literal string `"G3036"` for this phase (matches the old simulator's value — zero downstream impact, no dashboard/controller changes needed).
+  - `timestamp` is Unix epoch seconds, set by the mimic device (mirrors what the real device would set).
+  - `mqtt-bridge/` is responsible for adding `created_at` (a proper Mongo `Date`, set at insert time) before writing to `G3036` — this field is NOT published over MQTT, consistent with how the Phase 2 simulator set it locally at insert time.
+
+### Device Simulation — Mimic Device (Phase 3, NEW — replaces Phase 2 simulator)
+
+- New top-level folder: `mimic-device/` (Python, standalone process, separate from `server/`, `client/`, and `mqtt-bridge/`)
+- Publishes JSON payloads (see contract above) to `prohori/G3036/reading` on an interval (~60s, matching the old simulator's cadence)
+- Values should random-walk within realistic ranges (occasionally drifting into warning/danger zones per the threshold table below) for a believable demo — same random-walk philosophy as the old `simulator/`, just publishing over MQTT instead of writing to Mongo directly
+- Reads broker connection details from its own `mimic-device/.env` (see env vars below) — never hardcode credentials
+- **Single mimic device only** for this phase. Do not build multi-device/concurrent publishing yet — that's deferred.
+- The old `simulator/` folder is retired/deprecated once `mimic-device/` + `mqtt-bridge/` are verified working end-to-end. Do not delete it until that verification is complete; do not extend or modify it further.
+
+### MQTT Bridge (Phase 3, NEW — the sole writer to `G3036` going forward)
+
+- New top-level folder: `mqtt-bridge/` (Python, standalone process, separate from `server/`, `client/`, and `mimic-device/`)
+- Subscribes to `prohori/G3036/reading` via `paho-mqtt`
+- On each message: parses the JSON payload, validates it matches the expected shape, adds `created_at` (current time, proper Mongo `Date`), and inserts into `iotdb.G3036` via `pymongo` — matching the exact schema below, byte-for-byte compatible with what `server/src/models/Reading.js` expects
+- **This becomes the only writer to `G3036`** — `mimic-device/` never touches MongoDB directly, only publishes to MQTT. `server/` remains fully read-only, unchanged from Phase 1/2.
+- Reads both MQTT broker details and `MONGO_URI` from its own `mqtt-bridge/.env` — never hardcode, never commit `.env`
+- Should log connection state changes (connect/disconnect/reconnect) and any malformed/rejected payloads, since this is the newest, least-proven part of the pipeline
+- Reconnect behavior: on MQTT disconnect, should attempt to reconnect rather than crash (mirrors the resilience pattern already used in `server/src/sockets/changeStream.js` for Change Stream errors)
 
 ## Stack
 
 **Backend**
 - Node.js + Express — REST API server
 - Mongoose — MongoDB object modeling / query layer
-- Socket.IO — real-time push to frontend (Phase 2, implemented)
-- MongoDB Change Streams — detects new inserts into `G3036` (Phase 2, implemented)
+- Socket.IO — real-time push to frontend (Phase 2, implemented, unchanged)
+- MongoDB Change Streams — detects new inserts into `G3036` (Phase 2, implemented, unchanged)
 - dotenv — environment variable loading
 - cors — allow requests from the frontend origin
 
-**Simulator (Phase 2, implemented)**
-- Python (`pymongo`) — standalone script, writes synthetic readings into `G3036` on an interval
+**Mimic Device (Phase 3, NEW)**
+- Python (`paho-mqtt`) — standalone script, publishes synthetic sensor readings to the MQTT broker on an interval. Does NOT talk to MongoDB.
+
+**MQTT Bridge (Phase 3, NEW)**
+- Python (`paho-mqtt` + `pymongo`) — standalone script, subscribes to the mimic device's topic, transforms payloads, and is the sole writer to `G3036`. Replaces the old `simulator/`'s writer role.
 
 **Database**
-- MongoDB Atlas (existing cluster; populated by the simulator, later by the physical Prohori device)
+- MongoDB Atlas (existing cluster)
 - Database: `iotdb`, Collection: `G3036`
-- **Read-only from `server/`** — never write, update, or delete documents in this collection from the API layer; only `simulator/` writes
+- Note: the Atlas cluster also contains several unrelated per-device collections (e.g. `G3007`, `G3009`, `G3017`, `G3029`, `G3035`, each with sibling `_EVENTS`/`_LOG` collections) belonging to other real devices/products. **Our app only ever reads/writes `G3036`** (hardcoded in `Reading.js`) — the other collections are out of scope and intentionally invisible to this dashboard.
+- **Read-only from `server/`** — never write, update, or delete documents in this collection from the API layer; only `mqtt-bridge/` writes (Phase 3 onward; was `simulator/` in Phase 2)
 
 **Frontend**
 - React (Vite) — SPA framework/build tool
-- react-router-dom — client-side routing (Phase 2, implemented — three routes: `/`, `/history`, `/calendar`)
-- Tailwind CSS — utility-first styling, used to implement the Stitch design system (colors, spacing, typography tokens live in `client/src/index.css` under `@theme`, matching `DESIGN.md`)
+- react-router-dom — client-side routing (implemented — three routes: `/`, `/history`, `/calendar`)
+- Tailwind CSS — utility-first styling, implementing the Stitch design system (tokens live in `client/src/index.css` under `@theme`, matching `DESIGN.md`)
 - Recharts — trend/daily-average charts
-- Socket.IO client — real-time updates (Phase 2, implemented)
+- Socket.IO client — real-time updates (implemented, unchanged by Phase 3)
 - axios — HTTP client for calling the backend API
-
-**Real-time strategy (Phase 2): Socket.IO + Change Streams**
-- Replaces Phase 1 polling
-- Chosen once the simulator provides continuous writes, making push-based updates worthwhile
 
 **Design source:** Stitch-exported design, translated into Tailwind classes — see `DESIGN.md`
 
@@ -78,16 +129,16 @@ Document shape (confirmed from live data, do not alter):
   methane: Number,         // Double, ppm
   humidity: Number,        // Int — CONFIRMED unit: percent (%)
   temperature: Number,     // Int, likely °F
-  timestamp: Number,       // Unix epoch seconds, set by device
-  created_at: Date         // ISODate, set by DB insert — use this for sorting/filtering, not `timestamp`
+  timestamp: Number,       // Unix epoch seconds, set by device/mimic device
+  created_at: Date         // ISODate, set by DB insert (mqtt-bridge in Phase 3) — use this for sorting/filtering, not `timestamp`
 }
 ```
 
 Rules:
 - Never invent fields that aren't in this schema.
-- `server/` never writes/inserts/updates documents in this collection — read-only. Only `simulator/` writes, matching this exact schema.
+- `server/` never writes/inserts/updates documents in this collection — read-only. Only `mqtt-bridge/` writes (Phase 3 onward), matching this exact schema.
 - Use `created_at` (not `timestamp`) for all date range queries, sorting, and aggregation grouping, since it's a proper Mongo Date type.
-- Connection string lives in `server/.env` as `MONGO_URI` — never hardcode it, never commit `.env`. The simulator uses its own env file with the same variable name.
+- Connection string lives in `mqtt-bridge/.env` as `MONGO_URI` — never hardcode it, never commit `.env`. `server/.env` also keeps its own `MONGO_URI` for reads (both point at the same Atlas cluster).
 
 ## Folder Structure
 
@@ -109,98 +160,108 @@ prohori-dashboard/
 │   │   ├── middleware/
 │   │   │   └── errorHandler.js    # Centralized error handling, returns consistent JSON error shape
 │   │   ├── sockets/
-│   │   │   └── changeStream.js    # Watches G3036 via Change Streams, emits `new-reading` via Socket.IO (implemented)
+│   │   │   └── changeStream.js    # Watches G3036 via Change Streams, emits `new-reading` via Socket.IO
 │   │   └── app.js                 # Express app setup: middleware, routes, CORS, Socket.IO server, starts the server
 │   ├── .env                       # MONGO_URI, PORT, CLIENT_ORIGIN — gitignored, never commit
-│   ├── .env.example               # Same keys as .env but with placeholder values — safe to commit
+│   ├── .env.example
 │   └── package.json
 │
-├── simulator/                     # Python device simulator — writes synthetic readings into G3036 (implemented)
-│   ├── simulate_device.py         # Main loop: generate + insert a reading on an interval
-│   ├── .env                       # MONGO_URI — gitignored, never commit
+├── mimic-device/                  # Phase 3 NEW: publishes fake sensor readings over MQTT (does not touch MongoDB)
+│   ├── mimic_device.py            # Main loop: generate a reading, publish JSON to prohori/G3036/reading on an interval
+│   ├── .env                       # MQTT_HOST, MQTT_PORT, MQTT_USER, MQTT_PASS — gitignored, never commit
 │   ├── .env.example
 │   └── requirements.txt
 │
-├── client/                        # React (Vite) frontend — the dashboard UI
+├── mqtt-bridge/                   # Phase 3 NEW: subscribes to MQTT, writes into G3036 — the sole writer to G3036
+│   ├── mqtt_bridge.py             # Subscribes to prohori/G3036/reading, transforms payload, inserts into MongoDB
+│   ├── .env                       # MQTT_HOST, MQTT_PORT, MQTT_USER, MQTT_PASS, MONGO_URI — gitignored, never commit
+│   ├── .env.example
+│   └── requirements.txt
+│
+├── simulator/                     # DEPRECATED (Phase 2) — direct-to-Mongo writer, being replaced by mimic-device/ + mqtt-bridge/
+│   ├── simulate_device.py         # Do not modify or extend further. Retire once Phase 3 pipeline is verified working.
+│   ├── .env
+│   ├── .env.example
+│   └── requirements.txt
+│
+├── client/                        # React (Vite) frontend — the dashboard UI (UNCHANGED by Phase 3)
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── layout/
-│   │   │   │   ├── Sidebar.jsx           # Left nav: logo, NavLink-based routes, device status block
-│   │   │   │   └── Header.jsx            # Top bar: page title (via `title` prop), device ID, online/offline badge
+│   │   │   │   ├── Sidebar.jsx
+│   │   │   │   └── Header.jsx
 │   │   │   ├── dashboard/
-│   │   │   │   ├── SensorCard.jsx        # One metric's live value (ammonia/methane/humidity/temp)
-│   │   │   │   ├── ReadingsPanel.jsx     # Grid wrapper that lays out the 4 SensorCards
-│   │   │   │   ├── HistoryTable.jsx      # Table of readings — used on the dedicated History page, server-paginated
-│   │   │   │   ├── HistoryTabs.jsx       # "7d" / "30d" toggle control (Dashboard chart only)
-│   │   │   │   └── TrendChart.jsx        # Recharts line chart — plots daily averages (ammonia_avg/methane_avg)
+│   │   │   │   ├── SensorCard.jsx
+│   │   │   │   ├── ReadingsPanel.jsx
+│   │   │   │   ├── HistoryTable.jsx
+│   │   │   │   ├── HistoryTabs.jsx
+│   │   │   │   └── TrendChart.jsx
 │   │   │   ├── calendar/
-│   │   │   │   ├── CalendarGrid.jsx      # Month-view grid, plain/neutral day cells, prev/next nav
-│   │   │   │   └── DayDetailCards.jsx    # Min/max cards shown after clicking a day — echoes SensorCard's visual language without depending on it
+│   │   │   │   ├── CalendarGrid.jsx
+│   │   │   │   └── DayDetailCards.jsx
 │   │   │   └── common/
-│   │   │       └── StatusBadge.jsx       # Reusable online/offline colored-dot badge
+│   │   │       └── StatusBadge.jsx
 │   │   ├── pages/
-│   │   │   ├── Dashboard.jsx      # `/` — Sidebar + Header + ReadingsPanel + Chart
-│   │   │   ├── History.jsx        # `/history` — dedicated unbounded, server-paginated Reading Log page
-│   │   │   └── Calendar.jsx       # `/calendar` — calendar min/max view
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── History.jsx
+│   │   │   └── Calendar.jsx
 │   │   ├── hooks/
-│   │   │   ├── useLatestReading.js       # Socket.IO listener (initial REST fetch as fallback before socket connects)
-│   │   │   ├── useReadingsHistory.js     # Fetches daily-averages for the Dashboard chart's 7d/30d toggle
-│   │   │   ├── useReadingsLog.js         # Fetches paginated, unbounded reading log for the History page
-│   │   │   ├── useCalendarData.js        # Fetches the month grid data for the Calendar page
-│   │   │   ├── useDayDetail.js           # Fetches one day's min/max detail on demand (Calendar drill-down)
-│   │   │   └── useDeviceStatus.js        # Shared online/offline + lastUpdated logic, wraps useLatestReading — used by all three pages so Header status stays in sync everywhere
+│   │   │   ├── useLatestReading.js
+│   │   │   ├── useReadingsHistory.js
+│   │   │   ├── useReadingsLog.js
+│   │   │   ├── useCalendarData.js
+│   │   │   ├── useDayDetail.js
+│   │   │   └── useDeviceStatus.js
 │   │   ├── services/
-│   │   │   ├── api.js              # Axios instance + functions wrapping each backend endpoint
-│   │   │   └── socket.js           # Socket.IO client instance/connection setup (implemented)
-│   │   ├── App.jsx                # react-router-dom routes: /, /history, /calendar
-│   │   ├── main.jsx                # Vite/React entry point
-│   │   └── index.css              # Tailwind directives + any global overrides
-│   ├── .env                       # VITE_API_URL — gitignored
+│   │   │   ├── api.js
+│   │   │   └── socket.js
+│   │   ├── App.jsx
+│   │   ├── main.jsx
+│   │   └── index.css
+│   ├── .env
 │   ├── .env.example
 │   └── package.json
 │
 ├── AGENTS.md                      # This file — stack, schema, conventions, folder guide
 ├── PAGES.md                       # Screen/section breakdown for the current phase
 ├── DESIGN.md                      # Stitch design output translated into design tokens/specs
-└── README.md                      # Setup instructions, how to run server + client + simulator locally
+└── README.md                      # Setup instructions, how to run server + client + mimic-device + mqtt-bridge locally
 ```
 
-**Why this structure:**
-- `server/`, `client/`, and `simulator/` are fully separate processes with their own `package.json`/`requirements.txt` and `.env` — run independently, communicate only over HTTP/MongoDB/sockets.
-- Inside `client/src/components/`, folders are grouped by *purpose* (`layout`, `dashboard`, `calendar`, `common`) rather than dumping everything in one flat folder.
-- `hooks/` isolates all data-fetching/real-time logic away from UI components — a `SensorCard` just receives a value as a prop, it doesn't know or care how that value was fetched. This is why swapping polling for Socket.IO only touched `useLatestReading.js`, not any component.
-- `pages/` vs `components/`: each file in `pages/` is a routed, full-page assembly; everything in `components/` is a smaller reusable piece.
-- `useDeviceStatus.js` exists because online/offline + last-updated logic was originally duplicated only in `Dashboard.jsx`; once History and Calendar pages needed the same live status in their `Header`, that logic was extracted into a shared hook so all three pages read off one source of truth instead of drifting independently.
+**Why this structure (Phase 3 additions):**
+- `mimic-device/` and `mqtt-bridge/` are two separate processes, not one, deliberately mirroring how the real device and the real bridge would eventually be separate: a device publishes data, a bridge (or the device itself, for real hardware) writes it to storage. Keeping them separate now means swapping `mimic-device/` for the real physical device later requires **zero changes to `mqtt-bridge/`** — the bridge doesn't know or care whether it's receiving mimic data or real data, only that the topic/payload contract is honored.
+- `mqtt-bridge/` — not `mimic-device/` — is the one that touches MongoDB, preserving the "single writer to `G3036`" rule established in Phase 2 (previously enforced by `simulator/` alone).
+- `simulator/` is left in place but frozen/deprecated rather than deleted immediately, in case the Phase 3 pipeline needs a fallback during verification.
 
-## API Contract (Phase 2 — implemented)
+## API Contract (unchanged by Phase 3)
 
-- `GET /api/readings/latest` → single most recent document + zone classifications (fallback before the socket connects)
-- `GET /api/readings/daily-averages?range=7d|30d` → array of `{ date, ammonia_avg, methane_avg, humidity_avg, temperature_avg, ...zones }`, one entry per day, sorted ascending — Dashboard chart's data source
-- `GET /api/readings/log?page=&limit=` → `{ data, page, limit, total, totalPages }`, paginated, unbounded, newest-first — Reading Log page's data source
-- `GET /api/readings/calendar?month=YYYY-MM` → array of `{ date, ammonia_min, ammonia_max, ammonia_min_zone, ammonia_max_zone, methane_min, methane_max, methane_min_zone, methane_max_zone, humidity_min, humidity_max, humidity_min_zone, humidity_max_zone, temperature_min, temperature_max, temperature_min_zone, temperature_max_zone }` per day in the month — min and max are each classified independently
-- `GET /api/readings/day/:date` → full min/max detail for one day (Calendar drill-down)
-- `GET /health` → basic server health check, returns `{ status: "ok" }`
-- **Socket.IO event:** `new-reading` → emitted on each new insert into `G3036` (via Change Streams), payload shape matches `/api/readings/latest`
+- `GET /api/readings/latest` → single most recent document + zone classifications
+- `GET /api/readings/daily-averages?range=7d|30d` → array of `{ date, ammonia_avg, methane_avg, humidity_avg, temperature_avg, ...zones }`
+- `GET /api/readings/log?page=&limit=` → `{ data, page, limit, total, totalPages }`
+- `GET /api/readings/calendar?month=YYYY-MM` → array of per-day min/max + independently classified zones
+- `GET /api/readings/day/:date` → full min/max detail for one day
+- `GET /health` → `{ status: "ok" }`
+- **Socket.IO event:** `new-reading` → emitted on each new insert into `G3036` (via Change Streams)
 
-**Open question, still unresolved:** `GET /api/readings/history?range=7d|30d` (raw readings, Phase 1) still exists server-side and is still callable (`getReadingsHistory` remains in `client/src/services/api.js`), but nothing in the frontend calls it anymore — `daily-averages` replaced it for the Dashboard chart, and `/log` covers the unbounded table. Decide whether to keep it as a documented-but-unused endpoint or remove the route/controller/service function entirely.
+None of these change for Phase 3 — the API layer has no idea whether `G3036` was written to by the old simulator, the new MQTT bridge, or eventually the real device. This is the entire point of the "single writer, fixed schema" design from Phase 2.
 
-## Future: Beyond Phase 2 (for context only)
-
-Once the physical device replaces the simulator, no application code should need to change — the simulator and the physical device both just insert documents matching the same schema into `G3036`. Change Streams and Socket.IO wiring are agnostic to which process is writing.
+**Still-open question, unrelated to Phase 3:** `GET /api/readings/history?range=7d|30d` (raw readings, Phase 1) still exists server-side and is still callable, but nothing in the frontend calls it anymore. Deprecation decision still pending.
 
 ## Conventions
 
 - Backend: standard Express controller/route separation, async/await with try/catch, centralized error middleware, no business logic inside route files.
-- Frontend: functional components + hooks only, no class components. Styling via Tailwind utility classes only — no separate CSS files per component, no CSS-in-JS libraries.
-- Env vars: `MONGO_URI`, `PORT`, `CLIENT_ORIGIN` (for CORS) in `server/.env`; `VITE_API_URL` in `client/.env`; `MONGO_URI` in `simulator/.env`.
-- Commit `.env.example` files with placeholder values in `server/`, `client/`, and `simulator/` — never commit real `.env`.
-- Keep components small and single-purpose (one card = one component, one hook = one data concern).
-- Tailwind design tokens (colors, font, spacing) live in `client/src/index.css` under `@theme`, mirroring `DESIGN.md` — avoid hardcoding hex values inline in JSX; use named tokens (e.g. `bg-status-online`).
-- New components that need to echo an existing component's visual language (e.g. `DayDetailCards` mirroring `SensorCard`) should be built as their own self-contained component rather than modifying the original to support a new use case — keeps each component's blast radius contained. `DayDetailCards` is the established example of this pattern.
+- Frontend: functional components + hooks only, no class components. Styling via Tailwind utility classes only.
+- **Env vars:**
+  - `server/.env`: `MONGO_URI`, `PORT`, `CLIENT_ORIGIN`
+  - `client/.env`: `VITE_API_URL`
+  - `mimic-device/.env` (Phase 3 NEW): `MQTT_HOST`, `MQTT_PORT`, `MQTT_USER`, `MQTT_PASS`
+  - `mqtt-bridge/.env` (Phase 3 NEW): `MQTT_HOST`, `MQTT_PORT`, `MQTT_USER`, `MQTT_PASS`, `MONGO_URI`
+  - MQTT credentials (broker host/port/user/pass) are **never hardcoded** in any script and **never committed** — always loaded via `.env`, same rule as `MONGO_URI`. Only `.env.example` files (placeholder values) are committed.
+- Keep components/scripts small and single-purpose (one card = one component, one hook = one data concern, one Python script = one process's job).
+- Tailwind design tokens live in `client/src/index.css` under `@theme`, mirroring `DESIGN.md`.
+- **Document before build:** this file, `PAGES.md`, and `DESIGN.md` are updated at the start of each phase, before any code is written. Phase 3's topic/payload contract above must be treated as fixed and confirmed before `mimic-device/` or `mqtt-bridge/` code is generated — do not guess field names or topic paths.
 
 ## Threshold / Alert Logic (ACTIVE — unchanged since Phase 1)
-
-The company has provided target threshold values for each metric, used to classify every reading (live, historical, or averaged) into one of three zones: **Safe**, **Warning**, or **Danger**. This drives the visual alert indicators on the dashboard (see `PAGES.md`).
 
 | Metric | Safe Zone | Warning Zone | Danger Zone |
 |---|---|---|---|
@@ -209,31 +270,24 @@ The company has provided target threshold values for each metric, used to classi
 | Humidity (%) | 50–70% | 40–50% or 70–80% | Below 40% or above 80% |
 | Temperature (°F) | 40–68°F | 25–40°F or 68–79°F | Below 25°F or above 79°F |
 
-Implementation notes:
-- **Humidity and temperature are two-sided** — both too low AND too high are unsafe. Threshold logic must check both directions, not just a single upper bound.
-- **Methane has a large gap** between its warning ceiling (5,000 ppm) and danger floor (50,000 ppm) — implemented exactly as given; do not interpolate an extra band unless the company clarifies otherwise.
-- Zone classification is computed **server-side** (in the controller, alongside each reading/average) so the frontend just renders a `zone` field rather than re-implementing the threshold logic.
-- For daily averages (Dashboard chart), zone is computed off the **averaged** value per day.
-- For the Calendar page's min/max view, **min and max are classified independently** against the threshold table per metric per day (e.g. a day's ammonia min could be Safe while its max is Warning) — confirmed working correctly (e.g. observed live: a day where methane's max crossed into Danger while its min stayed Safe, rendered with independent colors as designed).
-- This phase is **visual indication only** — colored badges/borders/cells. No push notifications, email, SMS, or sound alerts. Those remain a later-phase feature.
-- If the company revises any threshold values, update this table first — it's the source of truth for the alert logic.
+- Zone classification remains computed **server-side** (`server/src/utils/thresholds.js`) — untouched by Phase 3. `mimic-device/`'s random-walk generator should aim to occasionally drift into warning/danger ranges per this table, for a believable demo (same philosophy as the old simulator).
 
-## Known Temporary Workarounds (Still Open — Revisit Now That the Simulator Has Been Running)
+## Known Temporary Workarounds (Still Open — Unrelated to Phase 3)
 
-These were carried from Phase 1 and are **not yet resolved**, even though the simulator has been writing continuously since 8d:
+- **Cutoffs**: `getHistory`/`getDailyAverages` still use document-count `.limit()` windowing instead of a genuine `Date.now()`-relative `$gte` filter. Once Phase 3's mimic device (and eventually the real device) has been running continuously for a while, revisit whether this is still needed.
+- **UTC day-boundary grouping**: `getDailyAverages` groups by `$dateToString` with no explicit timezone, so grouping is in UTC — may misalign day boundaries for a Bangladesh-based (UTC+6) user. Still unverified.
+- Search `TODO(revert-for-production)` in `readingsController.js` for exact spots.
 
-- **Cutoffs**: `getHistory` and `getDailyAverages` still use document-count `.limit()` windowing (`COUNT_BY_RANGE = { '7d': 300, '30d': 1200 }`) instead of a genuine `Date.now()`-relative `$gte` filter on `created_at`. Now that the simulator has been running for a while and producing continuous real-time data, confirm whether the count-based approach still produces sensible results or whether it's time to switch back to a literal time-window cutoff.
-- **UTC day-boundary grouping**: `getDailyAverages` groups readings into calendar days via `$dateToString` on `created_at` with no explicit `timezone` option, so grouping is in UTC. For a Bangladesh-based user (UTC+6), a reading logged late in the BD evening can get grouped into the *next* UTC day on the chart. Verify this against real simulator data spanning several BD evenings before deciding whether to add `timezone: "Asia/Dhaka"` to the `$dateToString` stage.
-- Search `TODO(revert-for-production)` in `readingsController.js` for the exact spots.
+## Out of Scope for This Phase
 
-## Out of Scope for This Phase (do not build yet)
-
-- Push/email/SMS notifications for alerts (Phase 2 alerts are still visual/in-dashboard only)
-- Multi-device support
+- Multi-device / concurrent mimic devices (explicitly deferred — single mimic device only for this pass of Phase 3)
+- Push/email/SMS notifications for alerts
 - Authentication/user accounts
-- Any endpoint that writes to the `G3036` collection from `server/` (writes remain `simulator/`'s job only)
+- Any endpoint that writes to `G3036` from `server/` (writes remain `mqtt-bridge/`'s job only)
+- Using the real physical device / real broker topics (`farm_controller/...`) — deferred until the supervisor confirms the device is back online and confirms/adds ammonia+methane publishing
 
 ## Phase History
 
 - **Phase 1**: Read-only single-device dashboard, polling-based updates, threshold-based visual alerts — current readings, 7d/30d history, chart.
-- **Phase 2 (COMPLETE)**: Real-time via Socket.IO + Change Streams, Python device simulator, daily-average charting, unbounded reading log moved to its own page, calendar min/max view. Three routed pages instead of one. All sub-stages (8a–8e) verified working end-to-end. Two documented temporary workarounds remain open (see above) and the raw `/history` endpoint's deprecation is an undecided open question — otherwise ready for supervisor demo/review.
+- **Phase 2 (COMPLETE)**: Real-time via Socket.IO + Change Streams, Python device simulator (direct-to-Mongo writer), daily-average charting, unbounded reading log moved to its own page, calendar min/max view. Three routed pages instead of one.
+- **Phase 3 (IN PROGRESS)**: Replacing the direct-to-Mongo simulator with a real MQTT pipeline: a single `mimic-device/` publishes synthetic readings over MQTT to `prohori/G3036/reading`, and a new `mqtt-bridge/` subscribes and becomes the sole writer to `G3036`, replacing `simulator/`. Chosen because the real physical device/broker topics are currently offline and don't yet publish ammonia/methane. Multi-device support explicitly deferred to a later phase. No changes required to `server/`, `client/`, Change Streams, or Socket.IO — the entire point of the fixed schema/single-writer design from Phase 2.
