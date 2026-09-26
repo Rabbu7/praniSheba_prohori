@@ -3,73 +3,90 @@
 > Defines the screens/pages/sections that should exist in the app for the current phase.
 > Updated at the start of every new phase — sections marked "future" are NOT to be built yet.
 
-## Phase 2 — Pages & Sections — STATUS: COMPLETE
+## Phase 4 — Pages & Sections — STATUS: IN PROGRESS
 
-Phase 2 introduced routing. Three pages, shared Sidebar + Header layout. All three are built and verified working.
+Phase 4 adds three new pages in front of the existing dashboard: Register, Login, and Link Device. The three existing routed pages (Dashboard, Reading Log, Calendar) are otherwise unchanged in *content* — the only change to them is that they now sit behind auth + device-link route guards, and their data is scoped to whichever device the logged-in user has linked.
 
-### Page: Dashboard (`/`) — DONE
+### Page: Register (`/register`)
 
-**1. Header** — device ID, Online/Offline badge, last updated. Now driven by the shared `useDeviceStatus` hook (see `AGENTS.md`) rather than page-local logic, so status stays in sync with History and Calendar's headers too.
+- Fields: username, email, password (and a confirm-password field, client-side only — not sent to the API).
+- On submit: `POST /api/auth/register`. On success, behave like a successful login — store the returned JWT, then follow the same "does this user have a linked device" redirect logic as Login (below). A brand-new registration always has no device yet, so in practice this always lands on `/link-device`.
+- On failure (duplicate email/username, validation error): show the error inline near the relevant field, don't clear what the user typed.
+- Link to `/login` for existing users ("Already have an account? Log in").
+- No Sidebar/Header on this page — it's outside the authenticated shell.
 
-**2. Current Readings Panel** — updates via **Socket.IO push** (`new-reading` event) instead of polling. `useLatestReading.js` uses a socket listener with an initial REST fetch as a fallback before the socket connects; no component beyond the hook needed to change.
+### Page: Login (`/login`)
 
-**3. Chart Section**
-- Plots **daily average** values per metric (not raw readings) — Recharts line chart.
-- Shares 7d/30d toggle (`HistoryTabs`).
-- Data source: `GET /api/readings/daily-averages?range=7d|30d`.
-- Zone coloring/threshold bands apply to the daily-average value.
-- Confirmed the date axis now sorts ascending correctly (an earlier bug where raw-history timestamps rendered out of order was resolved as a side effect of this endpoint swap, since `daily-averages` sorts server-side).
+- Fields: email, password.
+- On submit: `POST /api/auth/login`. On success, store the JWT, then call `GET /api/auth/me`:
+  - `device` present → redirect to `/` (Dashboard)
+  - `device` absent/null → redirect to `/link-device`
+- On failure (wrong credentials): show a generic "invalid email or password" error — don't reveal which field was wrong.
+- Link to `/register` for new users ("Don't have an account? Register").
+- No Sidebar/Header on this page.
+- This is also where an unauthenticated user gets redirected if they try to visit any protected route directly.
 
-**Reading Log is REMOVED from this page** — moved to its own page (see below). Confirmed removed.
+### Page: Link Device (`/link-device`)
 
----
-
-### Page: Reading Log (`/history`) — DONE
-
-- Full paginated table of all readings, **no 7d/30d limit** — unbounded, newest first.
-- Columns: timestamp, ammonia, methane, humidity, temperature — each cell zone-colored, same convention as Phase 1.
-- **Server-side pagination** (not client-side slicing) via `GET /api/readings/log?page=&limit=`, returning `{ data, page, limit, total, totalPages }`. `HistoryTable` receives `page`/`totalPages`/`onPageChange` as props rather than owning pagination state internally.
-- Sidebar's "History" nav link routes here via `react-router-dom`.
-
----
-
-### Page: Calendar (`/calendar`) — DONE
-
-- Month-view calendar grid, plain/neutral day cells (no pre-coloring by zone) — confirmed cells stay neutral regardless of underlying zone data, only selected/today states get visual treatment.
-- Clicking a day reveals 4 cards (Ammonia, Methane, Humidity, Temperature) showing that day's **min/max** values, each independently zone-colored (`ammonia_min_zone` vs `ammonia_max_zone` can differ and do render differently — confirmed working, e.g. observed a day where methane's max was Danger-red while its min was Safe-green).
-- Data source: `GET /api/readings/calendar?month=YYYY-MM` for the grid, `GET /api/readings/day/:date` for the drill-down.
-- Prev/next month navigation implemented; selecting a day in one month and then navigating to a different month clears the selection (UX default chosen during build — not explicitly spec'd, flagged as a judgment call at the time).
-- Has its own Sidebar nav icon (`calendar_month`).
+- Fields: Device ID, Device Code.
+- On submit: `POST /api/auth/link-device`. On success, redirect to `/` (Dashboard), which now loads data scoped to the newly-linked device.
+- On failure (device ID/code mismatch, or device ID doesn't exist): show an inline error — don't say which of the two fields was wrong, to avoid leaking valid device IDs by trial and error.
+- **This page is reachable by any authenticated user with no linked device, every time** — not just right after registration. If such a user logs in again later (e.g. closes the tab mid-onboarding, comes back next day), they land here again before ever seeing a dashboard. This is enforced by the route guard checking `me`'s `device` field on every load, not by a one-time "just registered" flag.
+- A user who already has a device linked should not be able to navigate back to this page to change it — Phase 4 has no "unlink" or "re-link" flow. Attempting to visit `/link-device` with a device already linked redirects to `/`.
+- No Sidebar/Header on this page (device isn't known yet, so the normal shell — which shows device ID/status — doesn't make sense here).
 
 ---
 
-### Sidebar (all pages) — DONE
-- Nav links are real routes via `NavLink`: Dashboard (`/`), History (`/history`), Calendar (`/calendar`), Settings (still disabled). Active route gets a distinct highlight style on both desktop and mobile bottom nav.
+### Page: Dashboard (`/`) — unchanged content, now auth + device-guarded
+
+Everything from Phase 3 stands as-is (header, real-time readings panel, daily-average chart). The only Phase 4 change: the page is wrapped in a route guard that requires both authentication and a linked device, and all its data calls are now implicitly scoped server-side to `req.user.device.deviceId` — no frontend changes to *what* is fetched, just that the server resolves *which* device's data comes back.
+
+### Page: Reading Log (`/history`) — unchanged content, now auth + device-guarded
+
+Same as above — no content changes, same route-guard wrapping.
+
+### Page: Calendar (`/calendar`) — unchanged content, now auth + device-guarded
+
+Same as above — no content changes, same route-guard wrapping.
 
 ---
 
-## Explicitly NOT in Phase 2 (future phases)
+### Sidebar (all authenticated pages)
 
+- Unchanged nav links (Dashboard, History, Calendar, Settings still disabled).
+- **New**: a logout control (icon or link at the bottom of the sidebar, near the device status indicator). Logging out clears the stored JWT and redirects to `/login`.
+- Sidebar is not shown on Login, Register, or Link Device pages — only once a user is inside the authenticated shell with a linked device.
+
+---
+
+## Route Guard Summary (for the coding agent — exact behavior to implement)
+
+| State | Visiting `/`, `/history`, `/calendar` | Visiting `/link-device` | Visiting `/login`, `/register` |
+|---|---|---|---|
+| Not authenticated | → redirect `/login` | → redirect `/login` | shown normally |
+| Authenticated, no device linked | → redirect `/link-device` | shown normally | → redirect `/` (already logged in) |
+| Authenticated, device linked | shown normally | → redirect `/` | → redirect `/` (already logged in) |
+
+This table is the single source of truth for `App.jsx`'s routing logic — implement exactly this, no additional states.
+
+---
+
+## Explicitly NOT in Phase 4 (future phases)
+
+- Multiple devices per user / a device switcher (Phase 5)
+- Unlink / re-link device flow
+- Password reset or email verification
 - Push/email/SMS notifications
-- Multi-device selector/switcher
 - Settings/configuration page
-- User login/auth
+- Role-based access (admin vs regular user)
+- OAuth / third-party login
 - Export/download data feature
-
----
-
-## Known follow-ups (not blockers, not yet scheduled)
-
-These surfaced during the Phase 2 build but are intentionally deferred rather than being in-scope fixes:
-
-- **Raw `/history` endpoint**: still exists and is callable but nothing in the frontend uses it anymore. Decide whether to keep as documented-unused or remove. See `AGENTS.md`'s API Contract section.
-- **UTC day-boundary grouping** in `daily-averages`: may misalign day boundaries for a UTC+6 (Bangladesh) user. Needs verification against several days of real continuous simulator data before deciding on a fix. See `AGENTS.md`'s Known Temporary Workarounds section.
-- **Count-based history windowing**: `getHistory`/`getDailyAverages` still use a document-count `.limit()` instead of a real time-window cutoff — carried over from when the seeded dataset was bursty. Worth revisiting now that the simulator provides continuous data.
-- **SensorCard/ReadingsPanel visual polish**: Dashboard's readings column and chart section required a few rounds of layout fixes (grid alignment, single-screen fit) to match the Stitch reference; the current fix reduced card padding/font size and reader panel spacing to fit within one viewport height. Worth a final visual pass against the Stitch reference at a range of viewport sizes (not just the one tested) if further polish is wanted.
 
 ---
 
 ## Phase History
 
 - **Phase 1**: Single dashboard page — header/status, polling-based current readings panel with threshold alert indicators, 7d/30d history, chart.
-- **Phase 2 (COMPLETE)**: Real-time via Socket.IO + Change Streams, Python device simulator, daily-average charting, unbounded reading log moved to its own page, calendar min/max view. Three routed pages instead of one. All pages built, wired to live data, and verified working end-to-end — ready for supervisor demo.
+- **Phase 2 (COMPLETE)**: Real-time via Socket.IO + Change Streams, Python device simulator, daily-average charting, unbounded reading log moved to its own page, calendar min/max view. Three routed pages instead of one.
+- **Phase 3 (COMPLETE)**: Replaced the direct-to-Mongo simulator with a real MQTT pipeline. `mimic-device/` publishes to the real broker, `mqtt-bridge/` is the sole writer to `G3036`. Verified end-to-end including live Socket.IO delivery to the dashboard.
+- **Phase 4 (IN PROGRESS)**: Authentication (Register/Login) and a Link Device page gating dashboard access. A user with no linked device always lands on Link Device, on every login, until they successfully link one. Dashboard, History, and Calendar pages are content-unchanged but now sit behind auth + device-link route guards and are scoped to the logged-in user's linked device. One device per user in this phase — multi-device deferred to Phase 5.
