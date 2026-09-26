@@ -31,5 +31,8 @@ const readingSchema = new mongoose.Schema({
   }
 });
 
-// Explicitly map model to 'G3036' collection in iotdb database
-module.exports = mongoose.model('Reading', readingSchema, 'G3036');
+function getReadingModel(deviceId) {
+  return mongoose.models[deviceId] || mongoose.model(deviceId, readingSchema, deviceId);
+}
+
+module.exports = { getReadingModel };

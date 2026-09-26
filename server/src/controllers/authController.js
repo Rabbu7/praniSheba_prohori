@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Device = require('../models/Device');
 
 const BCRYPT_COST = 10;
 const JWT_EXPIRES_IN = '7d';
@@ -105,8 +106,41 @@ const me = (req, res) => res.status(200).json({
   device: req.user.device || null
 });
 
+const linkDevice = async (req, res, next) => {
+  try {
+    if (req.user.device) {
+      throw createError('Device already linked', 409);
+    }
+
+    const { deviceId, deviceCode } = req.body || {};
+    if (typeof deviceId !== 'string' || !deviceId.trim()
+      || typeof deviceCode !== 'string' || !deviceCode.trim()) {
+      throw createError('Invalid device ID or code', 400);
+    }
+
+    const normalizedDeviceId = deviceId.trim();
+    const normalizedDeviceCode = deviceCode.trim();
+    const device = await Device.findOne({ deviceId: normalizedDeviceId });
+
+    if (!device || device.deviceCode !== normalizedDeviceCode) {
+      throw createError('Invalid device ID or code', 400);
+    }
+
+    req.user.device = {
+      deviceId: normalizedDeviceId,
+      linkedAt: new Date()
+    };
+    await req.user.save();
+
+    return res.status(200).json({ user: publicUser(req.user) });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
-  me
+  me,
+  linkDevice
 };
