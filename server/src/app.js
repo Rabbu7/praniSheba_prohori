@@ -4,6 +4,7 @@ const http = require('http');
 const cors = require('cors');
 const { Server: SocketIOServer } = require('socket.io');
 const connectDB = require('./config/db');
+const authRouter = require('./routes/auth');
 const readingsRouter = require('./routes/readings');
 const errorHandler = require('./middleware/errorHandler');
 const watchReadingChanges = require('./sockets/changeStream');
@@ -33,6 +34,7 @@ app.get('/health', (req, res) => {
 });
 
 // Mount routes
+app.use('/api/auth', authRouter);
 app.use('/api/readings', readingsRouter);
 
 // Centralized error handler
