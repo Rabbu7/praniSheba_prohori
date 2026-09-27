@@ -20,7 +20,7 @@ function formatRelativeTime(date) {
   return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
-export default function Header({ title = 'Dashboard', deviceId = 'G3036', status = 'online', lastUpdated = null }) {
+export default function Header({ title = 'Dashboard', deviceId = '—', status = 'online', lastUpdated = null }) {
   const formattedTime = formatRelativeTime(lastUpdated);
 
   return (

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { getReadingsLog } from '../services/api';
+import { useEffect, useState } from 'react';
+import { getDailyAverages } from '../services/api';
 
-export default function useReadingsLog(page = 1, limit = 20) {
+export default function useDailyAverages(range) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -10,9 +10,9 @@ export default function useReadingsLog(page = 1, limit = 20) {
     let cancelled = false;
     setLoading(true);
 
-    const fetchLog = async () => {
+    const fetchAverages = async () => {
       try {
-        const result = await getReadingsLog(page, limit);
+        const result = await getDailyAverages(range);
         if (!cancelled) {
           setData(result);
           setError(null);
@@ -24,12 +24,12 @@ export default function useReadingsLog(page = 1, limit = 20) {
       }
     };
 
-    fetchLog();
+    fetchAverages();
 
     return () => {
       cancelled = true;
     };
-  }, [page, limit]);
+  }, [range]);
 
   return { data, loading, error };
 }
