@@ -15,6 +15,12 @@ const zoneColorMap = {
   }
 };
 
+const ZONE_SEVERITY = { safe: 0, warning: 1, danger: 2 };
+
+function worseZone(firstZone, secondZone) {
+  return ZONE_SEVERITY[firstZone] >= ZONE_SEVERITY[secondZone] ? firstZone : secondZone;
+}
+
 export default function DayDetailCards({
   date = null,
   data = null,
@@ -95,7 +101,7 @@ export default function DayDetailCards({
     {
       label: 'Temperature',
       unit: '°F',
-      icon: 'thermometer',
+      icon: 'thermostat',
       minKey: 'temperature_min',
       maxKey: 'temperature_max',
       minZoneKey: 'temperature_min_zone',
@@ -116,6 +122,7 @@ export default function DayDetailCards({
           const maxZone = data[card.maxZoneKey] || 'safe';
           const minColor = zoneColorMap[minZone] || zoneColorMap.safe;
           const maxColor = zoneColorMap[maxZone] || zoneColorMap.safe;
+          const overallColor = zoneColorMap[worseZone(minZone, maxZone)] || zoneColorMap.safe;
 
           const displayMin = minVal !== null && minVal !== undefined ? Number(minVal).toFixed(1) : '—';
           const displayMax = maxVal !== null && maxVal !== undefined ? Number(maxVal).toFixed(1) : '—';
@@ -127,7 +134,7 @@ export default function DayDetailCards({
             >
               {/* Left indicator bar */}
               <div
-                className={`absolute left-0 top-0 bottom-0 w-1 ${minColor.bg}`}
+                className={`absolute left-0 top-0 bottom-0 w-1 ${overallColor.bg}`}
               ></div>
 
               {/* Header */}
