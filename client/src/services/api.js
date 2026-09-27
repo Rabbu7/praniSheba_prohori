@@ -4,6 +4,27 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
 });
 
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('prohori_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+export const registerUser = async ({ username, email, password }) => {
+  const response = await api.post('/api/auth/register', { username, email, password });
+  return response.data;
+};
+
+export const loginUser = async ({ email, password }) => {
+  const response = await api.post('/api/auth/login', { email, password });
+  return response.data;
+};
+
+export const getMe = async () => {
+  const response = await api.get('/api/auth/me');
+  return response.data;
+};
+
 export const getLatestReading = async () => {
   const response = await api.get('/api/readings/latest');
   return response.data;
