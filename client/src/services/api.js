@@ -25,6 +25,11 @@ export const getMe = async () => {
   return response.data;
 };
 
+export const linkDevice = async ({ deviceId, deviceCode }) => {
+  const response = await api.post('/api/auth/link-device', { deviceId, deviceCode });
+  return response.data;
+};
+
 export const getLatestReading = async () => {
   const response = await api.get('/api/readings/latest');
   return response.data;
