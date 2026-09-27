@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { getCalendarMonth } from '../services/api';
 
 export default function useCalendarData(month) {
-  const [days, setDays] = useState([]);
+  const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -14,7 +14,7 @@ export default function useCalendarData(month) {
       try {
         const result = await getCalendarMonth(month);
         if (!cancelled) {
-          setDays(Array.isArray(result) ? result : []);
+          setData(Array.isArray(result) ? result : []);
           setError(null);
         }
       } catch (err) {
@@ -31,5 +31,5 @@ export default function useCalendarData(month) {
     };
   }, [month]);
 
-  return { days, loading, error };
+  return { data, loading, error };
 }

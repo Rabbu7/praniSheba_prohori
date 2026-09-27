@@ -17,13 +17,13 @@ const zoneColorMap = {
 
 export default function DayDetailCards({
   date = null,
-  detail = null,
+  data = null,
   loading = false,
   error = null
 }) {
   if (!date) {
     return (
-      <div className="mt-6 bg-surface-white border border-[#D1D5DB] rounded-lg p-6 flex flex-col items-center justify-center text-center shadow-sm">
+      <div className="mt-6 bg-surface-white border border-border-subtle rounded-lg p-6 flex flex-col items-center justify-center text-center shadow-sm">
         <span className="material-symbols-outlined text-secondary text-3xl mb-2">
           calendar_today
         </span>
@@ -46,15 +46,15 @@ export default function DayDetailCards({
 
   if (loading) {
     return (
-      <div className="mt-6 bg-surface-white border border-[#D1D5DB] rounded-lg p-6 shadow-sm">
+      <div className="mt-6 bg-surface-white border border-border-subtle rounded-lg p-6 shadow-sm">
         <div className="text-center text-secondary text-body-sm">Loading day details…</div>
       </div>
     );
   }
 
-  if (!detail) {
+  if (!data) {
     return (
-      <div className="mt-6 bg-surface-white border border-[#D1D5DB] rounded-lg p-6 flex flex-col items-center justify-center text-center shadow-sm">
+      <div className="mt-6 bg-surface-white border border-border-subtle rounded-lg p-6 flex flex-col items-center justify-center text-center shadow-sm">
         <span className="material-symbols-outlined text-secondary text-3xl mb-2">
           info
         </span>
@@ -110,20 +110,20 @@ export default function DayDetailCards({
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map((card) => {
-          const minVal = detail[card.minKey];
-          const maxVal = detail[card.maxKey];
-          const minZone = detail[card.minZoneKey] || 'safe';
-          const maxZone = detail[card.maxZoneKey] || 'safe';
+          const minVal = data[card.minKey];
+          const maxVal = data[card.maxKey];
+          const minZone = data[card.minZoneKey] || 'safe';
+          const maxZone = data[card.maxZoneKey] || 'safe';
           const minColor = zoneColorMap[minZone] || zoneColorMap.safe;
           const maxColor = zoneColorMap[maxZone] || zoneColorMap.safe;
 
-          const displayMin = minVal !== null && minVal !== undefined ? minVal.toFixed(1) : '—';
-          const displayMax = maxVal !== null && maxVal !== undefined ? maxVal.toFixed(1) : '—';
+          const displayMin = minVal !== null && minVal !== undefined ? Number(minVal).toFixed(1) : '—';
+          const displayMax = maxVal !== null && maxVal !== undefined ? Number(maxVal).toFixed(1) : '—';
 
           return (
             <div
               key={card.label}
-              className="bg-surface-white border border-[#D1D5DB] rounded-lg p-5 relative overflow-hidden flex flex-col justify-between shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300"
+              className="bg-surface-white border border-border-subtle rounded-lg p-4 relative overflow-hidden flex flex-col justify-between shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300"
             >
               {/* Left indicator bar */}
               <div

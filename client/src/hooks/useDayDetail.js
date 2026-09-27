@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { getDayDetail } from '../services/api';
 
 export default function useDayDetail(date) {
-  const [detail, setDetail] = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!date) {
-      setDetail(null);
+      setData(null);
+      setLoading(false);
       setError(null);
       return;
     }
@@ -20,7 +21,7 @@ export default function useDayDetail(date) {
       try {
         const result = await getDayDetail(date);
         if (!cancelled) {
-          setDetail(result);
+          setData(result);
           setError(null);
         }
       } catch (err) {
@@ -37,5 +38,5 @@ export default function useDayDetail(date) {
     };
   }, [date]);
 
-  return { detail, loading, error };
+  return { data, loading, error };
 }

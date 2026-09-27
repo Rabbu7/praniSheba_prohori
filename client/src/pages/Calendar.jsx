@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import Header from '../components/layout/Header';
 import Sidebar from '../components/layout/Sidebar';
 import CalendarGrid from '../components/calendar/CalendarGrid';
@@ -8,6 +9,7 @@ import useDayDetail from '../hooks/useDayDetail';
 import useDeviceStatus from '../hooks/useDeviceStatus';
 
 export default function Calendar() {
+  const { user } = useAuth();
   // Default to current month in YYYY-MM format
   const now = new Date();
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -15,8 +17,8 @@ export default function Calendar() {
   const [month, setMonth] = useState(defaultMonth);
   const [selectedDate, setSelectedDate] = useState(null);
 
-  const { days, loading: _calendarLoading, error: calendarError } = useCalendarData(month);
-  const { detail, loading: detailLoading, error: detailError } = useDayDetail(selectedDate);
+    const { data: calendarData, error: calendarError } = useCalendarData(month);
+  const { data: dayData, loading: detailLoading, error: detailError } = useDayDetail(selectedDate);
   const { status, lastUpdated } = useDeviceStatus();
 
   const handleMonthChange = (newMonth) => {
@@ -28,7 +30,7 @@ export default function Calendar() {
     <div className="bg-background text-on-background font-body-sm antialiased h-screen flex overflow-hidden">
       <Sidebar />
       <main className="flex-1 md:ml-sidebar-width mt-[64px] md:mt-0 h-full overflow-y-auto w-full bg-background relative">
-        <Header title="Calendar" deviceId="G3036" status={status} lastUpdated={lastUpdated} />
+        <Header title="Calendar" deviceId={user?.device?.deviceId} status={status} lastUpdated={lastUpdated} />
         <div className="p-container-padding md:p-8 max-w-[1600px] mx-auto pb-24 md:pb-8">
           {calendarError ? (
             <div className="bg-surface-white border border-error/30 rounded-lg p-6 flex flex-col items-center justify-center text-center shadow-sm">
@@ -46,14 +48,14 @@ export default function Calendar() {
             <>
               <CalendarGrid
                 month={month}
-                days={days}
+                data={calendarData}
                 selectedDate={selectedDate}
-                onSelectDate={setSelectedDate}
+                onDayClick={setSelectedDate}
                 onMonthChange={handleMonthChange}
               />
               <DayDetailCards
                 date={selectedDate}
-                detail={detail}
+                data={dayData}
                 loading={detailLoading}
                 error={detailError}
               />
