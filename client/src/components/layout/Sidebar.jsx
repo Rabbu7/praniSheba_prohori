@@ -5,7 +5,8 @@ import { useAuth } from '../../context/AuthContext';
 
 export default function Sidebar() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const deviceLabel = user?.device?.deviceId ? `Device: ${user.device.deviceId}` : 'Device: —';
 
   const handleLogout = () => {
     logout();
@@ -74,7 +75,7 @@ export default function Sidebar() {
           </button>
           <div
             className="flex items-center justify-center w-12 h-12 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors duration-300"
-            title="Device: G3036"
+            title={deviceLabel}
           >
             <div className="w-2 h-2 rounded-full bg-status-online animate-glow-pulse"></div>
           </div>
@@ -126,7 +127,7 @@ export default function Sidebar() {
           <span className="material-symbols-outlined">logout</span>
           <span className="text-[10px] mt-0.5">Log out</span>
         </button>
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5 border border-white/10" title="Device: G3036">
+        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5 border border-white/10" title={deviceLabel}>
           <div className="w-2 h-2 rounded-full bg-status-online animate-glow-pulse"></div>
         </div>
       </nav>

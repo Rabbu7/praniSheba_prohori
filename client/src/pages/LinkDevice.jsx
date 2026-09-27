@@ -8,7 +8,7 @@ const inputClass = 'mt-2 w-full rounded-lg border border-outline-variant bg-surf
 
 export default function LinkDevice() {
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, setUser } = useAuth();
   const [form, setForm] = useState({ deviceId: '', deviceCode: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -28,9 +28,9 @@ export default function LinkDevice() {
     setSubmitting(true);
     setError('');
     try {
-      await linkDevice({ deviceId: form.deviceId, deviceCode: form.deviceCode });
+      const response = await linkDevice({ deviceId: form.deviceId, deviceCode: form.deviceCode });
+      setUser(response.user);
       navigate('/');
-      window.location.reload();
     } catch {
       setError('Invalid device ID or code');
     } finally {
