@@ -36,7 +36,7 @@ function initChangeStream(io) {
         ...getZones(change.fullDocument)
       };
 
-      io.emit('new-reading', payload);
+      io.to(`device:${deviceId}`).emit('new-reading', payload);
     });
 
     changeStream.on('error', (error) => {

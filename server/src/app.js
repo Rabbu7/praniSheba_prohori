@@ -9,6 +9,8 @@ const readingsRouter = require('./routes/readings');
 const errorHandler = require('./middleware/errorHandler');
 const watchReadingChanges = require('./sockets/changeStream');
 
+const socketAuth = require('./sockets/socketAuth');
+
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
@@ -17,6 +19,14 @@ const io = new SocketIOServer(server, {
   cors: {
     origin: CLIENT_ORIGIN,
     methods: ['GET', 'POST']
+  }
+});
+
+io.use(socketAuth);
+
+io.on('connection', (socket) => {
+  if (socket.data && socket.data.deviceId) {
+    socket.join(`device:${socket.data.deviceId}`);
   }
 });
 
