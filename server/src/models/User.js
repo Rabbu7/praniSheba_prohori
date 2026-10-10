@@ -33,6 +33,14 @@ const userSchema = new mongoose.Schema({
   }
 });
 
+userSchema.index(
+  { 'device.deviceId': 1 },
+  {
+    unique: true,
+    partialFilterExpression: { 'device.deviceId': { $type: 'string' } }
+  }
+);
+
 function removePasswordHash(_document, returnedObject) {
   delete returnedObject.passwordHash;
   return returnedObject;

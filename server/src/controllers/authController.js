@@ -108,10 +108,6 @@ const me = (req, res) => res.status(200).json({
 
 const linkDevice = async (req, res, next) => {
   try {
-    if (req.user.device) {
-      throw createError('Device already linked', 409);
-    }
-
     const { deviceId, deviceCode } = req.body || {};
     if (typeof deviceId !== 'string' || !deviceId.trim()
       || typeof deviceCode !== 'string' || !deviceCode.trim()) {
@@ -126,11 +122,23 @@ const linkDevice = async (req, res, next) => {
       throw createError('Invalid device ID or code', 400);
     }
 
+    if (req.user.device) {
+      throw createError('Device already linked', 409);
+    }
+
     req.user.device = {
       deviceId: normalizedDeviceId,
       linkedAt: new Date()
     };
-    await req.user.save();
+
+    try {
+      await req.user.save();
+    } catch (error) {
+      if (error.code === 11000) {
+        throw createError('This device is already linked to another account', 409);
+      }
+      throw error;
+    }
 
     return res.status(200).json({ user: publicUser(req.user) });
   } catch (error) {

@@ -31,8 +31,8 @@ export default function LinkDevice() {
       const response = await linkDevice({ deviceId: form.deviceId, deviceCode: form.deviceCode });
       setUser(response.user);
       navigate('/');
-    } catch {
-      setError('Invalid device ID or code');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Invalid device ID or code');
     } finally {
       setSubmitting(false);
     }
