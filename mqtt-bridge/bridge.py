@@ -1,16 +1,18 @@
-"""Bridge Prohori MQTT readings into the MongoDB G3036 collection."""
+"""Bridge Prohori MQTT readings into per-device MongoDB collections."""
 
 import json
 import logging
 import math
 import os
+import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
 from pymongo import MongoClient
-from pymongo.collection import Collection
+from pymongo.database import Database
 
 
 LOGGER = logging.getLogger("mqtt-bridge")
@@ -32,6 +34,45 @@ REQUIRED_FIELDS = (
     "timestamp",
 )
 NUMERIC_FIELDS = ("ammonia", "methane", "humidity", "temperature")
+
+
+class DeviceRegistry:
+    """Manages allowed device IDs loaded dynamically from MongoDB iotdb.devices."""
+
+    def __init__(self, db: Database, refresh_interval: float = 60.0):
+        self.db = db
+        self.refresh_interval = refresh_interval
+        self._allowed_ids: set[str] = set()
+        self._last_refresh: float = 0.0
+        self._lock = threading.Lock()
+        self.refresh()
+
+    def refresh(self) -> set[str]:
+        """Fetch valid device IDs from iotdb.devices collection."""
+        try:
+            docs = self.db["devices"].find({}, {"deviceId": 1})
+            ids = {
+                doc["deviceId"]
+                for doc in docs
+                if "deviceId" in doc and isinstance(doc["deviceId"], str) and doc["deviceId"].strip()
+            }
+            with self._lock:
+                self._allowed_ids = ids
+                self._last_refresh = time.time()
+            LOGGER.info("Refreshed allowed device IDs from DB (%d devices): %s", len(ids), sorted(list(ids)))
+            return ids
+        except Exception:
+            LOGGER.exception("Failed to refresh allowed device IDs from DB")
+            with self._lock:
+                return self._allowed_ids
+
+    def is_allowed(self, device_id: str) -> bool:
+        """Check if device_id is in allowed set, refreshing if interval expired."""
+        now = time.time()
+        if now - self._last_refresh >= self.refresh_interval:
+            self.refresh()
+        with self._lock:
+            return device_id in self._allowed_ids
 
 
 def load_config() -> dict:
@@ -60,6 +101,14 @@ def load_config() -> dict:
     }
 
 
+def extract_device_id_from_topic(topic: str) -> str | None:
+    """Extract device_id from topic pattern prohori/<deviceId>/reading."""
+    parts = topic.split("/")
+    if len(parts) == 3 and parts[0] == "prohori" and parts[2] == "reading" and parts[1].strip():
+        return parts[1].strip()
+    return None
+
+
 def validate_payload(payload: object) -> tuple[dict | None, str | None]:
     """Return the allowlisted reading fields or a reason for rejection."""
     if not isinstance(payload, dict):
@@ -69,17 +118,14 @@ def validate_payload(payload: object) -> tuple[dict | None, str | None]:
     if missing:
         return None, f"missing required field(s): {', '.join(missing)}"
 
-    if not isinstance(payload["device_id"], str) or not payload["device_id"].strip():
-        return None, "device_id must be a non-empty string"
-
     for field in NUMERIC_FIELDS:
         value = payload[field]
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
             return None, f"{field} must be a finite number"
 
     timestamp = payload["timestamp"]
-    if isinstance(timestamp, bool) or not isinstance(timestamp, int):
-        return None, "timestamp must be an integer Unix epoch value"
+    if isinstance(timestamp, bool) or not isinstance(timestamp, (int, float)) or not math.isfinite(timestamp):
+        return None, "timestamp must be a numeric Unix epoch value"
 
     return {field: payload[field] for field in REQUIRED_FIELDS}, None
 
@@ -94,14 +140,17 @@ def parse_message(raw_payload: bytes) -> tuple[dict | None, str | None]:
     return validate_payload(payload)
 
 
-def create_mongo_client(mongo_uri: str) -> tuple[MongoClient, Collection]:
-    """Connect to the fixed database and collection used by this bridge."""
+def create_mongo_client(mongo_uri: str) -> tuple[MongoClient, Database]:
+    """Connect to MongoDB and return the client and iotdb database."""
     mongo_client = MongoClient(mongo_uri, serverSelectionTimeoutMS=CONNECT_TIMEOUT_MS)
     mongo_client.admin.command("ping")
-    return mongo_client, mongo_client["iotdb"]["G3036"]
+    db = mongo_client.get_database()
+    if db.name != "iotdb":
+        db = mongo_client["iotdb"]
+    return mongo_client, db
 
 
-def create_mqtt_client(config: dict, collection: Collection) -> mqtt.Client:
+def create_mqtt_client(config: dict, db: Database, registry: DeviceRegistry) -> mqtt.Client:
     """Create an authenticated MQTT v2 client with reconnect behavior."""
     client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
     client.username_pw_set(config["mqtt_user"], config["mqtt_pass"])
@@ -120,23 +169,35 @@ def create_mqtt_client(config: dict, collection: Collection) -> mqtt.Client:
             LOGGER.info("Subscribed to %s at QoS 1", config["mqtt_topic"])
 
     def on_message(_client, _userdata, message):
+        topic_device_id = extract_device_id_from_topic(message.topic)
+        if not topic_device_id:
+            LOGGER.warning("Dropped message from invalid topic format: %s", message.topic)
+            return
+
+        if not registry.is_allowed(topic_device_id):
+            LOGGER.warning("Dropped message for unknown/unallowed device ID '%s' from topic '%s'", topic_device_id, message.topic)
+            return
+
         validated, reason = parse_message(message.payload)
         if reason:
-            LOGGER.warning("Rejected malformed payload: %s; payload=%r", reason, message.payload)
+            LOGGER.warning("Rejected malformed payload from topic %s: %s; payload=%r", message.topic, reason, message.payload)
             return
 
         document = {
             **validated,
+            "device_id": topic_device_id,  # Force topic device_id
             "created_at": datetime.now(timezone.utc),
         }
+
         try:
-            collection.insert_one(document)
+            db[topic_device_id].insert_one(document)
         except Exception:
-            LOGGER.exception("MongoDB insert failed for validated reading")
+            LOGGER.exception("MongoDB insert failed for collection %s", topic_device_id)
             return
 
         LOGGER.info(
-            "Inserted reading: device_id=%s ammonia=%s methane=%s humidity=%s temperature=%s",
+            "Inserted reading: collection=%s device_id=%s ammonia=%s methane=%s humidity=%s temperature=%s",
+            topic_device_id,
             document["device_id"],
             document["ammonia"],
             document["methane"],
@@ -157,15 +218,16 @@ def run() -> int:
     """Start the bridge and keep its MQTT reconnect loop running."""
     try:
         config = load_config()
-        mongo_client, collection = create_mongo_client(config["mongo_uri"])
+        mongo_client, db = create_mongo_client(config["mongo_uri"])
+        registry = DeviceRegistry(db)
     except (ValueError, OSError) as error:
         LOGGER.error("Bridge startup failed: %s", error)
         return 1
     except Exception:
-        LOGGER.exception("Bridge startup failed while connecting to MongoDB")
+        LOGGER.exception("Bridge startup failed while initializing database")
         return 1
 
-    client = create_mqtt_client(config, collection)
+    client = create_mqtt_client(config, db, registry)
     try:
         client.connect(config["mqtt_host"], config["mqtt_port"], keepalive=60)
         client.loop_forever(retry_first_connection=False)

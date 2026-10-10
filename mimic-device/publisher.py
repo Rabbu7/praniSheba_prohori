@@ -1,4 +1,4 @@
-"""Publish generated Prohori readings to a test MQTT broker."""
+"""Publish generated Prohori readings for configured devices to an MQTT broker."""
 
 import json
 import logging
@@ -20,10 +20,17 @@ REQUIRED_ENV_VARS = (
     "MQTT_PORT",
     "MQTT_USER",
     "MQTT_PASS",
-    "MQTT_TOPIC",
-    "DEVICE_ID",
+    "DEVICE_IDS",
     "PUBLISH_INTERVAL_SECONDS",
 )
+
+
+def parse_device_ids(raw_value: str) -> list[str]:
+    """Parse comma-separated device IDs into a clean list."""
+    if not raw_value:
+        return []
+    items = [item.strip() for item in raw_value.split(",")]
+    return [item for item in items if item]
 
 
 def load_config() -> dict:
@@ -33,6 +40,10 @@ def load_config() -> dict:
     missing = [name for name in REQUIRED_ENV_VARS if not os.getenv(name)]
     if missing:
         raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
+
+    device_ids = parse_device_ids(os.environ["DEVICE_IDS"])
+    if not device_ids:
+        raise ValueError("DEVICE_IDS environment variable must contain at least one valid device ID")
 
     try:
         port = int(os.environ["MQTT_PORT"])
@@ -50,8 +61,7 @@ def load_config() -> dict:
         "port": port,
         "username": os.environ["MQTT_USER"],
         "password": os.environ["MQTT_PASS"],
-        "topic": os.environ["MQTT_TOPIC"],
-        "device_id": os.environ["DEVICE_ID"],
+        "device_ids": device_ids,
         "interval": interval,
     }
 
@@ -60,7 +70,7 @@ def create_client(config: dict, connected_event: threading.Event) -> mqtt.Client
     """Create an authenticated MQTT v2 client with connection logging."""
     client = mqtt.Client(
         callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-        client_id=config["device_id"],
+        client_id="prohori-mimic-publisher",
     )
     client.username_pw_set(config["username"], config["password"])
 
@@ -81,7 +91,7 @@ def create_client(config: dict, connected_event: threading.Event) -> mqtt.Client
 
 
 def build_payload(state: dict, device_id: str) -> dict:
-    """Build the JSON-compatible payload consumed by the future bridge."""
+    """Build the JSON-compatible payload consumed by the bridge."""
     return {
         "device_id": device_id,
         "ammonia": state["ammonia"],
@@ -93,7 +103,7 @@ def build_payload(state: dict, device_id: str) -> dict:
 
 
 def run() -> int:
-    """Connect once, publish until interrupted, then disconnect cleanly."""
+    """Connect once, publish for all devices until interrupted, then disconnect cleanly."""
     try:
         config = load_config()
     except ValueError as error:
@@ -112,16 +122,24 @@ def run() -> int:
         if not client.is_connected():
             raise RuntimeError("MQTT broker rejected the connection")
 
-        state = initial_state()
+        LOGGER.info("Starting mimic publisher for %d device(s): %s", len(config["device_ids"]), ", ".join(config["device_ids"]))
+
+        device_states = {
+            device_id: initial_state(i)
+            for i, device_id in enumerate(config["device_ids"])
+        }
+
         while True:
-            state = generate_reading(state)
-            payload = build_payload(state, config["device_id"])
-            message = json.dumps(payload)
-            result = client.publish(config["topic"], message, qos=1, retain=False)
-            result.wait_for_publish()
-            if result.rc != mqtt.MQTT_ERR_SUCCESS:
-                raise RuntimeError(f"MQTT publish failed with result code {result.rc}")
-            LOGGER.info("Published: %s", message)
+            for device_id in config["device_ids"]:
+                device_states[device_id] = generate_reading(device_states[device_id])
+                payload = build_payload(device_states[device_id], device_id)
+                topic = f"prohori/{device_id}/reading"
+                message = json.dumps(payload)
+                result = client.publish(topic, message, qos=1, retain=False)
+                result.wait_for_publish()
+                if result.rc != mqtt.MQTT_ERR_SUCCESS:
+                    raise RuntimeError(f"MQTT publish failed for device {device_id} with result code {result.rc}")
+                LOGGER.info("Published to %s: %s", topic, message)
             time.sleep(config["interval"])
     except KeyboardInterrupt:
         LOGGER.info("Stopping publisher")

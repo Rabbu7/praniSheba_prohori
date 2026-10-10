@@ -7,13 +7,13 @@ from typing import Dict
 ReadingState = Dict[str, float]
 
 
-def initial_state() -> ReadingState:
-    """Return a safe-zone starting state for all four sensors."""
+def initial_state(index: int = 0) -> ReadingState:
+    """Return a safe-zone starting state for all four sensors, varied by index."""
     return {
-        "ammonia": 6.5,
-        "methane": 125.0,
-        "humidity": 60.0,
-        "temperature": 58.0,
+        "ammonia": round(6.0 + (index % 6) * 0.5, 1),
+        "methane": round(120.0 + (index % 6) * 5.0, 1),
+        "humidity": round(55.0 + (index % 6) * 3.0, 1),
+        "temperature": round(54.0 + (index % 6) * 2.0, 1),
     }
 
 
