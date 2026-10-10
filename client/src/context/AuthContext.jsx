@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { getMe, loginUser, registerUser } from '../services/api';
+import { disconnectSocket } from '../services/socket';
 
 const TOKEN_KEY = 'prohori_token';
 const AuthContext = createContext(null);
@@ -25,6 +26,7 @@ export function AuthProvider({ children }) {
       .catch((error) => {
         if (!cancelled && error.response?.status === 401) {
           localStorage.removeItem(TOKEN_KEY);
+          disconnectSocket();
           setToken(null);
           setUser(null);
         }
@@ -52,6 +54,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem(TOKEN_KEY);
+    disconnectSocket();
     setToken(null);
     setUser(null);
   };

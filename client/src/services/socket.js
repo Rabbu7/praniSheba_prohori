@@ -29,9 +29,7 @@ export const connectSocket = (token) => {
 };
 
 export const disconnectSocket = () => {
-  if (socket.connected) {
-    socket.disconnect();
-  }
+  socket.disconnect();
 };
 
 export default socket;
