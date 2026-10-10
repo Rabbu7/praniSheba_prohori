@@ -10,13 +10,18 @@
 Reference product: https://iot.pranisheba.com.bd/#/home
 Company site: https://www.pranisheba.com.bd/-eng
 
-## Current Phase: Phase 4 COMPLETE — Phase 5 not yet scoped
+## Current Phase: Phase 5 — IN PROGRESS
 
-Phase 4 added **user accounts** and **single-device linking**. The dashboard is no longer a single, unauthenticated view hardcoded to one device — it's now scoped to *the device a specific user has linked*, with a full register → login → link-device → dashboard flow, route guarding, and logout.
+Phase 4 (auth + single-device linking) is complete. Phase 5 is deliberately small and has four stages:
 
-Alongside closing out Phase 4, two long-standing **Phase 2** frontend gaps were also closed in this cycle (see "Phase 2 Cleanup" below): the Dashboard chart and Reading Log page were still calling old Phase 1 endpoints instead of the daily-averages/unbounded-log endpoints Phase 2 introduced, and the Calendar page (speced in Phase 2, backend-only until now) had no frontend at all. Both are now fully wired.
+1. **5a — Docs** (this file + `PAGES.md`).
+2. **5b — Unique device ownership + device seeding.** Six devices exist (G3036–G3041). A device can be linked by **only one account**, enforced by a database unique index (not just a controller check).
+3. **5c — Multi-device MQTT.** `mimic-device/` publishes for all six devices; `mqtt-bridge/` routes each message to the right collection and rejects unknown device IDs.
+4. **5d — Socket.IO per-device rooms.** `new-reading` is delivered only to sockets belonging to users linked to that device. This was deferred in Phase 4 as "not yet a real leak" (one device). With six devices it becomes a real bug — a user linked to G3036 would otherwise receive G3037's readings — so it is pulled into Phase 5.
 
-### Flow (CONFIRMED — source of truth, implemented and verified)
+**Still one device per user.** Multi-device per user, a device switcher, and unlink/re-link remain out of scope.
+
+### Flow (unchanged from Phase 4)
 
 ```
 Register (username, email, password)
@@ -30,12 +35,37 @@ GET /api/auth/me → does this user have a linked device?
       └── YES → Dashboard (scoped to that user's linked device)
 ```
 
-- A user with **no linked device always lands on the Link Device page after login** — checked every time `me` is called via the route guard, not a one-time onboarding flag.
-- **One device per user.** Multi-device support (`devices` array) is deferred to Phase 5.
+### Devices (Phase 5)
 
-### Collection-per-device architecture (CONFIRMED, implemented)
+Six devices, each with its own reading collection on the shared Atlas cluster (`iotdb`) and its own seeded `devices` document:
 
-Each device lives in its own MongoDB collection on the shared Atlas cluster (`G3036`, and any future device ID). `Reading.js` is a factory, not a static model:
+| Device ID | Device Code |
+|---|---|
+| G3036 | PROHORI-G3036-7X4K2 |
+| G3037 | PROHORI-G3037-9M2QF |
+| G3038 | PROHORI-G3038-4TC8W |
+| G3039 | PROHORI-G3039-H6N3B |
+| G3040 | PROHORI-G3040-2XJ7R |
+| G3041 | PROHORI-G3041-V5K9D |
+
+- All codes are arbitrary (no physical devices yet); they are hardcoded in `server/src/seed/seedDevices.js`, which upserts and is safe to re-run: `node src/seed/seedDevices.js`.
+- **Seed before starting the server** — `changeStream.js` loads seeded devices once at startup. If devices are seeded while the server is running, restart the server.
+- Reading collections for G3037–G3041 are created automatically by MongoDB on first insert (by `mqtt-bridge/`).
+
+### One account per device (CONFIRMED design)
+
+- `User.js` has a **unique partial index** on `device.deviceId` with `partialFilterExpression: { 'device.deviceId': { $type: 'string' } }`. A plain `sparse` unique index is NOT acceptable (users with `device: null` must not collide).
+- Uniqueness is enforced by the database, so two simultaneous link attempts cannot both succeed. Do **not** implement this as find-then-save.
+- `linkDevice` order of checks:
+  1. Validate input, then validate `{ deviceId, deviceCode }` against the `devices` collection → failure: generic "Invalid device ID or code" (unchanged; never says which field was wrong).
+  2. User already has a device → 409 (unchanged).
+  3. Save; catch duplicate-key error (`err.code === 11000`) → 409 "This device is already linked to another account".
+- The "already linked" message is only reachable *after* a correct code is supplied, so it does not leak which device IDs exist.
+- Before the index is first built, check for existing users sharing a linked device — a duplicate will make the index build fail and must be cleared manually first.
+
+### Collection-per-device architecture (unchanged)
+
+`Reading.js` is a factory, not a static model:
 
 ```js
 // server/src/models/Reading.js
@@ -45,69 +75,71 @@ function getReadingModel(deviceId) {
 module.exports = { getReadingModel };
 ```
 
-Every function in `readingsController.js` resolves its collection via `getReadingModel(req.user.device.deviceId)`. `changeStream.js` also resolves per-device: on startup it loads all seeded `Device` documents and opens one Change Stream per device's collection, rather than watching a single hardcoded collection — this is what lets new devices "just work" for real-time updates once seeded, without touching `changeStream.js` again.
+Every function in `readingsController.js` resolves its collection via `getReadingModel(req.user.device.deviceId)`. `changeStream.js` opens one Change Stream per seeded device.
 
-### Device code validation (CONFIRMED, implemented)
+### Multi-device MQTT (Phase 5, stage 5c)
 
-A seeded `devices` collection is the source of truth for which device IDs exist and what code proves a user can claim one:
+- Topic pattern: `prohori/<deviceId>/reading` (e.g. `prohori/G3037/reading`).
+- `mimic-device/`: reads `DEVICE_IDS` (comma-separated, e.g. `G3036,G3037,G3038,G3039,G3040,G3041`) from `.env`; one process publishes one reading per device per interval. **Each device keeps its own random-walk state** so devices drift independently.
+- `mqtt-bridge/`: subscribes to `prohori/+/reading`; derives the device ID from the topic; **rejects any device ID not present in the seeded `devices` collection** (prevents arbitrary collection creation via topic injection); inserts into the collection named by the device ID and sets `device_id` in the document to match; adds `created_at`. The bridge remains the **sole writer** to reading collections.
+- The abandoned topic `farm_controller/CATTLE_CTRL_001/event` must never be used.
 
-```js
-// devices collection, iotdb database
-{ deviceId: "G3036", deviceCode: "PROHORI-G3036-7X4K2" }
-```
+### Socket.IO per-device rooms (Phase 5, stage 5d)
 
-- `POST /api/auth/link-device` validates `{ deviceId, deviceCode }` against this collection.
-- New mimic/physical devices each need their own seeded `devices` document — not automatic, a manual step (`node src/seed/seedDevices.js`, safe to re-run, upserts).
-- Separate collection from the per-device reading collections — exists purely for the linking/auth flow.
+- Client passes its JWT in the Socket.IO handshake `auth` (`socket.js`). The server verifies it in a Socket.IO middleware, loads the user, and rejects sockets that are unauthenticated or have no linked device.
+- On connection, the server joins the socket to room `device:<deviceId>`.
+- `changeStream.js` emits `new-reading` with `io.to('device:' + deviceId).emit(...)` — never a global `io.emit`.
+- Payload shape is unchanged; `useLatestReading.js`'s return shape is unchanged, so no component changes.
+- Because a device can only be linked by one account, each room has at most one user.
 
 ## Stack
 
 **Backend**
 - Node.js + Express — REST API server
 - Mongoose — MongoDB object modeling / query layer
-- Socket.IO — real-time push to frontend
-- MongoDB Change Streams — detects new inserts, one watcher per seeded device (see above)
+- Socket.IO — real-time push to frontend (JWT-authenticated, per-device rooms)
+- MongoDB Change Streams — detects new inserts, one watcher per seeded device
 - `bcrypt` — password hashing (cost factor 10)
 - `jsonwebtoken` — JWT issuing/verification, 7-day expiry, no refresh-token flow
 - dotenv — environment variable loading
 - cors — allow requests from the frontend origin
 
-**Simulator / mimic pipeline**
-- `mimic-device/` (Python) — publishes fake sensor readings over MQTT to the real broker
+**Device pipeline**
+- `mimic-device/` (Python) — publishes fake sensor readings over MQTT to the real broker, for all six devices
 - `mqtt-bridge/` (Python) — subscribes to MQTT, sole writer to per-device reading collections
 - `simulator/` — retired (Phase 2 direct-to-Mongo writer), never run concurrently with the MQTT pipeline
 
 **Database**
 - MongoDB Atlas, database `iotdb`
-- Reading collections keyed per device (currently only `G3036`), resolved dynamically via `getReadingModel(deviceId)` — never hardcode a collection name in new code
+- Reading collections keyed per device (G3036–G3041), resolved dynamically via `getReadingModel(deviceId)` — never hardcode a collection name in new code
 - `devices` collection — seeded, validates device linking
-- `users` collection — username, email, passwordHash (bcrypt), embedded `device: { deviceId, linkedAt } | null`
+- `users` collection — username, email, passwordHash (bcrypt), embedded `device: { deviceId, linkedAt } | null`, with unique partial index on `device.deviceId`
 - **`server/` is read-only for reading data** — only `mqtt-bridge/` writes to reading collections
 
 **Frontend**
 - React (Vite) — SPA framework/build tool
-- react-router-dom — client-side routing, full auth + device-link route guarding (see Route Guard Summary below)
-- Tailwind CSS — utility-first styling, design tokens live in `client/src/index.css` under `@theme`, matching `DESIGN.md`
+- react-router-dom — client-side routing, auth + device-link route guarding
+- Tailwind CSS — utility-first styling, design tokens in `client/src/index.css` under `@theme`, matching `DESIGN.md`
 - Recharts — trend/daily-average charts
 - Socket.IO client — real-time updates for the live readings panel
-- axios — HTTP client, request interceptor attaches `Authorization: Bearer <token>` from `localStorage` automatically
+- axios — HTTP client, request interceptor attaches `Authorization: Bearer <token>` from `localStorage`
 
-**Design source:** Stitch-exported designs for the pre-auth pages (Login, Register, Link Device), translated into Tailwind classes and sharing a common `AuthShell.jsx` split-panel layout. The authenticated pages (Dashboard, History, Calendar) predate Stitch conversion for this phase and follow `DESIGN.md`'s tokens directly — see `DESIGN.md`.
+**Design source:** Stitch-exported designs for the pre-auth pages (Login, Register, Link Device), sharing a common `AuthShell.jsx`. Authenticated pages follow `DESIGN.md`'s tokens directly.
 
 ## Data Source — DO NOT GUESS FIELD NAMES
 
 Database: `iotdb`
-Collection: keyed per device — currently only `G3036`
+Collection: keyed per device — `G3036` … `G3041`
 
 Document shape (confirmed from live data, do not alter):
 
 ```js
 {
   _id: ObjectId,
-  device_id: String,       // "G3036"
+  device_id: String,       // "G3036" … "G3041"
   ammonia: Number,         // Double, ppm
   methane: Number,         // Double, ppm
-  humidity: Number,        // Int — CONFIRMED unit: percent (%)
+  humidity: Number,        // Int — percent (%)
   temperature: Number,     // Int, likely °F
   timestamp: Number,       // Unix epoch seconds, set by device/mimic device
   created_at: Date         // ISODate, set by DB insert (mqtt-bridge) — use this for sorting/filtering, not `timestamp`
@@ -118,9 +150,9 @@ Rules:
 - Never invent fields that aren't in this schema.
 - `server/` never writes/inserts/updates documents in reading collections — read-only. Only `mqtt-bridge/` writes.
 - Use `created_at` (not `timestamp`) for all date range queries, sorting, and aggregation grouping.
-- Reading collections are looked up dynamically via `getReadingModel(deviceId)` — never hardcode `'G3036'` in new controller, hook, or component code. If you see a hardcoded device ID string anywhere in a diff (frontend or backend), that's a regression — the whole point of Phase 4 was eliminating those.
-- The `users` and `devices` collections are a separate concern from reading data — plain Mongoose models, no dynamic collection selection needed for them.
-- Connection string(s) live in `.env` files — never hardcode, never commit `.env`. `JWT_SECRET` is a locally-generated random secret (e.g. `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"`), also never committed and never reused as a fixed/shared value across environments.
+- Reading collections are looked up dynamically via `getReadingModel(deviceId)` — never hardcode a device ID string (e.g. `'G3036'`) in controller, hook, or component code. Hardcoded device IDs in a diff are a regression. (Exceptions: `seedDevices.js`, and `.env` example values for `mimic-device/`.)
+- The `users` and `devices` collections are plain Mongoose models, no dynamic collection selection.
+- Connection strings live in `.env` files — never hardcode, never commit `.env`. `JWT_SECRET` is a locally-generated random secret, never committed, never shared across environments.
 
 ## Folder Structure
 
@@ -134,113 +166,85 @@ prohori-dashboard/
 │   │   ├── models/
 │   │   │   ├── Reading.js         # Factory: getReadingModel(deviceId) — not a static export
 │   │   │   ├── User.js            # username, email, passwordHash, device { deviceId, linkedAt } | null
+│   │   │   │                      #   + unique PARTIAL index on device.deviceId (Phase 5)
 │   │   │   └── Device.js          # Backs the seeded `devices` collection (deviceId, deviceCode)
 │   │   ├── controllers/
-│   │   │   ├── authController.js       # register, login, me, linkDevice
+│   │   │   ├── authController.js       # register, login, me, linkDevice (409 on duplicate key, Phase 5)
 │   │   │   └── readingsController.js   # getLatest, getHistory, getDailyAverages, getLog,
-│   │   │                               #   getCalendar, getDay — all resolve their collection via
-│   │   │                               #   getReadingModel(req.user.device.deviceId)
+│   │   │                               #   getCalendar, getDay — all via getReadingModel(req.user.device.deviceId)
 │   │   ├── utils/
-│   │   │   └── thresholds.js      # Zone classification logic (safe/warning/danger) — single source of truth
+│   │   │   └── thresholds.js      # Zone classification (safe/warning/danger) — single source of truth
 │   │   ├── routes/
 │   │   │   ├── auth.js            # /api/auth/register, /login, /me, /link-device
-│   │   │   └── readings.js        # requireAuth + requireDevice applied to all reading routes
+│   │   │   └── readings.js        # requireAuth + requireDevice on all reading routes
 │   │   ├── middleware/
 │   │   │   ├── errorHandler.js    # Centralized error handling
-│   │   │   └── requireAuth.js     # Verifies JWT, loads user (incl. linked device), attaches req.user;
-│   │   │                          #   requireDevice (readings.js) 403s if req.user.device is missing
+│   │   │   └── requireAuth.js     # Verifies JWT, loads user, attaches req.user
 │   │   ├── seed/
-│   │   │   └── seedDevices.js     # One-off/idempotent script: upserts seeded `devices` docs.
-│   │   │                          #   Run manually (`node src/seed/seedDevices.js`) per new device.
+│   │   │   └── seedDevices.js     # Idempotent upsert of the 6 seeded `devices` docs (Phase 5: G3036–G3041)
 │   │   ├── sockets/
-│   │   │   └── changeStream.js    # Loads all seeded Device docs, opens one Change Stream per device's
-│   │   │                          #   collection via getReadingModel(deviceId), emits `new-reading`.
-│   │   │                          #   Per-user socket scoping is still deferred to Phase 5 — see below.
-│   │   └── app.js                 # Express app setup: middleware, mounts /api/auth + /api/readings,
-│   │                              #   CORS, Socket.IO server, starts the server
+│   │   │   └── changeStream.js    # One Change Stream per seeded device; emits `new-reading` to room
+│   │   │                          #   `device:<deviceId>` only (Phase 5)
+│   │   └── app.js                 # Express setup, mounts routes, CORS, Socket.IO server with JWT
+│   │                              #   handshake auth + room join (Phase 5), starts the server
 │   ├── .env                       # MONGO_URI, PORT, CLIENT_ORIGIN, JWT_SECRET — gitignored
 │   ├── .env.example
-│   └── package.json               # includes bcrypt, jsonwebtoken
+│   └── package.json
 │
-├── mimic-device/                  # Publishes fake sensor readings over MQTT — semi-permanent
-│   │                               # stand-in for the physical device, runs against the real broker.
-│   ├── generator.py
+├── mimic-device/                  # Publishes fake readings over MQTT for all six devices (Phase 5)
+│   ├── generator.py               # Per-device random-walk state
 │   ├── publisher.py
 │   ├── run_local_test.py
-│   ├── .env / .env.example / README.md / requirements.txt
+│   ├── .env / .env.example / README.md / requirements.txt   # DEVICE_IDS=G3036,...,G3041
 │
-├── mqtt-bridge/                   # Subscribes to MQTT, writes into device reading collections —
-│   │                               # the sole writer to those collections.
+├── mqtt-bridge/                   # Subscribes to prohori/+/reading, validates device ID against seeded
+│   │                               # `devices`, writes to that device's collection — sole writer.
 │   ├── bridge.py
 │   ├── .env / .env.example / README.md / requirements.txt
 │
 ├── simulator/                     # RETIRED (Phase 2) — never run concurrently with the MQTT pipeline.
 │
-├── client/                        # React (Vite) frontend — the dashboard UI
+├── client/                        # React (Vite) frontend
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── layout/
-│   │   │   │   ├── Sidebar.jsx           # Nav links (real routes), device status (real deviceId,
-│   │   │   │   │                         #   from user.device.deviceId, no hardcoding), logout control
-│   │   │   │   └── Header.jsx            # title prop per page, real deviceId via prop, status, last-updated
-│   │   │   ├── auth/
-│   │   │   │   └── AuthShell.jsx         # Shared split-panel layout for Login/Register/LinkDevice
-│   │   │   ├── dashboard/
-│   │   │   │   ├── SensorCard.jsx        # One metric's live value
-│   │   │   │   ├── ReadingsPanel.jsx     # Grid wrapper laying out the 4 SensorCards
-│   │   │   │   ├── HistoryTable.jsx      # Paginated table, used on /history (server-side pagination)
-│   │   │   │   ├── HistoryTabs.jsx       # 7d/30d toggle — Dashboard chart only, NOT on /history
-│   │   │   │   └── TrendChart.jsx        # Recharts line chart — plots DAILY AVERAGES
-│   │   │   │                             #   (ammonia_avg/methane_avg/date), not raw readings
-│   │   │   ├── calendar/
-│   │   │   │   ├── CalendarGrid.jsx      # Month-view grid, plain/neutral cells, no zone coloring,
-│   │   │   │   │                         #   no-data days muted/disabled, prev/next nav
-│   │   │   │   └── DayDetailCards.jsx    # Min/max cards per metric on day click; left indicator bar
-│   │   │   │                             #   uses the MORE SEVERE of min/max zone, not just min's
-│   │   │   └── common/
-│   │   │       └── StatusBadge.jsx       # Reusable online/offline colored-dot badge
+│   │   │   ├── layout/            # Sidebar.jsx, Header.jsx
+│   │   │   ├── auth/              # AuthShell.jsx
+│   │   │   ├── dashboard/         # SensorCard, ReadingsPanel, HistoryTable, HistoryTabs, TrendChart
+│   │   │   ├── calendar/          # CalendarGrid, DayDetailCards (indicator uses MORE SEVERE of min/max)
+│   │   │   └── common/            # StatusBadge
 │   │   ├── context/
-│   │   │   └── AuthContext.jsx    # { token, user, loading }, exposes useAuth() with
-│   │   │                          #   login/register/logout/setUser; setUser lets pages (e.g.
-│   │   │                          #   LinkDevice) update user state directly, no page reload needed
+│   │   │   └── AuthContext.jsx    # { token, user, loading }; useAuth() with login/register/logout/setUser
 │   │   ├── pages/
-│   │   │   ├── Dashboard.jsx      # `/` — ReadingsPanel (live) + TrendChart (daily averages)
-│   │   │   ├── History.jsx        # `/history` — unbounded, paginated reading log, no 7d/30d toggle
-│   │   │   ├── Calendar.jsx       # `/calendar` — month grid + min/max drill-down
+│   │   │   ├── Dashboard.jsx      # `/`
+│   │   │   ├── History.jsx        # `/history`
+│   │   │   ├── Calendar.jsx       # `/calendar`
 │   │   │   ├── Login.jsx          # `/login`
 │   │   │   ├── Register.jsx       # `/register`
-│   │   │   └── LinkDevice.jsx     # `/link-device`
+│   │   │   └── LinkDevice.jsx     # `/link-device` — shows 409 "already linked" error inline (Phase 5)
 │   │   ├── hooks/
-│   │   │   ├── useLatestReading.js       # Socket.IO listener (current reading)
-│   │   │   ├── useDeviceStatus.js        # Wraps useLatestReading — derives online/offline
-│   │   │   │                             #   (5-min threshold) + lastUpdated; used by Dashboard,
-│   │   │   │                             #   History, Calendar for their Header props
-│   │   │   ├── useDailyAverages.js       # GET /api/readings/daily-averages?range= — Dashboard chart
-│   │   │   ├── useReadingsLog.js         # GET /api/readings/log?page=&limit= — History page
-│   │   │   ├── useReadingsHistory.js     # Legacy Phase 1 raw-history hook — no longer used by any
-│   │   │   │                             #   page as of this cleanup; kept for now, candidate for removal
-│   │   │   ├── useCalendarData.js        # GET /api/readings/calendar?month= — Calendar grid
-│   │   │   └── useDayDetail.js           # GET /api/readings/day/:date — Calendar drill-down;
-│   │   │                                 #   no-op (no fetch) when date is null
+│   │   │   ├── useLatestReading.js       # Socket.IO listener (room-scoped server-side)
+│   │   │   ├── useDeviceStatus.js
+│   │   │   ├── useDailyAverages.js
+│   │   │   ├── useReadingsLog.js
+│   │   │   ├── useReadingsHistory.js     # Legacy, unused — removal candidate
+│   │   │   ├── useCalendarData.js
+│   │   │   └── useDayDetail.js
 │   │   ├── services/
-│   │   │   ├── api.js              # axios instance + interceptor (attaches Bearer token from
-│   │   │   │                       #   localStorage), all auth + reading endpoint wrappers
-│   │   │   └── socket.js           # Socket.IO client instance/connection setup
-│   │   ├── App.jsx                # BrowserRouter + route guards: RequireAuth (with optional
-│   │   │                          #   requireDevice / redirectLinkedDevice flags) and
-│   │   │                          #   RedirectIfAuthed — see Route Guard Summary below
-│   │   ├── main.jsx                # Vite/React entry point, wraps <App/> in <AuthProvider>
-│   │   └── index.css              # Tailwind directives + @theme tokens (matches DESIGN.md)
+│   │   │   ├── api.js              # axios instance + Bearer interceptor, endpoint wrappers
+│   │   │   └── socket.js           # Socket.IO client; passes JWT in handshake `auth` (Phase 5)
+│   │   ├── App.jsx                # BrowserRouter + route guards (see table below)
+│   │   ├── main.jsx
+│   │   └── index.css              # Tailwind + @theme tokens
 │   ├── .env / .env.example         # VITE_API_URL
 │   └── package.json
 │
-├── AGENTS.md                      # This file — stack, schema, conventions, folder guide
-├── PAGES.md                       # Screen/section breakdown for the current phase
-├── DESIGN.md                      # Stitch design output translated into design tokens/specs
-└── README.md                      # Setup instructions
+├── AGENTS.md
+├── PAGES.md
+├── DESIGN.md
+└── README.md
 ```
 
-## Route Guard Summary (implemented in `App.jsx`)
+## Route Guard Summary (implemented in `App.jsx`, unchanged)
 
 | State | `/`, `/history`, `/calendar` | `/link-device` | `/login`, `/register` |
 |---|---|---|---|
@@ -248,59 +252,64 @@ prohori-dashboard/
 | Authenticated, no device linked | → `/link-device` | shown | → `/` |
 | Authenticated, device linked | shown | → `/` | → `/` |
 
-While `AuthContext`'s initial `/api/auth/me` check is in flight (`loading: true`), a minimal loading state renders instead of any redirect, to avoid a flash of the wrong page.
+While `AuthContext`'s initial `/api/auth/me` check is in flight (`loading: true`), a minimal loading state renders instead of any redirect.
 
 ## API Contract
 
-- `POST /api/auth/register` → `{ username, email, password }` → creates user, returns `{ token, user }`
-- `POST /api/auth/login` → `{ email, password }` → returns `{ token, user }`; generic "Invalid email or password" on failure, no field-level hinting
-- `GET /api/auth/me` → (requires auth) → `{ username, email, device: { deviceId, linkedAt } | null }`
-- `POST /api/auth/link-device` → (requires auth) → `{ deviceId, deviceCode }` → validates against `devices`, saves to user, returns `{ user }` (no token — same one from login/register still applies). Already-linked → 409. Wrong code or nonexistent device → same generic "Invalid device ID or code" either way.
-- `GET /api/readings/latest` → (requires auth + linked device) → single most recent document + zone classifications
-- `GET /api/readings/daily-averages?range=7d|30d` → array of `{ date, ammonia_avg, methane_avg, humidity_avg, temperature_avg, ...zones }` — **Dashboard chart's actual data source**
-- `GET /api/readings/log?page=&limit=` → `{ data, page, limit, total, totalPages }`, unbounded, newest-first — **History page's actual data source**
-- `GET /api/readings/calendar?month=YYYY-MM` → array of `{ date, ammonia_min, ammonia_max, ammonia_min_zone, ammonia_max_zone, methane_min, methane_max, methane_min_zone, methane_max_zone, humidity_min, humidity_max, humidity_min_zone, humidity_max_zone, temperature_min, temperature_max, temperature_min_zone, temperature_max_zone }` per day — min and max classified independently
-- `GET /api/readings/day/:date` → full min/max detail for one day (calendar drill-down)
-- `GET /api/readings/history?range=7d|30d` → raw readings — **legacy Phase 1 endpoint, no longer called by any frontend page** as of this cleanup; still exists server-side, candidate for deprecation
-- `GET /health` → unchanged, no auth required
-- **Socket.IO:** `new-reading` — emitted per-device via the Change Stream watchers in `changeStream.js`; still broadcasts globally regardless of which user is connected (per-user scoping deferred to Phase 5, see below — not yet a real leak since there's one device, but flagged before Phase 5 introduces devices other users won't be linked to)
+- `POST /api/auth/register` → `{ username, email, password }` → `{ token, user }`
+- `POST /api/auth/login` → `{ email, password }` → `{ token, user }`; generic "Invalid email or password" on failure
+- `GET /api/auth/me` → (auth) → `{ username, email, device: { deviceId, linkedAt } | null }`
+- `POST /api/auth/link-device` → (auth) → `{ deviceId, deviceCode }`:
+  - success → `{ user }`
+  - wrong code or nonexistent device → generic "Invalid device ID or code"
+  - user already has a device → 409
+  - **(Phase 5)** device already linked to another account → 409 "This device is already linked to another account" (only reachable after a correct code)
+- `GET /api/readings/latest` → (auth + device) → most recent document + zones
+- `GET /api/readings/daily-averages?range=7d|30d` → `{ date, ammonia_avg, methane_avg, humidity_avg, temperature_avg, ...zones }[]` — Dashboard chart source
+- `GET /api/readings/log?page=&limit=` → `{ data, page, limit, total, totalPages }` — History source
+- `GET /api/readings/calendar?month=YYYY-MM` → per-day min/max with independently classified zones
+- `GET /api/readings/day/:date` → min/max detail for one day
+- `GET /api/readings/history?range=7d|30d` → legacy raw readings, unused by frontend, deprecation candidate
+- `GET /health` → no auth
+- **Socket.IO (Phase 5):** handshake requires a valid JWT in `auth.token`; server joins the socket to `device:<deviceId>`. `new-reading` is emitted per-device to that room only. Payload shape matches `/api/readings/latest`.
 
 ## Conventions
 
-- Backend: standard Express controller/route separation, async/await with try/catch, centralized error middleware, no business logic inside route files.
-- Frontend: functional components + hooks only, no class components. Styling via Tailwind utility classes only.
-- Passwords: bcrypt, cost factor 10, never log or return `passwordHash` (also stripped by `User.js`'s `toJSON`/`toObject` transform as a defensive second layer).
-- JWT: 7-day expiry, signed with `JWT_SECRET` from `.env`, never hardcoded, never a shared/reused value across environments.
-- Frontend stores the token in `localStorage` (key: `prohori_token`) — acceptable for this project's internship-scale threat model.
-- Never hardcode a device ID (`"G3036"` or otherwise) anywhere in new frontend or backend code — always resolve it from `req.user.device.deviceId` (backend) or `user.device.deviceId` via `useAuth()` (frontend). This was a recurring regression during Phase 4 cleanup; treat any new instance of it as a bug.
-- Env vars: `MONGO_URI`, `PORT`, `CLIENT_ORIGIN`, `JWT_SECRET` in `server/.env`; `VITE_API_URL` in `client/.env`; `MONGO_URI` in `mqtt-bridge/.env` and `mimic-device/.env`. Commit `.env.example` files with placeholders only.
-- Keep components small and single-purpose; `hooks/` isolates all data-fetching/real-time logic from UI components.
-- Tailwind design tokens live in `client/src/index.css` under `@theme`, mirroring `DESIGN.md` — avoid hardcoding hex values inline in JSX; use named tokens.
-- Material Symbols icon names must be verified against the actual Material Symbols set before use — `"thermometer"` is not valid (caught during Calendar review), the correct name is `"thermostat"`.
-- When a value is classified into independent sub-zones (e.g. a day's min vs max), any single shared visual indicator (e.g. one colored bar) must reflect the **more severe** of the sub-zones, not an arbitrary one — silently downplaying the worse reading defeats the purpose of independent classification.
+- Backend: controller/route separation, async/await with try/catch, centralized error middleware, no business logic in route files.
+- Frontend: functional components + hooks only. Tailwind utility classes only.
+- Passwords: bcrypt cost 10; never log or return `passwordHash`.
+- JWT: 7-day expiry, signed with `JWT_SECRET`; frontend stores it in `localStorage` (`prohori_token`).
+- Never hardcode a device ID in app code — resolve from `req.user.device.deviceId` (backend) or `user.device.deviceId` via `useAuth()` (frontend).
+- Uniqueness and other integrity rules belong in the database (indexes), not only in controllers.
+- Never use `io.emit` for reading data; always target a `device:<deviceId>` room.
+- The MQTT bridge must validate device IDs against the seeded `devices` collection before writing.
+- Env vars: `MONGO_URI`, `PORT`, `CLIENT_ORIGIN`, `JWT_SECRET` in `server/.env`; `VITE_API_URL` in `client/.env`; `MONGO_URI` (+ broker settings, and `DEVICE_IDS` for mimic) in `mqtt-bridge/.env` and `mimic-device/.env`. Commit `.env.example` with placeholders only.
+- Keep components small and single-purpose; `hooks/` isolates data-fetching/real-time logic.
+- Tailwind tokens live in `index.css` under `@theme`, mirroring `DESIGN.md`; no inline hex values in JSX.
+- Material Symbols icon names must be verified (`"thermostat"`, not `"thermometer"`).
+- When a value has independently classified sub-zones (min vs max), a single shared indicator must reflect the **more severe** one.
 
 ## Known Temporary Workarounds (Still Open)
 
-- `getHistory`/`getDailyAverages` still use document-count `.limit()` windowing instead of a genuine `Date.now()`-relative `$gte` filter on `created_at`. Search `TODO(revert-for-production)` in `readingsController.js`.
-- `getDailyAverages`'s `$dateToString` grouping has no explicit `timezone` option (defaults to UTC) — unverified for a Bangladesh-based (UTC+6) user; a late-evening BD reading could group into the next UTC day. Note: `formatChartDate` on the frontend (`dateFormatter.js`) parses `YYYY-MM-DD` as local time (via a `T00:00:00` suffix with no `Z`), which avoids a *display*-side shift, but the underlying day-boundary grouping on the backend is still UTC-based and unverified.
-- `useReadingsHistory.js` (frontend) is now unused dead code — no page calls it since the Stage C cleanup. Candidate for removal once confirmed nothing else depends on it.
-- `GET /api/readings/history` (backend) is likewise now unused by the frontend — candidate for deprecation, kept for now in case anything external still calls it.
+- `getHistory`/`getDailyAverages` still use document-count `.limit()` windowing instead of a `Date.now()`-relative `$gte` filter on `created_at`. Search `TODO(revert-for-production)` in `readingsController.js`.
+- `getDailyAverages`'s `$dateToString` grouping has no `timezone` option (UTC); unverified for UTC+6 users.
+- `useReadingsHistory.js` and `GET /api/readings/history` are unused — removal/deprecation candidates.
 
-## Out of Scope (Deferred to Phase 5 or later)
+## Out of Scope (Deferred beyond Phase 5)
 
-- Multiple devices per user / a device switcher (`device` object → `devices` array)
-- Scoping Socket.IO `new-reading` delivery to only the connected user's linked device(s)
-- Unlink / re-link device flow
-- Password reset / email verification flows
-- Role-based access (admin vs regular user)
+- Multiple devices per user / device switcher (`device` object → `devices` array)
+- Unlink / re-link device flow (including releasing a device so another account can claim it)
+- Password reset / email verification
+- Role-based access
 - OAuth / third-party login
-- Push/email/SMS notifications for threshold alerts (still visual/in-dashboard only)
+- Push/email/SMS notifications for threshold alerts
 - Export/download data feature
-- Login timing-side-channel hardening (dummy-hash comparison when no user is found) — noted during Stage A review as low-priority given the project's internship-scale threat model
+- Login timing-side-channel hardening
 
 ## Phase History
 
-- **Phase 1**: Read-only single-device dashboard, polling-based updates, threshold-based visual alerts.
-- **Phase 2 (COMPLETE)**: Real-time via Socket.IO + Change Streams, Python device simulator, daily-average charting speced, unbounded reading log speced, calendar min/max view speced. Three routed pages instead of one. *(Note: the daily-average chart, unbounded log, and calendar frontend were speced here but not actually wired/built until the Phase 4 cleanup below — the backend endpoints existed, but Dashboard/History kept using older endpoints and Calendar had no frontend at all until now.)*
-- **Phase 3 (COMPLETE)**: Replaced the direct-to-Mongo simulator with a real MQTT pipeline (`mimic-device/` + `mqtt-bridge/`), verified end-to-end including live Socket.IO delivery.
-- **Phase 4 (COMPLETE)**: Authentication (register/login via JWT + bcrypt) and single-device linking per user. `Reading` model became a factory keyed by device ID. Device-code validation via a seeded `devices` collection. `changeStream.js` updated to watch all seeded devices' collections instead of one hardcoded collection (hotfix, required by the Reading factory change). Full frontend: `AuthContext`, Login/Register/LinkDevice pages (Stitch-converted, shared `AuthShell`), route guarding matching the table above, Sidebar logout, all device-ID references made dynamic (`user.device.deviceId`) across Sidebar, Header, and both mobile/desktop views. **Alongside Phase 4**, closed two outstanding Phase 2 frontend gaps: Dashboard chart and History page rewired from Phase 1 endpoints to `daily-averages`/`log`; Calendar page built end-to-end (grid + min/max drill-down, with a zone-severity fix so the drill-down cards' indicator reflects the worse of min/max rather than always min). Multi-device per user, per-user socket scoping, and everything else listed under "Out of Scope" above remain deferred to Phase 5.
+- **Phase 1**: Read-only single-device dashboard, polling updates, threshold-based visual alerts.
+- **Phase 2 (COMPLETE)**: Real-time via Socket.IO + Change Streams, Python simulator, daily-average charting, unbounded log, calendar min/max view speced. (Frontend for several of these was only wired during the Phase 4 cleanup.)
+- **Phase 3 (COMPLETE)**: MQTT pipeline (`mimic-device/` + `mqtt-bridge/`) replaced the direct-to-Mongo simulator.
+- **Phase 4 (COMPLETE)**: JWT/bcrypt auth, single-device linking, `Reading` factory keyed by device ID, seeded `devices` collection, multi-collection Change Streams, full auth frontend and route guards, plus Phase 2 frontend gap cleanup (daily-averages chart, unbounded log, Calendar page).
+- **Phase 5 (IN PROGRESS)**: Six devices (G3036–G3041); one-account-per-device enforced by a unique partial index; multi-device MQTT (mimic publishes all six, bridge routes by topic and validates against seeded devices); Socket.IO delivery scoped to per-device rooms with JWT handshake auth. Still one device per user.
