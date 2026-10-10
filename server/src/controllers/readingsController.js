@@ -7,7 +7,7 @@ const { getZones } = require('../utils/thresholds');
  */
 const getLatest = async (req, res, next) => {
   try {
-    const Reading = getReadingModel(req.user.device.deviceId);
+    const Reading = getReadingModel(req.deviceId);
     const reading = await Reading.findOne().sort({ created_at: -1 }).lean();
 
     if (!reading) {
@@ -35,7 +35,7 @@ const getLatest = async (req, res, next) => {
  */
 const getHistory = async (req, res, next) => {
   try {
-    const Reading = getReadingModel(req.user.device.deviceId);
+    const Reading = getReadingModel(req.deviceId);
     const { range } = req.query;
     let days = 7;
 
@@ -80,7 +80,7 @@ const getHistory = async (req, res, next) => {
  */
 const getDailyAverages = async (req, res, next) => {
   try {
-    const Reading = getReadingModel(req.user.device.deviceId);
+    const Reading = getReadingModel(req.deviceId);
     const { range } = req.query;
     const rangeKey = range === '30d' ? '30d' : '7d';
 
@@ -139,7 +139,7 @@ const getDailyAverages = async (req, res, next) => {
  */
 const getLog = async (req, res, next) => {
   try {
-    const Reading = getReadingModel(req.user.device.deviceId);
+    const Reading = getReadingModel(req.deviceId);
     const requestedPage = Number.parseInt(req.query.page, 10);
     const requestedLimit = Number.parseInt(req.query.limit, 10);
     const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
@@ -263,7 +263,7 @@ const getUtcMonthBounds = (month) => {
  */
 const getCalendar = async (req, res, next) => {
   try {
-    const Reading = getReadingModel(req.user.device.deviceId);
+    const Reading = getReadingModel(req.deviceId);
     const { start, end } = getUtcMonthBounds(req.query.month);
 
     // Grouping uses UTC calendar days, matching daily-averages; revisit timezone
@@ -297,7 +297,7 @@ const getUtcDayBounds = (date) => {
  */
 const getDay = async (req, res, next) => {
   try {
-    const Reading = getReadingModel(req.user.device.deviceId);
+    const Reading = getReadingModel(req.deviceId);
     const bounds = getUtcDayBounds(req.params.date);
 
     if (!bounds) {

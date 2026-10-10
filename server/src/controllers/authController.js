@@ -22,7 +22,7 @@ function publicUser(user) {
   return {
     username: user.username,
     email: user.email,
-    device: user.device || null
+    devices: user.devices || []
   };
 }
 
@@ -100,14 +100,11 @@ const login = async (req, res, next) => {
   }
 };
 
-const me = (req, res) => res.status(200).json({
-  username: req.user.username,
-  email: req.user.email,
-  device: req.user.device || null
-});
+const me = (req, res) => res.status(200).json(publicUser(req.user));
 
 const linkDevice = async (req, res, next) => {
   try {
+    // 1. Validate input.
     const { deviceId, deviceCode } = req.body || {};
     if (typeof deviceId !== 'string' || !deviceId.trim()
       || typeof deviceCode !== 'string' || !deviceCode.trim()) {
@@ -116,31 +113,37 @@ const linkDevice = async (req, res, next) => {
 
     const normalizedDeviceId = deviceId.trim();
     const normalizedDeviceCode = deviceCode.trim();
-    const device = await Device.findOne({ deviceId: normalizedDeviceId });
 
-    if (!device || device.deviceCode !== normalizedDeviceCode) {
+    // 2. Validate against the devices collection (same error for both failures
+    //    so callers cannot determine which field was wrong).
+    const seededDevice = await Device.findOne({ deviceId: normalizedDeviceId });
+    if (!seededDevice || seededDevice.deviceCode !== normalizedDeviceCode) {
       throw createError('Invalid device ID or code', 400);
     }
 
-    if (req.user.device) {
-      throw createError('Device already linked', 409);
-    }
-
-    req.user.device = {
-      deviceId: normalizedDeviceId,
-      linkedAt: new Date()
-    };
-
+    // 3. Atomic push: the $ne filter prevents the same user from adding the
+    //    same device twice without a race condition.
+    let result;
     try {
-      await req.user.save();
+      result = await User.updateOne(
+        { _id: req.user._id, 'devices.deviceId': { $ne: normalizedDeviceId } },
+        { $push: { devices: { deviceId: normalizedDeviceId, linkedAt: new Date() } } }
+      );
     } catch (error) {
+      // 4. Duplicate-key → another account already owns this device.
       if (error.code === 11000) {
         throw createError('This device is already linked to another account', 409);
       }
       throw error;
     }
 
-    return res.status(200).json({ user: publicUser(req.user) });
+    if (result.matchedCount === 0) {
+      throw createError('You have already added this device', 409);
+    }
+
+    // Reload the user to return the full updated devices array.
+    const updatedUser = await User.findById(req.user._id);
+    return res.status(200).json({ user: publicUser(updatedUser) });
   } catch (error) {
     return next(error);
   }

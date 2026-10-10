@@ -1,5 +1,6 @@
 const express = require('express');
 const requireAuth = require('../middleware/requireAuth');
+const resolveDevice = require('../middleware/resolveDevice');
 const router = express.Router();
 const {
 	getLatest,
@@ -10,35 +11,22 @@ const {
 	getDay
 } = require('../controllers/readingsController');
 
-const requireDevice = (req, res, next) => {
-	if (!req.user.device || !req.user.device.deviceId) {
-		return res.status(403).json({
-			error: {
-				message: 'No device linked',
-				status: 403
-			}
-		});
-	}
-
-	return next();
-};
-
 // GET /api/readings/latest
-router.get('/latest', requireAuth, requireDevice, getLatest);
+router.get('/latest', requireAuth, resolveDevice, getLatest);
 
 // GET /api/readings/history
-router.get('/history', requireAuth, requireDevice, getHistory);
+router.get('/history', requireAuth, resolveDevice, getHistory);
 
 // GET /api/readings/daily-averages
-router.get('/daily-averages', requireAuth, requireDevice, getDailyAverages);
+router.get('/daily-averages', requireAuth, resolveDevice, getDailyAverages);
 
 // GET /api/readings/log
-router.get('/log', requireAuth, requireDevice, getLog);
+router.get('/log', requireAuth, resolveDevice, getLog);
 
 // GET /api/readings/calendar
-router.get('/calendar', requireAuth, requireDevice, getCalendar);
+router.get('/calendar', requireAuth, resolveDevice, getCalendar);
 
 // GET /api/readings/day/:date
-router.get('/day/:date', requireAuth, requireDevice, getDay);
+router.get('/day/:date', requireAuth, resolveDevice, getDay);
 
 module.exports = router;

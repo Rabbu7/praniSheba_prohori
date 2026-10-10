@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const deviceSchema = new mongoose.Schema({
+const deviceEntrySchema = new mongoose.Schema({
   deviceId: String,
   linkedAt: Date
 }, { _id: false });
@@ -23,9 +23,9 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  device: {
-    type: deviceSchema,
-    default: null
+  devices: {
+    type: [deviceEntrySchema],
+    default: []
   },
   createdAt: {
     type: Date,
@@ -34,10 +34,10 @@ const userSchema = new mongoose.Schema({
 });
 
 userSchema.index(
-  { 'device.deviceId': 1 },
+  { 'devices.deviceId': 1 },
   {
     unique: true,
-    partialFilterExpression: { 'device.deviceId': { $type: 'string' } }
+    partialFilterExpression: { 'devices.deviceId': { $type: 'string' } }
   }
 );
 
