@@ -15,7 +15,7 @@ Company site: https://www.pranisheba.com.bd/-eng
 Phase 4 (auth + single-device linking) is complete. Phase 5 is deliberately small and has four stages:
 
 1. **5a — Docs** (this file + `PAGES.md`).
-2. **5b — Unique device ownership + device seeding.** Six devices exist (G3036–G3041). A device can be linked by **only one account**, enforced by a database unique index (not just a controller check).
+2. **5b — Unique device ownership + device seeding.** Six devices exist (G3036, G3037, G3038, G3040, G3041, G3042). A device can be linked by **only one account**, enforced by a database unique index (not just a controller check).
 3. **5c — Multi-device MQTT.** `mimic-device/` publishes for all six devices; `mqtt-bridge/` routes each message to the right collection and rejects unknown device IDs.
 4. **5d — Socket.IO per-device rooms.** `new-reading` is delivered only to sockets belonging to users linked to that device. This was deferred in Phase 4 as "not yet a real leak" (one device). With six devices it becomes a real bug — a user linked to G3036 would otherwise receive G3037's readings — so it is pulled into Phase 5.
 
@@ -44,13 +44,15 @@ Six devices, each with its own reading collection on the shared Atlas cluster (`
 | G3036 | PROHORI-G3036-7X4K2 |
 | G3037 | PROHORI-G3037-9M2QF |
 | G3038 | PROHORI-G3038-4TC8W |
-| G3039 | PROHORI-G3039-H6N3B |
 | G3040 | PROHORI-G3040-2XJ7R |
 | G3041 | PROHORI-G3041-V5K9D |
+| G3042 | PROHORI-G3042-H6N3B |
 
 - All codes are arbitrary (no physical devices yet); they are hardcoded in `server/src/seed/seedDevices.js`, which upserts and is safe to re-run: `node src/seed/seedDevices.js`.
 - **Seed before starting the server** — `changeStream.js` loads seeded devices once at startup. If devices are seeded while the server is running, restart the server.
-- Reading collections for G3037–G3041 are created automatically by MongoDB on first insert (by `mqtt-bridge/`).
+- Reading collections for G3037, G3038, G3040, G3041 and G3042 are created automatically by MongoDB on first insert (by `mqtt-bridge/`).
+
+**G3039 is deliberately NOT used.** A `G3039` collection already exists on the shared cluster with real historical data (Aug 2024). Never write to it, and never add it to `seedDevices.js` or `DEVICE_IDS`. Before adding any further device ID, confirm no collection with that name exists in `iotdb`.
 
 ### One account per device (CONFIRMED design)
 
@@ -80,7 +82,7 @@ Every function in `readingsController.js` resolves its collection via `getReadin
 ### Multi-device MQTT (Phase 5, stage 5c)
 
 - Topic pattern: `prohori/<deviceId>/reading` (e.g. `prohori/G3037/reading`).
-- `mimic-device/`: reads `DEVICE_IDS` (comma-separated, e.g. `G3036,G3037,G3038,G3039,G3040,G3041`) from `.env`; one process publishes one reading per device per interval. **Each device keeps its own random-walk state** so devices drift independently.
+- `mimic-device/`: reads `DEVICE_IDS` (comma-separated, e.g. `G3036,G3037,G3038,G3040,G3041,G3042`) from `.env`; one process publishes one reading per device per interval. **Each device keeps its own random-walk state** so devices drift independently.
 - `mqtt-bridge/`: subscribes to `prohori/+/reading`; derives the device ID from the topic; **rejects any device ID not present in the seeded `devices` collection** (prevents arbitrary collection creation via topic injection); inserts into the collection named by the device ID and sets `device_id` in the document to match; adds `created_at`. The bridge remains the **sole writer** to reading collections.
 - The abandoned topic `farm_controller/CATTLE_CTRL_001/event` must never be used.
 
@@ -111,7 +113,7 @@ Every function in `readingsController.js` resolves its collection via `getReadin
 
 **Database**
 - MongoDB Atlas, database `iotdb`
-- Reading collections keyed per device (G3036–G3041), resolved dynamically via `getReadingModel(deviceId)` — never hardcode a collection name in new code
+- Reading collections keyed per device (G3036, G3037, G3038, G3040, G3041, G3042), resolved dynamically via `getReadingModel(deviceId)` — never hardcode a collection name in new code
 - `devices` collection — seeded, validates device linking
 - `users` collection — username, email, passwordHash (bcrypt), embedded `device: { deviceId, linkedAt } | null`, with unique partial index on `device.deviceId`
 - **`server/` is read-only for reading data** — only `mqtt-bridge/` writes to reading collections
@@ -129,14 +131,14 @@ Every function in `readingsController.js` resolves its collection via `getReadin
 ## Data Source — DO NOT GUESS FIELD NAMES
 
 Database: `iotdb`
-Collection: keyed per device — `G3036` … `G3041`
+Collection: keyed per device — `G3036`, `G3037`, `G3038`, `G3040`, `G3041`, `G3042`
 
 Document shape (confirmed from live data, do not alter):
 
 ```js
 {
   _id: ObjectId,
-  device_id: String,       // "G3036" … "G3041"
+  device_id: String,       // "G3036", "G3037", "G3038", "G3040", "G3041" or "G3042"
   ammonia: Number,         // Double, ppm
   methane: Number,         // Double, ppm
   humidity: Number,        // Int — percent (%)
@@ -181,7 +183,7 @@ prohori-dashboard/
 │   │   │   ├── errorHandler.js    # Centralized error handling
 │   │   │   └── requireAuth.js     # Verifies JWT, loads user, attaches req.user
 │   │   ├── seed/
-│   │   │   └── seedDevices.js     # Idempotent upsert of the 6 seeded `devices` docs (Phase 5: G3036–G3041)
+│   │   │   └── seedDevices.js     # Idempotent upsert of the 6 seeded `devices` docs (Phase 5)
 │   │   ├── sockets/
 │   │   │   └── changeStream.js    # One Change Stream per seeded device; emits `new-reading` to room
 │   │   │                          #   `device:<deviceId>` only (Phase 5)
@@ -195,7 +197,7 @@ prohori-dashboard/
 │   ├── generator.py               # Per-device random-walk state
 │   ├── publisher.py
 │   ├── run_local_test.py
-│   ├── .env / .env.example / README.md / requirements.txt   # DEVICE_IDS=G3036,...,G3041
+│   ├── .env / .env.example / README.md / requirements.txt   # DEVICE_IDS=G3036,G3037,G3038,G3040,G3041,G3042
 │
 ├── mqtt-bridge/                   # Subscribes to prohori/+/reading, validates device ID against seeded
 │   │                               # `devices`, writes to that device's collection — sole writer.
@@ -312,4 +314,4 @@ While `AuthContext`'s initial `/api/auth/me` check is in flight (`loading: true`
 - **Phase 2 (COMPLETE)**: Real-time via Socket.IO + Change Streams, Python simulator, daily-average charting, unbounded log, calendar min/max view speced. (Frontend for several of these was only wired during the Phase 4 cleanup.)
 - **Phase 3 (COMPLETE)**: MQTT pipeline (`mimic-device/` + `mqtt-bridge/`) replaced the direct-to-Mongo simulator.
 - **Phase 4 (COMPLETE)**: JWT/bcrypt auth, single-device linking, `Reading` factory keyed by device ID, seeded `devices` collection, multi-collection Change Streams, full auth frontend and route guards, plus Phase 2 frontend gap cleanup (daily-averages chart, unbounded log, Calendar page).
-- **Phase 5 (IN PROGRESS)**: Six devices (G3036–G3041); one-account-per-device enforced by a unique partial index; multi-device MQTT (mimic publishes all six, bridge routes by topic and validates against seeded devices); Socket.IO delivery scoped to per-device rooms with JWT handshake auth. Still one device per user.
+- **Phase 5 (IN PROGRESS)**: Six devices (G3036, G3037, G3038, G3040, G3041, G3042); one-account-per-device enforced by a unique partial index; multi-device MQTT (mimic publishes all six, bridge routes by topic and validates against seeded devices); Socket.IO delivery scoped to per-device rooms with JWT handshake auth. Still one device per user.

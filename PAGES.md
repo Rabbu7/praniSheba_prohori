@@ -17,7 +17,7 @@ Everything from Phase 4 stands (fields: Device ID, Device Code; `POST /api/auth/
 - This message can only appear after a correct device code was supplied, so it does not reveal which device IDs exist. The existing generic error for wrong ID/code ("Invalid device ID or code") is unchanged and must still not say which field was wrong.
 - A 409 for "you already have a device linked" is still handled as in Phase 4 (such a user is redirected to `/` by the route guard anyway).
 
-Valid device IDs for linking are G3036–G3041, each with its own code (see `AGENTS.md`). A device already claimed by one account cannot be claimed by another.
+Valid device IDs for linking are the six seeded IDs (G3036, G3037, G3038, G3040, G3041, G3042), each with its own code (see `AGENTS.md`). A device already claimed by one account cannot be claimed by another.
 
 ---
 
@@ -47,7 +47,7 @@ Nav links (Dashboard, History, Calendar, Settings still disabled), real `deviceI
 
 ## Phase 5 Acceptance Checks
 
-1. **Seeding:** `devices` collection contains G3036–G3041 with their codes.
+1. **Seeding:** `devices` collection contains the six seeded IDs (G3036, G3037, G3038, G3040, G3041, G3042) with their codes.
 2. **Unique ownership:** user A links G3037 (success); user B links G3037 with the correct code → 409 "already linked to another account"; user B with a wrong code → generic invalid error; user A trying to link a second device → 409.
 3. **Index:** `users` collection has a unique partial index on `device.deviceId`; multiple users with `device: null` still coexist.
 4. **MQTT:** `mimic-device/` publishes for all six devices; `mqtt-bridge/` writes each to its own collection; a message for an unseeded device ID is rejected and creates no collection.
@@ -74,4 +74,4 @@ Nav links (Dashboard, History, Calendar, Settings still disabled), real `deviceI
 - **Phase 2 (COMPLETE)**: Real-time via Socket.IO + Change Streams, Python device simulator, daily-average charting, unbounded reading log moved to its own page, calendar min/max view. Three routed pages instead of one.
 - **Phase 3 (COMPLETE)**: Replaced the direct-to-Mongo simulator with a real MQTT pipeline. `mimic-device/` publishes to the real broker, `mqtt-bridge/` is the sole writer to the device collections. Verified end-to-end including live Socket.IO delivery.
 - **Phase 4 (COMPLETE)**: Authentication (Register/Login) and Link Device page gating dashboard access; route guards; data scoped to the user's linked device; one device per user.
-- **Phase 5 (IN PROGRESS)**: Six devices (G3036–G3041); a device can be linked by only one account (unique index + 409 error on Link Device); multi-device MQTT pipeline; Socket.IO delivery scoped to per-device rooms. Still one device per user.
+- **Phase 5 (IN PROGRESS)**: Six devices (G3036, G3037, G3038, G3040, G3041, G3042); a device can be linked by only one account (unique index + 409 error on Link Device); multi-device MQTT pipeline; Socket.IO delivery scoped to per-device rooms. Still one device per user.
