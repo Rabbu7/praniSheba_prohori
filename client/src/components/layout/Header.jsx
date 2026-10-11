@@ -1,5 +1,6 @@
 import React from 'react';
 import StatusBadge from '../common/StatusBadge';
+import DeviceSwitcher from './DeviceSwitcher';
 
 function formatRelativeTime(date) {
   if (!date) return '—';
@@ -20,7 +21,12 @@ function formatRelativeTime(date) {
   return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
-export default function Header({ title = 'Dashboard', deviceId = '—', status = 'online', lastUpdated = null }) {
+export default function Header({
+  title = 'Dashboard',
+  status = 'online',
+  lastUpdated = null,
+  mobileSwitcher = false,
+}) {
   const formattedTime = formatRelativeTime(lastUpdated);
 
   return (
@@ -29,6 +35,11 @@ export default function Header({ title = 'Dashboard', deviceId = '—', status =
       <header className="md:hidden flex justify-between items-center px-container-padding py-4 w-full border-b border-border-subtle bg-surface-white absolute top-0 z-20 h-[64px]">
         <div className="flex items-center gap-2">
           <span className="font-headline-md text-headline-md font-bold text-on-background">Prohori</span>
+          {mobileSwitcher && (
+            <div className="ml-2">
+              <DeviceSwitcher />
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-4 text-on-surface-variant">
           <span className="material-symbols-outlined cursor-pointer hover:text-primary hover:scale-110 transition-transform">notifications</span>
@@ -44,7 +55,7 @@ export default function Header({ title = 'Dashboard', deviceId = '—', status =
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="font-body-sm text-body-sm text-secondary">Device:</span>
-              <span className="font-body-sm text-body-sm font-medium">{deviceId}</span>
+              <DeviceSwitcher />
               <StatusBadge status={status} />
             </div>
             <div className="h-4 w-px bg-border-subtle"></div>

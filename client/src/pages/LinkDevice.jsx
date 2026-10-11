@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import AuthShell from '../components/auth/AuthShell';
 import { useAuth } from '../context/AuthContext';
 import { useDevice } from '../context/DeviceContext';
@@ -73,6 +73,16 @@ export default function LinkDevice() {
         <button className="flex w-full items-center justify-center rounded-lg bg-primary px-5 py-3.5 font-semibold text-on-primary transition hover:bg-primary-container focus:outline-none focus:ring-4 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={submitting || !token}>
           {buttonLabel}
         </button>
+        {hasDevices && (
+          <div className="text-center">
+            <Link
+              to="/"
+              className="text-sm text-secondary hover:text-primary transition-colors"
+            >
+              Cancel
+            </Link>
+          </div>
+        )}
       </form>
     </AuthShell>
   );

@@ -4,6 +4,7 @@ import useDeviceStatus from '../hooks/useDeviceStatus';
 import useDailyAverages from '../hooks/useDailyAverages';
 import Sidebar from '../components/layout/Sidebar';
 import Header from '../components/layout/Header';
+import DeviceSwitcher from '../components/layout/DeviceSwitcher';
 import StatusBadge from '../components/common/StatusBadge';
 import ReadingsPanel from '../components/dashboard/ReadingsPanel';
 import HistoryTabs from '../components/dashboard/HistoryTabs';
@@ -39,7 +40,7 @@ export default function Dashboard() {
       {/* Main Content Canvas */}
       <main className="flex-1 md:ml-sidebar-width mt-[64px] md:mt-0 h-full overflow-y-auto w-full bg-background relative">
         {/* Sticky Header */}
-        <Header title="Dashboard" deviceId={selectedDeviceId || '—'} status={status} lastUpdated={lastUpdatedDate} />
+        <Header title="Dashboard" status={status} lastUpdated={lastUpdatedDate} />
 
         {/* Content Container */}
         <div className="p-container-padding md:p-8 max-w-[1600px] mx-auto pb-24 md:pb-8">
@@ -50,7 +51,10 @@ export default function Dashboard() {
               <StatusBadge status={status} />
             </div>
             <div className="flex justify-between items-center">
-              <span className="font-body-sm text-body-sm text-secondary">Device: {selectedDeviceId || '—'}</span>
+              <div className="flex items-center gap-1">
+                <span className="font-body-sm text-body-sm text-secondary">Device:</span>
+                <DeviceSwitcher />
+              </div>
               <span className="font-body-sm text-body-sm text-secondary font-medium">
                 Updated: {formatRelativeTime(lastUpdatedDate)}
               </span>
