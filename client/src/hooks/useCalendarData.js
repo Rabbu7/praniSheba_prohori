@@ -1,18 +1,27 @@
 import { useState, useEffect } from 'react';
 import { getCalendarMonth } from '../services/api';
 
-export default function useCalendarData(month) {
+export default function useCalendarData(month, deviceId) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
+
+    if (!deviceId) {
+      setData([]);
+      setLoading(false);
+      setError(null);
+      return undefined;
+    }
+
+    setData([]);
     setLoading(true);
 
     const fetchMonth = async () => {
       try {
-        const result = await getCalendarMonth(month);
+        const result = await getCalendarMonth(month, deviceId);
         if (!cancelled) {
           setData(Array.isArray(result) ? result : []);
           setError(null);
@@ -29,7 +38,7 @@ export default function useCalendarData(month) {
     return () => {
       cancelled = true;
     };
-  }, [month]);
+  }, [month, deviceId]);
 
   return { data, loading, error };
 }

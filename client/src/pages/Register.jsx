@@ -32,7 +32,7 @@ export default function Register() {
     setError('');
     try {
       const user = await register(form.username, form.email, form.password);
-      navigate(user.device ? '/' : '/link-device');
+      navigate(user.devices?.length > 0 ? '/' : '/link-device');
     } catch (requestError) {
       setError(requestError.response?.data?.error?.message || 'Unable to create your account. Please try again.');
     } finally {

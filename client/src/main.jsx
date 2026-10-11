@@ -3,11 +3,14 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
+import { DeviceProvider } from './context/DeviceContext.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AuthProvider>
-      <App />
+      <DeviceProvider>
+        <App />
+      </DeviceProvider>
     </AuthProvider>
   </StrictMode>,
 )

@@ -30,8 +30,9 @@ export const linkDevice = async ({ deviceId, deviceCode }) => {
   return response.data;
 };
 
-export const getLatestReading = async () => {
-  const response = await api.get('/api/readings/latest');
+export const getLatestReading = async (deviceId) => {
+  const params = deviceId ? { deviceId } : undefined;
+  const response = await api.get('/api/readings/latest', { params });
   return response.data;
 };
 
@@ -40,22 +41,26 @@ export const getReadingsHistory = async (range) => {
   return response.data;
 };
 
-export const getDailyAverages = async (range) => {
-  const response = await api.get(`/api/readings/daily-averages?range=${range}`);
+export const getDailyAverages = async (range, deviceId) => {
+  const params = { range, ...(deviceId ? { deviceId } : {}) };
+  const response = await api.get('/api/readings/daily-averages', { params });
   return response.data;
 };
 
-export const getReadingsLog = async (page = 1, limit = 20) => {
-  const response = await api.get(`/api/readings/log?page=${page}&limit=${limit}`);
+export const getReadingsLog = async (page = 1, limit = 20, deviceId) => {
+  const params = { page, limit, ...(deviceId ? { deviceId } : {}) };
+  const response = await api.get('/api/readings/log', { params });
   return response.data;
 };
 
-export const getCalendarMonth = async (month) => {
-  const response = await api.get(`/api/readings/calendar?month=${month}`);
+export const getCalendarMonth = async (month, deviceId) => {
+  const params = { month, ...(deviceId ? { deviceId } : {}) };
+  const response = await api.get('/api/readings/calendar', { params });
   return response.data;
 };
 
-export const getDayDetail = async (date) => {
-  const response = await api.get(`/api/readings/day/${date}`);
+export const getDayDetail = async (date, deviceId) => {
+  const params = deviceId ? { deviceId } : undefined;
+  const response = await api.get(`/api/readings/day/${date}`, { params });
   return response.data;
 };

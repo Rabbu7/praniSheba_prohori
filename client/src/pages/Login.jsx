@@ -28,7 +28,7 @@ export default function Login() {
     setError('');
     try {
       const user = await login(form.email, form.password);
-      navigate(user.device ? '/' : '/link-device');
+      navigate(user.devices?.length > 0 ? '/' : '/link-device');
     } catch {
       setError('Invalid email or password');
     } finally {

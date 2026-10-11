@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useState, useEffect } from 'react';
+import { useDevice } from '../context/DeviceContext';
 import Header from '../components/layout/Header';
 import Sidebar from '../components/layout/Sidebar';
 import HistoryTable from '../components/dashboard/HistoryTable';
@@ -7,16 +7,21 @@ import useReadingsLog from '../hooks/useReadingsLog';
 import useDeviceStatus from '../hooks/useDeviceStatus';
 
 export default function History() {
-  const { user } = useAuth();
+  const { selectedDeviceId } = useDevice();
   const [page, setPage] = useState(1);
-  const { data: logData, loading, error } = useReadingsLog(page, 20);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedDeviceId]);
+
+  const { data: logData, loading, error } = useReadingsLog(page, 20, selectedDeviceId);
   const { status, lastUpdated } = useDeviceStatus();
 
   return (
     <div className="bg-background text-on-background font-body-sm antialiased h-screen flex overflow-hidden">
       <Sidebar />
       <main className="flex-1 md:ml-sidebar-width mt-[64px] md:mt-0 h-full overflow-y-auto w-full bg-background relative">
-        <Header title="Reading Log" deviceId={user?.device?.deviceId} status={status} lastUpdated={lastUpdated} />
+        <Header title="Reading Log" deviceId={selectedDeviceId || '—'} status={status} lastUpdated={lastUpdated} />
         <div className="p-container-padding md:p-8 max-w-[1600px] mx-auto pb-24 md:pb-8">
           {error ? (
             <div className="bg-surface-white border border-error/30 rounded-lg p-6 flex flex-col items-center justify-center text-center my-6 shadow-sm">

@@ -3,6 +3,7 @@ import { getMe, loginUser, registerUser } from '../services/api';
 import { disconnectSocket } from '../services/socket';
 
 const TOKEN_KEY = 'prohori_token';
+const SELECTED_DEVICE_KEY = 'prohori_selected_device';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -26,6 +27,7 @@ export function AuthProvider({ children }) {
       .catch((error) => {
         if (!cancelled && error.response?.status === 401) {
           localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(SELECTED_DEVICE_KEY);
           disconnectSocket();
           setToken(null);
           setUser(null);
@@ -54,6 +56,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(SELECTED_DEVICE_KEY);
     disconnectSocket();
     setToken(null);
     setUser(null);

@@ -2,16 +2,21 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthShell from '../components/auth/AuthShell';
 import { useAuth } from '../context/AuthContext';
+import { useDevice } from '../context/DeviceContext';
 import { linkDevice } from '../services/api';
+import { connectSocket, disconnectSocket } from '../services/socket';
 
 const inputClass = 'mt-2 w-full rounded-lg border border-outline-variant bg-surface-white px-4 py-3 text-body-lg text-on-background outline-none transition placeholder:text-secondary/60 focus:border-primary focus:ring-4 focus:ring-primary/10';
 
 export default function LinkDevice() {
   const navigate = useNavigate();
-  const { token, setUser } = useAuth();
+  const { user, token, setUser } = useAuth();
+  const { selectDevice } = useDevice();
   const [form, setForm] = useState({ deviceId: '', deviceCode: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const hasDevices = Boolean(user?.devices?.length);
 
   const updateField = (event) => {
     setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
@@ -20,7 +25,10 @@ export default function LinkDevice() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!form.deviceId.trim() || !form.deviceCode.trim()) {
+    const trimmedDeviceId = form.deviceId.trim();
+    const trimmedDeviceCode = form.deviceCode.trim();
+
+    if (!trimmedDeviceId || !trimmedDeviceCode) {
       setError('Invalid device ID or code');
       return;
     }
@@ -28,20 +36,28 @@ export default function LinkDevice() {
     setSubmitting(true);
     setError('');
     try {
-      const response = await linkDevice({ deviceId: form.deviceId, deviceCode: form.deviceCode });
+      const response = await linkDevice({ deviceId: trimmedDeviceId, deviceCode: trimmedDeviceCode });
       setUser(response.user);
+      selectDevice(trimmedDeviceId);
+      disconnectSocket();
+      connectSocket(token);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid device ID or code');
+      setError(err.response?.data?.error?.message || 'Invalid device ID or code');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const title = hasDevices ? 'Add another device' : 'Connect your Prohori device';
+  const buttonLabel = submitting
+    ? (hasDevices ? 'Adding device...' : 'Connecting device...')
+    : (hasDevices ? 'Add device' : 'Connect device');
+
   return (
     <AuthShell
       eyebrow="One more step"
-      title="Connect your Prohori device"
+      title={title}
       footer={<span>Use the device ID and code provided with your Prohori monitor.</span>}
     >
       <form className="space-y-5" onSubmit={handleSubmit} noValidate>
@@ -55,7 +71,7 @@ export default function LinkDevice() {
           <input className={inputClass} id="device-code" name="deviceCode" type="text" autoComplete="off" placeholder="Enter your device code" value={form.deviceCode} onChange={updateField} />
         </div>
         <button className="flex w-full items-center justify-center rounded-lg bg-primary px-5 py-3.5 font-semibold text-on-primary transition hover:bg-primary-container focus:outline-none focus:ring-4 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={submitting || !token}>
-          {submitting ? 'Connecting device...' : 'Connect device'}
+          {buttonLabel}
         </button>
       </form>
     </AuthShell>

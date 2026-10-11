@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useState, useEffect } from 'react';
+import { useDevice } from '../context/DeviceContext';
 import Header from '../components/layout/Header';
 import Sidebar from '../components/layout/Sidebar';
 import CalendarGrid from '../components/calendar/CalendarGrid';
@@ -9,7 +9,7 @@ import useDayDetail from '../hooks/useDayDetail';
 import useDeviceStatus from '../hooks/useDeviceStatus';
 
 export default function Calendar() {
-  const { user } = useAuth();
+  const { selectedDeviceId } = useDevice();
   // Default to current month in YYYY-MM format
   const now = new Date();
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -17,8 +17,12 @@ export default function Calendar() {
   const [month, setMonth] = useState(defaultMonth);
   const [selectedDate, setSelectedDate] = useState(null);
 
-    const { data: calendarData, error: calendarError } = useCalendarData(month);
-  const { data: dayData, loading: detailLoading, error: detailError } = useDayDetail(selectedDate);
+  useEffect(() => {
+    setSelectedDate(null);
+  }, [selectedDeviceId]);
+
+  const { data: calendarData, error: calendarError } = useCalendarData(month, selectedDeviceId);
+  const { data: dayData, loading: detailLoading, error: detailError } = useDayDetail(selectedDate, selectedDeviceId);
   const { status, lastUpdated } = useDeviceStatus();
 
   const handleMonthChange = (newMonth) => {
@@ -30,7 +34,7 @@ export default function Calendar() {
     <div className="bg-background text-on-background font-body-sm antialiased h-screen flex overflow-hidden">
       <Sidebar />
       <main className="flex-1 md:ml-sidebar-width mt-[64px] md:mt-0 h-full overflow-y-auto w-full bg-background relative">
-        <Header title="Calendar" deviceId={user?.device?.deviceId} status={status} lastUpdated={lastUpdated} />
+        <Header title="Calendar" deviceId={selectedDeviceId || '—'} status={status} lastUpdated={lastUpdated} />
         <div className="p-container-padding md:p-8 max-w-[1600px] mx-auto pb-24 md:pb-8">
           {calendarError ? (
             <div className="bg-surface-white border border-error/30 rounded-lg p-6 flex flex-col items-center justify-center text-center shadow-sm">

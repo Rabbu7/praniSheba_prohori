@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useDevice } from '../context/DeviceContext';
 import useDeviceStatus from '../hooks/useDeviceStatus';
 import useDailyAverages from '../hooks/useDailyAverages';
 import Sidebar from '../components/layout/Sidebar';
@@ -26,10 +26,10 @@ function formatRelativeTime(date) {
 }
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { selectedDeviceId } = useDevice();
   const { reading, status, lastUpdated: lastUpdatedDate, error: latestError } = useDeviceStatus();
   const [range, setRange] = useState('7d');
-  const { data: historyData, loading: historyLoading } = useDailyAverages(range);
+  const { data: historyData, loading: historyLoading } = useDailyAverages(range, selectedDeviceId);
 
   return (
     <div className="bg-background text-on-background font-body-sm antialiased h-screen flex overflow-hidden">
@@ -39,7 +39,7 @@ export default function Dashboard() {
       {/* Main Content Canvas */}
       <main className="flex-1 md:ml-sidebar-width mt-[64px] md:mt-0 h-full overflow-y-auto w-full bg-background relative">
         {/* Sticky Header */}
-        <Header title="Dashboard" deviceId={user?.device?.deviceId} status={status} lastUpdated={lastUpdatedDate} />
+        <Header title="Dashboard" deviceId={selectedDeviceId || '—'} status={status} lastUpdated={lastUpdatedDate} />
 
         {/* Content Container */}
         <div className="p-container-padding md:p-8 max-w-[1600px] mx-auto pb-24 md:pb-8">
@@ -50,7 +50,7 @@ export default function Dashboard() {
               <StatusBadge status={status} />
             </div>
             <div className="flex justify-between items-center">
-              <span className="font-body-sm text-body-sm text-secondary">Device: {user?.device?.deviceId || '—'}</span>
+              <span className="font-body-sm text-body-sm text-secondary">Device: {selectedDeviceId || '—'}</span>
               <span className="font-body-sm text-body-sm text-secondary font-medium">
                 Updated: {formatRelativeTime(lastUpdatedDate)}
               </span>

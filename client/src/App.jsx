@@ -16,13 +16,12 @@ function AuthLoading() {
   );
 }
 
-function RequireAuth({ children, requireDevice = false, redirectLinkedDevice = false }) {
+function RequireAuth({ children, requireDevice = false }) {
   const { user, token, loading } = useAuth();
 
   if (loading) return <AuthLoading />;
   if (!token || !user) return <Navigate to="/login" replace />;
-  if (requireDevice && !user.device) return <Navigate to="/link-device" replace />;
-  if (redirectLinkedDevice && user.device) return <Navigate to="/" replace />;
+  if (requireDevice && !user.devices?.length) return <Navigate to="/link-device" replace />;
   return children;
 }
 
@@ -40,7 +39,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
         <Route path="/register" element={<RedirectIfAuthed><Register /></RedirectIfAuthed>} />
-        <Route path="/link-device" element={<RequireAuth redirectLinkedDevice><LinkDevice /></RequireAuth>} />
+        <Route path="/link-device" element={<RequireAuth><LinkDevice /></RequireAuth>} />
         <Route path="/" element={<RequireAuth requireDevice><Dashboard /></RequireAuth>} />
         <Route path="/history" element={<RequireAuth requireDevice><History /></RequireAuth>} />
         <Route path="/calendar" element={<RequireAuth requireDevice><Calendar /></RequireAuth>} />

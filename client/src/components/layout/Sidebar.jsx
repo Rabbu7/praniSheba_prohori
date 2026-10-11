@@ -2,11 +2,13 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import logo from '../../assets/logo.jpeg';
 import { useAuth } from '../../context/AuthContext';
+import { useDevice } from '../../context/DeviceContext';
 
 export default function Sidebar() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
-  const deviceLabel = user?.device?.deviceId ? `Device: ${user.device.deviceId}` : 'Device: —';
+  const { logout } = useAuth();
+  const { selectedDeviceId } = useDevice();
+  const deviceLabel = selectedDeviceId ? `Device: ${selectedDeviceId}` : 'Device: —';
 
   const handleLogout = () => {
     logout();
