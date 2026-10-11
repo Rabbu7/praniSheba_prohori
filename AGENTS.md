@@ -10,16 +10,18 @@
 Reference product: https://iot.pranisheba.com.bd/#/home
 Company site: https://www.pranisheba.com.bd/-eng
 
-## Current Phase: Phase 6 — IN PROGRESS (multiple devices per user)
+## Current Phase: Phase 6 — COMPLETE (multiple devices per user)
 
-Phase 6 lets **one user own several devices**, add more at any time with an "Add device" action, and switch between them. It is deliberately small and has four stages. Do them in order and do not start a stage before the previous one is verified:
+Phase 6 lets **one user own several devices**, add more at any time with an "Add device" action, and switch between them. All stages are done and verified:
 
-1. **6a — Docs** (`AGENTS.md` + `PAGES.md`). ✅ (this update)
-2. **6b — Backend model and API.** `User.js` (`device` → `devices` array), one-time migration script, `authController.js` (`linkDevice`, `me`, `publicUser`), new `resolveDevice` middleware, `readings.js` + `readingsController.js` read `req.deviceId`. ⬜
-3. **6c — Sockets.** `socketAuth.js` loads all of the user's device IDs; `app.js` joins one room per device. No other server file changes. ⬜
-4. **6d — Frontend.** `DeviceContext`, header device switcher, Link Device page + route guard changes, `api.js`, the five data hooks, socket reconnect after linking. ⬜
+1. **6a — Docs** (`AGENTS.md` + `PAGES.md`). ✅
+2. **6b — Backend model and API.** `User.js` (`device` → `devices` array), `migrateDevices.js`, `authController.js` (`linkDevice`, `me`, `publicUser`), `resolveDevice` middleware, `readings.js` + `readingsController.js` read `req.deviceId`. ✅
+3. **6c — Sockets.** `socketAuth.js` loads all of the user's device IDs; `app.js` joins one room per device. ✅
+4. **6d — Frontend.** Delivered in two checkpoints. ✅
+   - **6d-1:** `DeviceContext`, `api.js` `deviceId` arguments, the five data hooks, route guards, `LinkDevice` error-message fix and add-mode, socket reconnect after linking.
+   - **6d-2:** `DeviceSwitcher.jsx` in the desktop header, mobile top bar (History/Calendar) and Dashboard mobile sub-bar, Cancel link on Add device, `DeviceContext` reset on logout.
 
-**Out of scope for Phase 6:** unlink / re-link (a device added by mistake stays on that account), device limit per account (there is none), device nicknames, admin tools. See "Out of Scope".
+**Out of scope (still):** unlink / re-link (a device added by mistake stays on that account), device limit per account (there is none), device nicknames, admin tools. See "Out of Scope".
 
 ### Flow
 
@@ -42,7 +44,7 @@ GET /api/auth/me → does this user have at least one device in `devices`?
 
 ### Devices
 
-Six seeded devices (unchanged from Phase 5), each with its own reading collection on the shared Atlas cluster (`iotdb`) and its own seeded `devices` document:
+Six seeded devices, each with its own reading collection on the shared Atlas cluster (`iotdb`) and its own seeded `devices` document:
 
 | Device ID | Device Code |
 |---|---|
@@ -59,12 +61,12 @@ Six seeded devices (unchanged from Phase 5), each with its own reading collectio
 
 **G3039 is deliberately NOT used.** A `G3039` collection already exists on the shared cluster with real historical data (Aug 2024, 1,379 documents). Never write to it, and never add it to `seedDevices.js` or `DEVICE_IDS`. The bridge drops any message for `G3039` because it is not in the seeded `devices` collection. Before adding any further device ID, confirm no collection with that name exists in `iotdb` (the cluster is shared and also holds unrelated collections such as `G3029`, `G3035` and Django tables — never touch those).
 
-### Multiple devices per user (Phase 6 design — CONFIRMED)
+### Multiple devices per user (implemented)
 
 **Data model**
-- `User.device` (one object or `null`) becomes `User.devices`: an array of `{ deviceId, linkedAt }`, default `[]`.
-- `User.js` keeps a **unique partial index**, now on `devices.deviceId`, with `partialFilterExpression: { 'devices.deviceId': { $type: 'string' } }`. A multikey unique index still guarantees that **no two accounts can own the same device**. Declare it in the schema only (no hand-made indexes in Compass).
-- A multikey unique index does **not** stop the *same* user from adding the same device twice. The link step therefore uses one atomic update, never find-then-save:
+- `User.devices` is an array of `{ deviceId, linkedAt }`, default `[]`. The old `User.device` field no longer exists anywhere.
+- `User.js` has a **unique partial index** on `devices.deviceId` with `partialFilterExpression: { 'devices.deviceId': { $type: 'string' } }`. A multikey unique index guarantees **no two accounts can own the same device**. Declare it in the schema only (no hand-made indexes in Compass).
+- A multikey unique index does **not** stop the *same* user adding the same device twice, so linking uses one atomic update, never find-then-save:
 
 ```js
 User.updateOne(
@@ -76,32 +78,30 @@ User.updateOne(
   `matchedCount === 0` means the user already owns that device.
 - There is **no limit** on devices per account.
 
-**Migration (run once, before starting the new server code)**
-- `server/src/seed/migrateDevices.js` — idempotent. For each user with a non-null `device` and no `devices` array entries, set `devices: [device]` and `$unset` the old `device` field. Users with `device: null` get `devices: []`. Safe to re-run; it must never create duplicates.
-- Run it against a **copy** of the database first, then the real one. Afterwards run `node src/seed/seedDevices.js` (it calls `syncIndexes()`, which drops the old `device.deviceId` index and builds the new one).
-- If the index build fails because two users share a device, clear the duplicate manually first.
+**Migration (done once)**
+- `server/src/seed/migrateDevices.js` is idempotent: users with a non-null `device` get `devices: [device]` and the old field is `$unset`; users with `device: null` get `devices: []`. Safe to re-run. After it, `node src/seed/seedDevices.js` (which calls `syncIndexes()`) swaps the old `device.deviceId` index for the new one.
 
 **Which device does a request mean?**
 - Every `/api/readings/*` endpoint accepts an optional `?deviceId=` query parameter.
-- New middleware `server/src/middleware/resolveDevice.js` (replaces `requireDevice`), runs after `requireAuth`:
+- `server/src/middleware/resolveDevice.js` (replaced `requireDevice`) runs after `requireAuth`:
   1. User has no devices → 403 "No device linked".
-  2. `?deviceId=` present but not in `req.user.devices` → 403 "Device not found for this account" (same message whether the device exists or not, so it does not leak which IDs exist).
-  3. `?deviceId=` missing → default to the user's **first** device (keeps the API working while the client changes).
+  2. `?deviceId=` present but not in `req.user.devices` (or not a string) → 403 "Device not found for this account" (same message whether or not the device exists).
+  3. `?deviceId=` missing → default to the user's **first** device.
   4. Sets `req.deviceId`.
-- Controllers call `getReadingModel(req.deviceId)`. **Never** use `req.user.device` (it no longer exists) and never accept a device ID from anywhere except through `resolveDevice`.
+- Controllers call `getReadingModel(req.deviceId)`. **Never** use `req.user.device` and never accept a device ID from anywhere except through `resolveDevice`.
 
 **`linkDevice` order of checks**
-1. Validate input, then validate `{ deviceId, deviceCode }` against the `devices` collection → failure: generic "Invalid device ID or code" (never says which field was wrong).
+1. Validate input, then validate `{ deviceId, deviceCode }` against the `devices` collection → failure: 400 generic "Invalid device ID or code" (never says which field was wrong).
 2. Atomic `$push` with the `$ne` filter. No match → 409 "You have already added this device".
-3. Catch duplicate-key error (`err.code === 11000`) → 409 "This device is already linked to another account".
+3. Duplicate-key error (`err.code === 11000`) → 409 "This device is already linked to another account".
 4. Success → `{ user }` with the full `devices` array.
 
-- The old "Device already linked" 409 (user already has a device) is **removed**.
-- Both 409 messages are only reachable *after* a correct code is supplied, so they do not leak which device IDs exist.
+Both 409 messages are only reachable *after* a correct code is supplied, so they do not leak which device IDs exist.
 
 **Auth payloads**
-- `publicUser(user)` returns `{ username, email, devices }` where `devices` is always an array (`[]` when none). The key `device` no longer appears anywhere.
-- `GET /api/auth/me` returns the same shape.
+- `publicUser(user)` and `GET /api/auth/me` return `{ username, email, devices }` where `devices` is always an array (`[]` when none).
+
+**Error shape:** the server returns errors as `{ error: { message, status } }`. Client code must read `err.response?.data?.error?.message`.
 
 ### Collection-per-device architecture (unchanged)
 
@@ -117,38 +117,37 @@ module.exports = { getReadingModel };
 
 Every function in `readingsController.js` resolves its collection via `getReadingModel(req.deviceId)`. `changeStream.js` opens one Change Stream per seeded device.
 
-### Multi-device MQTT (unchanged, implemented)
+### Multi-device MQTT (unchanged)
 
 - Topic pattern: `prohori/<deviceId>/reading` (e.g. `prohori/G3037/reading`).
-- **`mimic-device/`**: reads `DEVICE_IDS` (comma-separated, trimmed, empty entries ignored; e.g. `G3036,G3037,G3038,G3040,G3041,G3042`) from `.env` and fails with a clear error if empty. One process, one MQTT client (`client_id` `prohori-mimic-publisher`), publishes one reading per device per interval (QoS 1, non-retained). **Each device keeps its own random-walk state** and starts from slightly different values (`initial_state(index)`), so devices drift independently. `run_local_test.py` prints generator output for all configured IDs without needing a broker.
-- **`mqtt-bridge/`**: subscribes to `prohori/+/reading` (QoS 1). A `DeviceRegistry` loads allowed IDs from `iotdb.devices` at startup and refreshes every 60s. For each message the device ID is taken from the **topic**, never from the payload; IDs not in the registry are **dropped** with one warning line and nothing is written (no collection is ever created for an unknown ID). The payload must be a JSON object with numeric `ammonia`, `methane`, `humidity`, `temperature` and a numeric `timestamp`; malformed payloads are dropped and logged. The document is inserted into the collection named exactly by the topic's device ID, with `device_id` forced to match it and `created_at` set by the bridge (UTC). The bridge remains the **sole writer** to reading collections.
+- **`mimic-device/`**: reads `DEVICE_IDS` (comma-separated, trimmed, empty entries ignored) from `.env` and fails with a clear error if empty. One process, one MQTT client (`client_id` `prohori-mimic-publisher`), publishes one reading per device per interval (QoS 1, non-retained). **Each device keeps its own random-walk state** and starts from slightly different values (`initial_state(index)`). `run_local_test.py` prints generator output without a broker.
+- **`mqtt-bridge/`**: subscribes to `prohori/+/reading` (QoS 1). A `DeviceRegistry` loads allowed IDs from `iotdb.devices` at startup and refreshes every 60s. The device ID is taken from the **topic**, never the payload; unknown IDs are **dropped** with one warning and nothing is written. The payload must be a JSON object with numeric `ammonia`, `methane`, `humidity`, `temperature` and numeric `timestamp`; malformed payloads are dropped and logged. `device_id` is forced to match the topic and `created_at` is set by the bridge (UTC). The bridge remains the **sole writer** to reading collections.
 - The abandoned topic `farm_controller/CATTLE_CTRL_001/event` must never be used.
 - Never run `simulator/` and the MQTT pipeline at the same time.
-- **Phase 6 does not touch `mimic-device/` or `mqtt-bridge/`.**
+- Phase 6 did not touch `mimic-device/` or `mqtt-bridge/`.
 
-### Socket.IO per-device rooms (Phase 6 change: one user, many rooms)
+### Socket.IO per-device rooms (implemented: one user, many rooms)
 
-- **Server** (`sockets/socketAuth.js`, registered with `io.use(socketAuth)` in `app.js`): verifies the JWT from `socket.handshake.auth.token` with `JWT_SECRET`, loads the user, and rejects the handshake if the token is missing, invalid or expired, the user does not exist, or the user has **no devices**. All rejections use the same generic message ("Authentication required"). On success it sets `socket.data.userId` and `socket.data.deviceIds` (an array of the user's device IDs, read from the database at handshake time).
-- On connection the server joins the socket to **one room per owned device**: `device:<deviceId>` for each ID in `socket.data.deviceIds`.
-- `changeStream.js` is **unchanged**: it emits `new-reading` with `io.to('device:' + deviceId).emit(...)`, where `deviceId` comes from the watched collection, never from the document payload. There must be no global `io.emit` for reading data anywhere in `server/`.
-- Because a device can only belong to one account, each room still has at most one user (but one user's socket can be in several rooms).
-- **Client** (`services/socket.js`): `autoConnect: false`; `connectSocket(token)` connects, or reconnects if the token changed; `disconnectSocket()` closes the connection. `useLatestReading.js` connects only when `token` exists and the user owns at least one device.
-- **The client filters live events by `payload.device_id === selectedDeviceId`**, because the socket now receives readings for every owned device. The server never trusts the client to choose rooms.
-- **After the user adds a device, the client must reconnect the socket** (disconnect then `connectSocket(token)`) so the handshake reloads the device list and the new room is joined. No server-side room-join event is added.
-- `useLatestReading` clears its data when the selected device changes so the previous device's reading never flashes. Its return shape stays `{ data, loading, error }`.
-- Logout (in `AuthContext`) must call `disconnectSocket()` (from any page) and clear the saved selected device.
-- Known limitation: the JWT and device list are verified only at handshake time; an already-open socket keeps working after the token expires (7-day expiry). Acceptable for now.
+- **Server** (`sockets/socketAuth.js`, registered with `io.use(socketAuth)`): verifies the JWT from `socket.handshake.auth.token`, loads the user fresh from the database, and rejects the handshake if the token is missing, invalid or expired, the user does not exist, or the user has **no devices**. All rejections use the same generic message ("Authentication required"). On success it sets `socket.data.userId` and `socket.data.deviceIds` (array of device ID strings). The singular `socket.data.deviceId` no longer exists.
+- In `app.js`, on connection the server joins the socket to `device:<id>` for each ID in `socket.data.deviceIds`. IDs come **only** from the server-loaded list, never from the client. There is no client-triggered room-join event.
+- `changeStream.js` is unchanged: it emits `new-reading` with `io.to('device:' + deviceId).emit(...)`, where `deviceId` comes from the watched collection. There must be no global `io.emit` for reading data anywhere in `server/`.
+- Each device belongs to one account, so each room has at most one user (one user's socket can be in several rooms).
+- **Client** (`services/socket.js`): `autoConnect: false`; `connectSocket(token)` connects or reconnects if the token changed; `disconnectSocket()` closes the connection.
+- `useLatestReading` connects only when `token` exists and the user owns at least one device, fetches `latest` for the selected device, and **ignores live events whose `payload.device_id !== selectedDeviceId`** (the socket receives every owned device's readings). It clears its data when the selected device changes so the previous device never flashes. Return shape stays `{ data, loading, error }`.
+- **After a device is added, `LinkDevice` calls `disconnectSocket()` then `connectSocket(token)`** so the handshake reloads the device list and joins the new room. Verified: an already-open socket does not receive a newly added device's room until it reconnects.
+- Logout (in `AuthContext`) calls `disconnectSocket()` and removes the saved selected device (the 401 branch does the same).
+- Known limitation: the JWT and device list are verified only at handshake time; an open socket keeps working after the token expires (7-day expiry). Acceptable for now.
 
-### Frontend device selection (Phase 6)
+### Frontend device selection (implemented)
 
-- New `context/DeviceContext.jsx`, mounted inside `AuthProvider`. Exposes `useDevice()` → `{ devices, selectedDeviceId, selectDevice }`.
-  - `devices` is derived from `user.devices` (array of `{ deviceId, linkedAt }`).
-  - `selectedDeviceId` is persisted in `localStorage` under `prohori_selected_device`.
-  - If the saved ID is missing or no longer in `devices`, fall back to the first device. After a successful link, the **new device becomes selected**.
-  - On logout, remove the saved key.
-- All reading hooks take the selected device ID, pass it as `?deviceId=` via `api.js`, and **refetch when it changes**: `useLatestReading`, `useDailyAverages`, `useReadingsLog` (also reset to page 1 on switch), `useCalendarData`, `useDayDetail` (Calendar page also clears its selected day on switch).
-- `api.js` endpoint wrappers accept an optional `deviceId` argument and append it to the query string only when defined.
-- New `components/layout/DeviceSwitcher.jsx` renders the header dropdown (desktop header and mobile sub-bar). It lists the user's devices and ends with an "Add device" entry.
+- `context/DeviceContext.jsx`, mounted in `main.jsx` inside `AuthProvider`. `useDevice()` → `{ devices, selectedDeviceId, selectDevice }`.
+  - `devices` = `user?.devices ?? []`.
+  - The preferred ID is persisted in `localStorage` under `prohori_selected_device` and held in state. `selectedDeviceId` is derived: the preferred ID if it is in `devices`, otherwise `devices[0]?.deviceId`, otherwise `null`.
+  - The in-memory preferred ID is reset when `token` becomes `null` (logout or 401), so a second account in the same tab never inherits the first account's selection. Do **not** reset on `user === null`: `user` is briefly null during page load while `getMe()` is in flight.
+  - After a successful link, `LinkDevice` calls `selectDevice(<trimmed submitted id>)` so the new device is selected.
+- All reading hooks take the selected device ID, pass it as `?deviceId=` via `api.js` (axios `params`, only when defined), and refetch when it changes: `useLatestReading`, `useDailyAverages`, `useReadingsLog`, `useCalendarData`, `useDayDetail`. They reset data (`null`, or `[]` for calendar) and set loading before refetching, and do not fetch when the device ID is null. History resets to page 1 on switch; Calendar clears its selected day on switch and keeps the viewed month.
+- `components/layout/DeviceSwitcher.jsx` is the header dropdown: a button showing the selected ID (monospace) with a chevron; a `role="menu"` listing owned devices (check on the selected one) followed by a divider and an "Add device" row that navigates to `/link-device`. Closes on outside click and Escape; Arrow Up/Down move focus. Renders "—" with no menu when no device is selected.
+- `Header.jsx` no longer takes a `deviceId` prop; the desktop header renders `<DeviceSwitcher />`. An optional `mobileSwitcher` prop renders it in the mobile top bar (History and Calendar pass it; Dashboard uses its own mobile sub-bar instead).
 - Never hardcode a device ID in the client. Use `selectedDeviceId` from `useDevice()`.
 
 ## Stack
@@ -209,7 +208,7 @@ Rules:
 - Never invent fields that aren't in this schema.
 - `server/` never writes/inserts/updates documents in reading collections — read-only. Only `mqtt-bridge/` writes.
 - Use `created_at` (not `timestamp`) for all date range queries, sorting, and aggregation grouping.
-- Reading collections are looked up dynamically via `getReadingModel(deviceId)` — never hardcode a device ID string (e.g. `'G3036'`) in controller, hook, or component code. Hardcoded device IDs in a diff are a regression. (Exceptions: `seedDevices.js`, and `.env` / `.env.example` values for `mimic-device/`.)
+- Reading collections are looked up dynamically via `getReadingModel(deviceId)` — never hardcode a device ID string (e.g. `'G3036'`) in controller, hook, or component code. Hardcoded device IDs in a diff are a regression. (Exceptions: `seedDevices.js`, `.env` / `.env.example` values for `mimic-device/`, and placeholder text such as "e.g. G3036" in `LinkDevice.jsx`.)
 - The `users` and `devices` collections are plain Mongoose models, no dynamic collection selection.
 - Connection strings live in `.env` files — never hardcode, never commit `.env`. `JWT_SECRET` is a locally-generated random secret, never committed, never shared across environments.
 - Never write to, seed, or add to `DEVICE_IDS` any ID whose collection already exists on the cluster for other reasons (notably `G3039`).
@@ -240,14 +239,14 @@ prohori-dashboard/
 │   │   ├── middleware/
 │   │   │   ├── errorHandler.js    # Centralized error handling
 │   │   │   ├── requireAuth.js     # Verifies JWT, loads user, attaches req.user
-│   │   │   └── resolveDevice.js   # NEW (Phase 6): validates ?deviceId= against req.user.devices,
-│   │   │                          #   defaults to first device, sets req.deviceId (replaces requireDevice)
+│   │   │   └── resolveDevice.js   # Validates ?deviceId= against req.user.devices, defaults to first
+│   │   │                          #   device, sets req.deviceId
 │   │   ├── seed/
 │   │   │   ├── seedDevices.js     # Idempotent upsert of the 6 seeded `devices` docs + syncIndexes()
-│   │   │   └── migrateDevices.js  # NEW (Phase 6): one-time, idempotent user.device → user.devices
+│   │   │   └── migrateDevices.js  # One-time, idempotent user.device → user.devices (already run)
 │   │   ├── sockets/
 │   │   │   ├── changeStream.js    # One Change Stream per seeded device; emits `new-reading` to room
-│   │   │   │                      #   `device:<deviceId>` only (unchanged)
+│   │   │   │                      #   `device:<deviceId>` only
 │   │   │   └── socketAuth.js      # io.use middleware: JWT handshake auth, sets socket.data.deviceIds
 │   │   └── app.js                 # Express setup, mounts routes, CORS, Socket.IO server with
 │   │                              #   socketAuth + one room join per owned device, starts the server
@@ -255,7 +254,7 @@ prohori-dashboard/
 │   ├── .env.example
 │   └── package.json
 │
-├── mimic-device/                  # Publishes fake readings over MQTT for all six devices (unchanged)
+├── mimic-device/                  # Publishes fake readings over MQTT for all six devices
 │   ├── generator.py               # Per-device random-walk state, initial_state(index)
 │   ├── publisher.py               # Reads DEVICE_IDS; publishes to prohori/<id>/reading
 │   ├── run_local_test.py          # Broker-free sample output for all configured IDs
@@ -271,27 +270,27 @@ prohori-dashboard/
 ├── client/                        # React (Vite) frontend
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── layout/            # Sidebar.jsx, Header.jsx, DeviceSwitcher.jsx (NEW, Phase 6)
+│   │   │   ├── layout/            # Sidebar.jsx, Header.jsx, DeviceSwitcher.jsx
 │   │   │   ├── auth/              # AuthShell.jsx
 │   │   │   ├── dashboard/         # SensorCard, ReadingsPanel, HistoryTable, HistoryTabs, TrendChart
 │   │   │   ├── calendar/          # CalendarGrid, DayDetailCards (indicator uses MORE SEVERE of min/max)
 │   │   │   └── common/            # StatusBadge
 │   │   ├── context/
 │   │   │   ├── AuthContext.jsx    # { token, user, loading }; useAuth() with login/register/logout/setUser;
-│   │   │   │                      #   logout also disconnects the socket and clears the selected device
-│   │   │   └── DeviceContext.jsx  # NEW (Phase 6): useDevice() → { devices, selectedDeviceId, selectDevice }
+│   │   │   │                      #   logout and the 401 branch disconnect the socket and clear the selected device
+│   │   │   └── DeviceContext.jsx  # useDevice() → { devices, selectedDeviceId, selectDevice }
 │   │   ├── pages/
 │   │   │   ├── Dashboard.jsx      # `/`
 │   │   │   ├── History.jsx        # `/history`
 │   │   │   ├── Calendar.jsx       # `/calendar`
 │   │   │   ├── Login.jsx          # `/login`
 │   │   │   ├── Register.jsx       # `/register`
-│   │   │   └── LinkDevice.jsx     # `/link-device` — first device AND "Add device"; inline 409 errors
+│   │   │   └── LinkDevice.jsx     # `/link-device` — first device AND "Add device"; inline 409/400 errors
 │   │   ├── hooks/
 │   │   │   ├── useLatestReading.js       # Socket.IO listener filtered by selected device; clears on switch
 │   │   │   ├── useDeviceStatus.js
 │   │   │   ├── useDailyAverages.js       # takes selected device ID; refetches on change
-│   │   │   ├── useReadingsLog.js         # same; resets to page 1 on switch
+│   │   │   ├── useReadingsLog.js         # same
 │   │   │   ├── useReadingsHistory.js     # Legacy, unused — removal candidate
 │   │   │   ├── useCalendarData.js        # takes selected device ID; refetches on change
 │   │   │   └── useDayDetail.js           # same
@@ -300,7 +299,7 @@ prohori-dashboard/
 │   │   │   └── socket.js           # Socket.IO client (autoConnect:false); connectSocket/disconnectSocket;
 │   │   │                           #   passes JWT in handshake `auth`
 │   │   ├── App.jsx                # BrowserRouter + route guards (see table below)
-│   │   ├── main.jsx
+│   │   ├── main.jsx               # AuthProvider > DeviceProvider > App
 │   │   └── index.css              # Tailwind + @theme tokens
 │   ├── .env / .env.example         # VITE_API_URL
 │   └── package.json
@@ -311,15 +310,15 @@ prohori-dashboard/
 └── README.md
 ```
 
-## Route Guard Summary (implemented in `App.jsx`; Phase 6 changes the `/link-device` column)
+## Route Guard Summary (implemented in `App.jsx`)
 
 | State | `/`, `/history`, `/calendar` | `/link-device` | `/login`, `/register` |
 |---|---|---|---|
 | Not authenticated | → `/login` | → `/login` | shown |
 | Authenticated, no device | → `/link-device` | shown (first device, no Cancel) | → `/` |
-| Authenticated, one or more devices | shown | **shown** (Add device, with Cancel → `/`) | → `/` |
+| Authenticated, one or more devices | shown | shown (Add device, with Cancel → `/`) | → `/` |
 
-"Has a device" means `user.devices.length > 0`. While `AuthContext`'s initial `/api/auth/me` check is in flight (`loading: true`), a minimal loading state renders instead of any redirect.
+"Has a device" means `user.devices.length > 0`. `RequireAuth` has no `redirectLinkedDevice` behavior any more. While `AuthContext`'s initial `/api/auth/me` check is in flight (`loading: true`), a minimal loading state renders instead of any redirect.
 
 ## API Contract
 
@@ -328,7 +327,7 @@ prohori-dashboard/
 - `GET /api/auth/me` → (auth) → `{ username, email, devices: [{ deviceId, linkedAt }] }` (`devices` is `[]` when none)
 - `POST /api/auth/link-device` → (auth) → `{ deviceId, deviceCode }`:
   - success → `{ user }` (full `devices` array)
-  - wrong code or nonexistent device → generic "Invalid device ID or code"
+  - wrong code or nonexistent device → 400 generic "Invalid device ID or code"
   - user already owns this device → 409 "You have already added this device"
   - device already linked to another account → 409 "This device is already linked to another account" (only reachable after a correct code)
 - All `/api/readings/*` endpoints take an optional `?deviceId=`; missing → user's first device; not owned → 403 "Device not found for this account"; no devices → 403 "No device linked".
@@ -348,17 +347,18 @@ prohori-dashboard/
 - Passwords: bcrypt cost 10; never log or return `passwordHash`.
 - JWT: 7-day expiry, signed with `JWT_SECRET`; frontend stores it in `localStorage` (`prohori_token`). The selected device is stored under `prohori_selected_device`.
 - Never hardcode a device ID in app code — resolve from `req.deviceId` (backend, set by `resolveDevice`) or `selectedDeviceId` via `useDevice()` (frontend).
-- Never read `req.user.device` (removed in Phase 6). Use `req.user.devices` for ownership checks only.
+- Never read `req.user.device` or `user.device` (removed in Phase 6). Use `req.user.devices` for ownership checks only.
 - Uniqueness and other integrity rules belong in the database (indexes) and atomic updates, not only in controllers. Do not implement "already added" as find-then-save.
 - Never use `io.emit` for reading data; always target a `device:<deviceId>` room. Derive the room's device ID from the source collection/stream, not from a payload.
 - The MQTT bridge must validate device IDs (taken from the topic) against the seeded `devices` collection before writing.
 - Logout must disconnect the Socket.IO client and clear the saved selected device.
+- Client code reads server errors from `err.response?.data?.error?.message`.
 - Env vars: `MONGO_URI`, `PORT`, `CLIENT_ORIGIN`, `JWT_SECRET` in `server/.env`; `VITE_API_URL` in `client/.env`; `MONGO_URI` + broker settings (and `DEVICE_IDS` for mimic) in `mqtt-bridge/.env` and `mimic-device/.env`. Commit `.env.example` with placeholders only; confirm no `.env` is tracked (`git status`).
 - Keep components small and single-purpose; `hooks/` isolates data-fetching/real-time logic.
 - Tailwind tokens live in `index.css` under `@theme`, mirroring `DESIGN.md`; no inline hex values in JSX.
-- Material Symbols icon names must be verified (`"thermostat"`, not `"thermometer"`).
+- Material Symbols icon names must be verified (`"thermostat"`, not `"thermometer"`; switcher uses `expand_more`, `check`, `add`).
 - When a value has independently classified sub-zones (min vs max), a single shared indicator must reflect the **more severe** one.
-- Dev tip: if the server fails with `EADDRINUSE` on port 5000, another `node` process (often a leftover agent-started server) holds the port — find it with `netstat -ano | findstr :5000` and stop it with `taskkill /PID <pid> /F`.
+- Dev tips: if the server fails with `EADDRINUSE` on port 5000, another `node` process (often a leftover agent-started server) holds the port — find it with `netstat -ano | findstr :5000` and stop it with `taskkill /PID <pid> /F`. In PowerShell, `$pull`-style Mongo operators inside `node -e "..."` are interpreted as variables; use single quotes or a script file.
 
 ## Threshold / Alert Logic (ACTIVE, unchanged)
 
@@ -384,13 +384,15 @@ Implementation notes:
 - `getDailyAverages`'s `$dateToString` grouping has no `timezone` option (UTC); unverified for UTC+6 users (may need `timezone: "Asia/Dhaka"`).
 - `useReadingsHistory.js` and `GET /api/readings/history` are unused — removal/deprecation candidates.
 - Socket JWT and device list are only checked at handshake (see Socket.IO section).
+- A device added by mistake stays on that account (no unlink).
 
 ## Out of Scope (Deferred beyond Phase 6)
 
-- Unlink / re-link device flow (including releasing a device so another account can claim it). A device added by mistake stays on that account until this exists.
+- Unlink / re-link device flow (including releasing a device so another account can claim it)
 - Device nicknames / renaming
 - Limit on devices per account
 - Password reset / email verification
+- Settings page
 - Role-based access
 - OAuth / third-party login
 - Push/email/SMS notifications for threshold alerts
@@ -405,4 +407,4 @@ Implementation notes:
 - **Phase 3 (COMPLETE)**: MQTT pipeline (`mimic-device/` + `mqtt-bridge/`) replaced the direct-to-Mongo simulator.
 - **Phase 4 (COMPLETE)**: JWT/bcrypt auth, single-device linking, `Reading` factory keyed by device ID, seeded `devices` collection, multi-collection Change Streams, full auth frontend and route guards, plus Phase 2 frontend gap cleanup.
 - **Phase 5 (COMPLETE)**: Six devices (G3036, G3037, G3038, G3040, G3041, G3042; G3039 skipped because a real collection exists); one-account-per-device enforced by a unique partial index; multi-device MQTT; Socket.IO delivery scoped to per-device rooms with JWT handshake auth; socket disconnects on logout. One device per user.
-- **Phase 6 (IN PROGRESS)**: Multiple devices per user — `user.devices` array with multikey unique partial index, atomic add with 409s, `?deviceId=` + `resolveDevice` middleware, multi-room sockets with client-side filtering and reconnect after linking, `DeviceContext` + header device switcher + "Add device" flow. Unlink remains out of scope.
+- **Phase 6 (COMPLETE)**: Multiple devices per user — `user.devices` array with multikey unique partial index, atomic add with two distinct 409s, `?deviceId=` + `resolveDevice` middleware, multi-room sockets with client-side filtering and reconnect after linking, `DeviceContext` + header `DeviceSwitcher` + "Add device" flow with Cancel, `LinkDevice` error-message fix. Unlink remains out of scope.
