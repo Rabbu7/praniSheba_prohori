@@ -25,8 +25,10 @@ const io = new SocketIOServer(server, {
 io.use(socketAuth);
 
 io.on('connection', (socket) => {
-  if (socket.data && socket.data.deviceId) {
-    socket.join(`device:${socket.data.deviceId}`);
+  if (socket.data && Array.isArray(socket.data.deviceIds)) {
+    for (const deviceId of socket.data.deviceIds) {
+      socket.join(`device:${deviceId}`);
+    }
   }
 });
 
