@@ -53,9 +53,9 @@ async function migrate() {
 
     if (result.modifiedCount > 0) {
       migrated++;
-      console.log(`  Migrated user ${user.username || user._id}: device ${entry.deviceId}`);
+      console.log(`  Migrated user ${user._id}: device ${entry.deviceId}`);
     } else {
-      console.log(`  Skipped user ${user.username || user._id} (already migrated).`);
+      console.log(`  Skipped user ${user._id} (already migrated).`);
     }
   }
 

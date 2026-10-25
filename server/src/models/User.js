@@ -6,11 +6,19 @@ const deviceEntrySchema = new mongoose.Schema({
 }, { _id: false });
 
 const userSchema = new mongoose.Schema({
-  username: {
+  firstName: {
     type: String,
     required: true,
-    unique: true,
-    trim: true
+    trim: true,
+    maxlength: 50,
+    default: ''
+  },
+  lastName: {
+    type: String,
+    required: true,
+    trim: true,
+    maxlength: 50,
+    default: ''
   },
   email: {
     type: String,
@@ -23,9 +31,36 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  role: {
+    type: String,
+    enum: ['admin', 'manager', 'farmer'],
+    default: 'farmer'
+  },
+  status: {
+    type: String,
+    enum: ['active', 'removed'],
+    default: 'active'
+  },
+  division: {
+    type: String,
+    default: ''
+  },
+  district: {
+    type: String,
+    default: ''
+  },
+  phone: {
+    type: String,
+    default: ''
+  },
   devices: {
     type: [deviceEntrySchema],
     default: []
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
   },
   createdAt: {
     type: Date,
@@ -38,6 +73,14 @@ userSchema.index(
   {
     unique: true,
     partialFilterExpression: { 'devices.deviceId': { $type: 'string' } }
+  }
+);
+
+userSchema.index(
+  { district: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { role: 'manager', status: 'active' }
   }
 );
 

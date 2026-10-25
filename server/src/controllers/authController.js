@@ -2,6 +2,13 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Device = require('../models/Device');
+const { publicUser } = require('../utils/publicUser');
+const { isValidLocation } = require('../utils/locations');
+const {
+  normalizeName,
+  normalizeEmail,
+  isValidPassword
+} = require('../utils/validators');
 
 const BCRYPT_COST = 10;
 const JWT_EXPIRES_IN = '7d';
@@ -18,14 +25,6 @@ function requireJwtSecret() {
   }
 }
 
-function publicUser(user) {
-  return {
-    username: user.username,
-    email: user.email,
-    devices: user.devices || []
-  };
-}
-
 function signToken(user) {
   requireJwtSecret();
   return jwt.sign({ sub: user._id.toString() }, process.env.JWT_SECRET, {
@@ -35,22 +34,23 @@ function signToken(user) {
 
 const register = async (req, res, next) => {
   try {
-    const { username, email, password } = req.body || {};
+    const { firstName, lastName, email, password, division, district } = req.body || {};
+    const normalizedFirstName = normalizeName(firstName);
+    const normalizedLastName = normalizeName(lastName);
+    const normalizedEmail = normalizeEmail(email);
 
-    if (typeof username !== 'string' || !username.trim()
-      || typeof email !== 'string' || !email.trim()
-      || typeof password !== 'string' || !password.trim()) {
-      throw createError('Username, email, and password are required', 400);
+    if (!normalizedFirstName || !normalizedLastName || !normalizedEmail
+      || !isValidPassword(password)
+      || typeof division !== 'string' || typeof district !== 'string'
+      || !division.trim() || !district.trim()
+      || !isValidLocation(division.trim(), district.trim())) {
+      throw createError('Invalid registration details', 400);
     }
 
-    const normalizedUsername = username.trim();
-    const normalizedEmail = email.trim().toLowerCase();
-    const existingUser = await User.findOne({
-      $or: [{ email: normalizedEmail }, { username: normalizedUsername }]
-    });
+    const existingUser = await User.findOne({ email: normalizedEmail });
 
     if (existingUser) {
-      throw createError('Username or email already in use', 409);
+      throw createError('Email already in use', 409);
     }
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
@@ -58,20 +58,25 @@ const register = async (req, res, next) => {
 
     try {
       user = await User.create({
-        username: normalizedUsername,
+        firstName: normalizedFirstName,
+        lastName: normalizedLastName,
         email: normalizedEmail,
-        passwordHash
+        passwordHash,
+        division: division.trim(),
+        district: district.trim(),
+        role: 'farmer',
+        status: 'active'
       });
     } catch (error) {
       if (error.code === 11000) {
-        throw createError('Username or email already in use', 409);
+        throw createError('Email already in use', 409);
       }
       throw error;
     }
 
     return res.status(201).json({
       token: signToken(user),
-      user: publicUser(user)
+      user: await publicUser(user)
     });
   } catch (error) {
     return next(error);
@@ -87,20 +92,26 @@ const login = async (req, res, next) => {
       ? await bcrypt.compare(password, user.passwordHash)
       : false;
 
-    if (!passwordMatches) {
+    if (!user || user.status !== 'active' || !passwordMatches) {
       throw createError('Invalid email or password', 401);
     }
 
     return res.status(200).json({
       token: signToken(user),
-      user: publicUser(user)
+      user: await publicUser(user)
     });
   } catch (error) {
     return next(error);
   }
 };
 
-const me = (req, res) => res.status(200).json(publicUser(req.user));
+const me = async (req, res, next) => {
+  try {
+    return res.status(200).json(await publicUser(req.user));
+  } catch (error) {
+    return next(error);
+  }
+};
 
 const linkDevice = async (req, res, next) => {
   try {
@@ -143,7 +154,7 @@ const linkDevice = async (req, res, next) => {
 
     // Reload the user to return the full updated devices array.
     const updatedUser = await User.findById(req.user._id);
-    return res.status(200).json({ user: publicUser(updatedUser) });
+    return res.status(200).json({ user: await publicUser(updatedUser) });
   } catch (error) {
     return next(error);
   }

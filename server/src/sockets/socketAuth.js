@@ -29,6 +29,10 @@ const socketAuth = async (socket, next) => {
       return next(createAuthError('Authentication required'));
     }
 
+    if (user.status !== 'active') {
+      return next(createAuthError('Authentication required'));
+    }
+
     const deviceIds = (user.devices || []).map((d) => d.deviceId).filter(Boolean);
     if (deviceIds.length === 0) {
       return next(createAuthError('Authentication required'));

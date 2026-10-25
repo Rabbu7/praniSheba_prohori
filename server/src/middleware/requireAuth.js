@@ -28,6 +28,10 @@ const requireAuth = async (req, res, next) => {
       return next(createAuthError('Authentication required'));
     }
 
+    if (user.status !== 'active') {
+      return next(createAuthError('Authentication required'));
+    }
+
     req.user = user;
     return next();
   } catch (error) {
