@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const connectDB = require('../config/db');
 const Device = require('../models/Device');
 const User = require('../models/User');
+const DeviceRequest = require('../models/DeviceRequest');
 
 const SEEDED_DEVICES = [
   { deviceId: 'G3036', deviceCode: 'PROHORI-G3036-7X4K2' },
@@ -24,6 +25,7 @@ const seedDevices = async () => {
       );
     }
     await User.syncIndexes();
+    await DeviceRequest.syncIndexes();
 
     const devices = await Device.find({}).sort({ deviceId: 1 }).lean();
     console.log('Seeded devices:', devices);

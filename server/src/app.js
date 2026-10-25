@@ -5,6 +5,8 @@ const cors = require('cors');
 const { Server: SocketIOServer } = require('socket.io');
 const connectDB = require('./config/db');
 const authRouter = require('./routes/auth');
+const deviceRequestsRouter = require('./routes/deviceRequests');
+const managerRouter = require('./routes/manager');
 const metaRouter = require('./routes/meta');
 const profileRouter = require('./routes/profile');
 const readingsRouter = require('./routes/readings');
@@ -49,6 +51,8 @@ app.get('/health', (req, res) => {
 
 // Mount routes
 app.use('/api/auth', authRouter);
+app.use('/api/device-requests', deviceRequestsRouter);
+app.use('/api/manager', managerRouter);
 app.use('/api/meta', metaRouter);
 app.use('/api/profile', profileRouter);
 app.use('/api/readings', readingsRouter);
