@@ -11,12 +11,13 @@ function createError(message, status) {
 }
 
 function requestSummary(request) {
+  const id = request._id ? request._id.toString() : (request.id ? request.id.toString() : '');
   return {
-    id: request._id.toString(),
+    id,
     deviceId: request.deviceId,
     status: request.status,
     requestedAt: request.requestedAt,
-    decidedAt: request.decidedAt,
+    decidedAt: request.decidedAt || null,
     note: request.note || null
   };
 }
@@ -77,7 +78,7 @@ async function createDeviceRequest(req, res, next) {
       throw error;
     }
 
-    return res.status(201).json({ request });
+    return res.status(201).json({ request: requestSummary(request) });
   } catch (error) {
     return next(error);
   }
@@ -173,11 +174,11 @@ async function approveRequest(req, res, next) {
     const updated = await DeviceRequest.findOneAndUpdate(
       { _id: req.params.id, status: 'pending' },
       { $set: { status: 'approved', decidedBy: req.user._id, decidedAt } },
-      { new: true }
+      { returnDocument: 'after' }
     ).lean();
 
     if (!updated) throw createError('Request is no longer pending', 409);
-    return res.json({ request: updated });
+    return res.json({ request: requestSummary(updated) });
   } catch (error) {
     return next(error);
   }
@@ -206,11 +207,11 @@ async function rejectRequest(req, res, next) {
           note: note || null
         }
       },
-      { new: true }
+      { returnDocument: 'after' }
     ).lean();
 
     if (!updated) throw createError('Request is no longer pending', 409);
-    return res.json({ request: updated });
+    return res.json({ request: requestSummary(updated) });
   } catch (error) {
     return next(error);
   }
