@@ -9,7 +9,6 @@ import History from './pages/History';
 import Calendar from './pages/Calendar';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import LinkDevice from './pages/LinkDevice';
 import Devices from './pages/Devices';
 import CompleteProfile from './pages/CompleteProfile';
 import Profile from './pages/Profile';
@@ -145,7 +144,7 @@ export default function App() {
 
         {/* Farmer device pages */}
         <Route path="/devices" element={<FarmerDeviceGuard><Devices /></FarmerDeviceGuard>} />
-        <Route path="/link-device" element={<FarmerDeviceGuard><LinkDevice /></FarmerDeviceGuard>} />
+        <Route path="/link-device" element={<Navigate to="/devices" replace />} />
 
         {/* Profile (all roles) */}
         <Route path="/profile" element={<ProfileGuard><Profile /></ProfileGuard>} />

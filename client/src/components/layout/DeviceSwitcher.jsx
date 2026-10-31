@@ -73,7 +73,7 @@ export default function DeviceSwitcher() {
   };
 
   const handleAddDevice = () => {
-    navigate('/link-device');
+    navigate('/devices', { state: { openRequest: true } });
     close();
   };
 

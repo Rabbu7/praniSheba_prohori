@@ -68,7 +68,7 @@ Logout stays on the Sidebar.
 
 ### Dashboard (`/`), Reading Log (`/history`), Calendar (`/calendar`) — unchanged content
 
-Behavior from Phase 6 stands (selected-device switching, live updates filtered by `device_id`, 7d/30d range, pagination, calendar min/max). The **DeviceSwitcher** lists only **approved** devices. Its last row is renamed **"Request device"** (was "Add device") and navigates to `/link-device`. Farmers with no approved device are redirected to `/devices`.
+Behavior from Phase 6 stands (selected-device switching, live updates filtered by `device_id`, 7d/30d range, pagination, calendar min/max). The **DeviceSwitcher** lists only **approved** devices. Its last row is renamed **"Request device"** (was "Add device") and opens the dialog on `/devices`. Farmers with no approved device are redirected to `/devices`.
 
 ### Page: My Devices (`/devices`) — new
 
@@ -77,23 +77,25 @@ Behavior from Phase 6 stands (selected-device switching, live updates filtered b
   - `approved` → "Approved" (green pill) with a link/button "Open dashboard" that selects that device and goes to `/`
   - `rejected` → "Rejected" (grey/red pill) with the manager's note if any
   - Approved devices that existed before Phase 7 (no request record) are also listed as Approved.
-- Button "Request device" → `/link-device`.
+- Button "Request device" opens the request dialog.
 - Empty state: "You have no devices yet." with the same button.
 - If the farmer's district has no manager, show an info banner: "No manager is assigned to your district yet. Your requests will be reviewed once a manager is available."
 - While any request is pending, the page (and the app) refetches `/api/auth/me` every 30 seconds and on tab focus; when a request becomes approved the device appears, the socket is reconnected, and the status updates without a manual refresh.
 
-### Page: Request device (`/link-device`) — changed
+### Request device dialog (opens from My Devices)
 
-Same page/route, now creates a **request**.
-- Fields: Device ID, Device code (unchanged). Heading "Request a Prohori device" (first device: "Connect your Prohori device"). Button "Request device" ("Sending request..." while submitting). Cancel link → `/devices` when the farmer already has requests/devices; no Cancel for a brand-new farmer with nothing yet (they stay on this page or `/devices`).
-- Success: the farmer is taken to `/devices` and sees the new request as Pending, with a message "Request sent. Your manager will review it."
-- Inline errors (typed values kept, form not cleared):
+- Heading: "Request a Prohori device". The hint says, "Use the device ID and code provided with your Prohori monitor."
+- Fields: Device ID (placeholder "e.g. G3036") and Device code.
+- Buttons: "Cancel" and "Request device" ("Sending request..." while submitting). The dialog closes on Escape, backdrop click, or Cancel; it cannot be closed while a request is submitting.
+- Inline errors (typed values are kept when a request fails):
   - Wrong ID/code → "Invalid device ID or code" (generic, never says which field).
   - Already owned by this farmer → "You have already added this device".
   - Owned by another account → "This device is already linked to another account".
   - Already requested by this farmer → "You already have a pending request for this device".
   - Pending from another account → "This device already has a pending request from another account".
-- Uses `AuthShell`, no Sidebar/Header (as in Phase 6).
+- Empty fields also show "Invalid device ID or code".
+- On success: the dialog closes, the request list reloads, and the banner "Request sent. Your manager will review it." appears.
+- The legacy `/link-device` URL redirects to `/devices`.
 
 ---
 
@@ -159,7 +161,7 @@ Summary cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged di
 
 ## Route Guard Summary (single source of truth for `App.jsx`)
 
-| State | Farmer pages `/`, `/history`, `/calendar` | `/link-device`, `/devices`, `/profile` | `/complete-profile` | `/manager/*` | `/admin/*` | `/login`, `/register` |
+| State | Farmer pages `/`, `/history`, `/calendar` | `/devices`, `/profile` | `/complete-profile` | `/manager/*` | `/admin/*` | `/login`, `/register` |
 |---|---|---|---|---|---|---|
 | Not authenticated | → `/login` | → `/login` | → `/login` | → `/login` | → `/login` | shown |
 | Farmer, profile incomplete | → `/complete-profile` | → `/complete-profile` | shown | → `/` | → `/` | → `/` |
