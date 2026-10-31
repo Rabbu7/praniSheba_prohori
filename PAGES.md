@@ -1,11 +1,11 @@
 # PAGES.md
 
-> Defines the screens/pages/sections that should exist in the app for the current phase.
+> Defines the screens/pages/sections that exist in the app for the current phase.
 > Updated at the start of every new phase — sections marked "future" are NOT to be built yet.
 
-## Phase 7 — Pages & Sections — STATUS: IN PROGRESS
+## Phase 7 — Pages & Sections — STATUS: COMPLETE
 
-Phase 7 adds **role-based access**: `farmer` (existing site, extended), `manager` (new panel) and `admin` (new panel). All pages follow `DESIGN.md` tokens (same Sidebar/Header layout, cards, tables, status pills). No new colors. Stages: 7a docs · 7b backend foundation · 7c device requests + manager scoping · 7d admin backend · 7e frontend foundation · 7f manager/admin panels + verification (see `AGENTS.md`).
+Phase 7 added **role-based access**: `farmer` (existing site, extended), `manager` (new panel) and `admin` (new panel). All pages follow `DESIGN.md` tokens (same Sidebar/Header layout, cards, tables, status pills). No new colors. No Phase 8 pages are defined yet.
 
 ### Roles at a glance
 
@@ -15,49 +15,48 @@ Phase 7 adds **role-based access**: `farmer` (existing site, extended), `manager
 | Manager | `/manager` | Overview, Farmers, Requests, Profile |
 | Admin | `/admin` | Overview, Managers, Profile |
 
-Mobile uses the existing bottom navigation with the same items per role. The header's `account_circle` icon links to `/profile` for every role.
+Mobile uses the bottom navigation with the same items per role (short labels). The header's `account_circle` icon links to `/profile` for every role. Manager and admin headers hide the device label, switcher, status badge and last-updated chip.
 
 ---
 
 ## Shared pages
 
-### Page: Register (`/register`) — changed
+### Page: Register (`/register`)
 
 Farmers only.
-- Fields: **First name**, **Last name**, **Email address**, **Division** (dropdown), **District** (dropdown, filtered by the selected division and disabled until a division is chosen), **Password**, **Confirm password**. The old **Username** field is removed.
+- Fields: **First name**, **Last name**, **Email address**, **Division** (dropdown), **District** (dropdown, filtered by the division and disabled until a division is chosen; changing the division clears the district), **Password**, **Confirm password**.
 - Division/District options come from `GET /api/meta/locations`.
-- Validation messages inline in the existing error area (all fields required; passwords must match; password at least 8 characters). Server errors (e.g. "Email already in use") are read from `err.response.data.error.message`.
-- On success: farmer with no approved devices → `/devices`; otherwise `/`.
-- Footer link to Login. Layout stays `AuthShell`.
+- Inline validation (all fields required; passwords must match; password at least 8 characters). Server errors (e.g. "Email already in use") are read from `err.response.data.error.message`.
+- On success: a new farmer lands on `/devices`.
+- Footer link to Login. Layout: `AuthShell`.
 
-### Page: Login (`/login`) — small change
+### Page: Login (`/login`)
 
-Unchanged fields. After login, redirect by role: admin → `/admin`, manager → `/manager`, farmer → `/complete-profile` (if profile incomplete), `/devices` (no approved device) or `/`.
+Email + password. Generic error "Invalid email or password". After login, redirect by role: admin → `/admin`, manager → `/manager`, farmer → `/complete-profile` (profile incomplete), `/devices` (no approved device) or `/`.
 
-### Page: Complete profile (`/complete-profile`) — new, farmers only
+### Page: Complete profile (`/complete-profile`) — farmers only
 
-One-time step for existing (migrated) farmers who have no name/division/district.
+One-time step for migrated farmers who have no name/division/district.
 - Heading "Complete your profile". Fields: First name, Last name, Division, District, Phone (optional). Button "Save and continue".
-- Cannot be skipped: route guard sends the farmer here from every farmer page until saved.
-- On success → `/` (or `/devices` if no approved device). Uses `PATCH /api/profile`.
-- Uses `AuthShell`, no Sidebar/Header.
+- Cannot be skipped: the route guard sends the farmer here from every farmer page until saved.
+- On success → `/` (or `/devices` if no approved device). Uses `AuthShell`, no Sidebar/Header.
 
-### Page: Profile (`/profile`) — new, all roles
+### Page: Profile (`/profile`) — all roles
 
-Inside the normal authenticated layout (Sidebar + Header for the role). Two cards plus one role-specific card.
+Inside the normal authenticated layout for the role.
 
 **Card 1 — Personal information** (editable form)
-- Farmer: first name, last name, phone (optional), division, district. Email shown read-only.
-- Manager: first name, last name, phone. Email, division and district shown read-only (changed only by the admin).
+- Farmer: first name, last name, phone (optional), division, district. Email read-only.
+- Manager: first name, last name, phone. Email, division and district read-only (changed only by the admin).
 - Admin: first name, last name, phone (optional). Email read-only.
 - Save button, success message "Profile updated", inline errors.
 
 **Card 2 — Change password**
-- Current password, new password, confirm new password. Inline errors ("Current password is incorrect", mismatch, minimum 8 characters).
+- Current, new, confirm. Inline errors ("Current password is incorrect", mismatch, minimum 8 characters).
 
 **Role-specific card**
-- **Farmer — "Your manager":** manager's full name and phone with a **call icon link** (`tel:`) and the district. If the district has no active manager: "No manager assigned yet".
-- **Manager — "Your district":** division and district, plus counts (farmers, devices).
+- **Farmer — "Your manager":** manager's full name and phone with a **call icon link** (`tel:`) and the district. If none: "No manager assigned yet".
+- **Manager — "Your district":** division and district, plus farmer and device counts.
 - **Admin:** none.
 
 Logout stays on the Sidebar.
@@ -66,96 +65,79 @@ Logout stays on the Sidebar.
 
 ## Farmer pages
 
-### Dashboard (`/`), Reading Log (`/history`), Calendar (`/calendar`) — unchanged content
+### Dashboard (`/`), Reading Log (`/history`), Calendar (`/calendar`)
 
-Behavior from Phase 6 stands (selected-device switching, live updates filtered by `device_id`, 7d/30d range, pagination, calendar min/max). The **DeviceSwitcher** lists only **approved** devices. Its last row is renamed **"Request device"** (was "Add device") and opens the dialog on `/devices`. Farmers with no approved device are redirected to `/devices`.
+Selected-device switching, live updates filtered by `device_id`, 7d/30d range, pagination, calendar min/max. The page bodies are shared view components (`DashboardView`, `HistoryView`, `CalendarView`) that take a `deviceId`. The **DeviceSwitcher** lists only **approved** devices. Its last row, **"Request device"**, opens the request dialog on `/devices`. Farmers with no approved device are redirected to `/devices`.
 
-### Page: My Devices (`/devices`) — new
+### Page: My Devices (`/devices`)
 
-- Lists all of the farmer's device requests, newest first, in a table/cards: **Device ID** (monospace), **Requested on**, **Status** pill, **Note**.
+- Lists the farmer's device requests, newest first: **Device ID** (monospace), **Requested on**, **Status** pill, **Note**, Action.
   - `pending` → "Pending approval" (amber pill)
-  - `approved` → "Approved" (green pill) with a link/button "Open dashboard" that selects that device and goes to `/`
-  - `rejected` → "Rejected" (grey/red pill) with the manager's note if any
-  - Approved devices that existed before Phase 7 (no request record) are also listed as Approved.
-- Button "Request device" opens the request dialog.
-- Empty state: "You have no devices yet." with the same button.
-- If the farmer's district has no manager, show an info banner: "No manager is assigned to your district yet. Your requests will be reviewed once a manager is available."
-- While any request is pending, the page (and the app) refetches `/api/auth/me` every 30 seconds and on tab focus; when a request becomes approved the device appears, the socket is reconnected, and the status updates without a manual refresh.
+  - `approved` → "Approved" (green pill) with an "Open dashboard" button that selects that device and goes to `/`
+  - `rejected` → red/grey pill with the manager's note if any
+  - Approved devices that existed before Phase 7 (no request record) are listed as Approved.
+- Button "Request device" opens the request dialog. Empty state: "You have no devices yet." with the same button.
+- If the farmer's district has no manager, an info banner: "No manager is assigned to your district yet. Your requests will be reviewed once a manager is available."
+- After a successful request, the banner "Request sent. Your manager will review it." shows.
+- While any request is pending, the app refetches `/api/auth/me` every 30 seconds and on tab focus; when a request becomes approved the device appears, the socket reconnects, and the status updates without a manual reload.
+- If opened with router state `{ openRequest: true }` (from the DeviceSwitcher), the dialog opens on mount and the state is cleared so a refresh does not reopen it.
 
 ### Request device dialog (opens from My Devices)
 
-- Heading: "Request a Prohori device". The hint says, "Use the device ID and code provided with your Prohori monitor."
-- Fields: Device ID (placeholder "e.g. G3036") and Device code.
-- Buttons: "Cancel" and "Request device" ("Sending request..." while submitting). The dialog closes on Escape, backdrop click, or Cancel; it cannot be closed while a request is submitting.
-- Inline errors (typed values are kept when a request fails):
-  - Wrong ID/code → "Invalid device ID or code" (generic, never says which field).
+A floating dialog over a dimmed backdrop (sidebar and header stay visible behind it). There is no separate page; `/link-device` redirects to `/devices`.
+- Heading "Request a Prohori device". Hint: "Use the device ID and code provided with your Prohori monitor."
+- Fields: Device ID (placeholder "e.g. G3036") and Device code. The Device ID field is focused on open.
+- Buttons: "Cancel" and "Request device" ("Sending request..." while submitting; both disabled then). Closes on Escape, backdrop click or Cancel, but not while submitting. Body scroll is locked while open. Form and error reset on each open. Mobile: full width with margins, scrollable.
+- Inline errors (typed values are kept):
+  - Wrong ID/code or empty fields → "Invalid device ID or code" (generic, never says which field).
   - Already owned by this farmer → "You have already added this device".
   - Owned by another account → "This device is already linked to another account".
   - Already requested by this farmer → "You already have a pending request for this device".
   - Pending from another account → "This device already has a pending request from another account".
-- Empty fields also show "Invalid device ID or code".
-- On success: the dialog closes, the request list reloads, and the banner "Request sent. Your manager will review it." appears.
-- The legacy `/link-device` URL redirects to `/devices`.
+- On success: the dialog closes, the request list reloads, the banner shows, and pending-sync starts.
 
 ---
 
-## Manager pages (role `manager`; district-scoped)
+## Manager pages (role `manager`; district-scoped, read-only for data)
 
 All data is limited to farmers in the manager's district. Anything out of scope behaves as "not found".
 
-### Page: Manager Overview (`/manager`) — new
+### Manager Overview (`/manager`)
+- Title "Overview" with district and division. Metric cards: **Farmers**, **Devices**, **Pending requests** (real counts). A "Pending requests" preview (max 5) with a "View all" link.
 
-- Header title "Overview" with the district and division shown (e.g. "Dhaka · Dhaka Division").
-- Summary cards (metric-card style from `DESIGN.md`): **Farmers**, **Devices**, **Pending requests**. Real counts only.
-- A short "Pending requests" preview (up to 5 rows) with a "View all" link to `/manager/requests`.
+### Farmers (`/manager/farmers`)
+- Table of active farmers: Name, Email, Phone (call icon `tel:` link), Devices (count). Client-side search by name/email. Row click opens the detail. Empty state: "No farmers in your district yet."
 
-### Page: Farmers (`/manager/farmers`) — new
+### Farmer detail (`/manager/farmers/:farmerId`)
+- Info card: name, email, phone (call link), division, district.
+- Devices card: the farmer's approved devices with an online/offline pill (5-minute rule); each links to its read-only view.
+- Unknown or out-of-district `farmerId` → "Farmer not found" (same for both).
 
-- Table of active farmers in the district: Name, Email, Phone (call icon link), Devices (count). Search box filters by name/email.
-- Clicking a row opens the farmer detail.
-- Empty state: "No farmers in your district yet."
-
-### Page: Farmer detail (`/manager/farmers/:farmerId`) — new
-
-- Farmer information card: name, email, phone (call link), division, district.
-- Devices card: list of the farmer's approved devices (ID, latest reading time, online/offline pill using the existing 5-minute rule). Each device links to its read-only view.
-- Unknown or out-of-district `farmerId` → "Farmer not found" state (same for both).
-
-### Page: Farmer device view (`/manager/farmers/:farmerId/devices/:deviceId`) — new, read-only
-
-- Reuses the existing Dashboard, Reading Log and Calendar components for that device, with tabs "Dashboard / Reading Log / Calendar". Live readings update via the manager's socket rooms (filtered by `device_id`).
-- Header shows the farmer's name and the device ID; no DeviceSwitcher outside that farmer's devices, no "Request device".
-- Read-only: there are no controls that change data.
+### Farmer device view (`/manager/farmers/:farmerId/devices/:deviceId`) — read-only
+- Tabs Dashboard / Reading Log / Calendar using the shared view components. Live readings via the manager socket (opened only here, closed on leaving; REST works if the socket fails).
+- Shows the farmer's name and the device ID with a back link. No DeviceSwitcher, no request button.
 - Invalid or out-of-scope device → "Device not found".
 
-### Page: Requests (`/manager/requests`) — new
-
-- Tabs: **Pending** (default), **Approved**, **Rejected**.
-- Pending rows: Farmer name, Device ID, Requested on, **Approve** and **Reject** buttons. Reject opens a small confirm box with an optional note (max 200 chars).
-- Inline result messages: success, or the 409 messages when the device became unavailable ("Already added" / "Already linked to another account" — the request is then moved to Rejected automatically).
-- After an approval the manager's socket is reconnected so the new device's room is included.
-- Approved/Rejected rows show who decided and when (decider is always the current manager's district manager).
-- Empty state per tab, e.g. "No pending requests".
+### Requests (`/manager/requests`)
+- Tabs **Pending** (default), **Approved**, **Rejected**.
+- Pending rows: Farmer name, Device ID, Requested on, **Approve** and **Reject** (Reject opens a confirm box with an optional note, max 200 chars). Buttons are disabled while a request is in flight.
+- Inline result messages; on a 409 the server message shows and the list reloads (the request moves to Rejected).
+- Approved/Rejected rows show the decided date and the note. Per-tab empty states, e.g. "No pending requests".
 
 ---
 
 ## Admin pages (role `admin`)
 
-Admin sees **no sensor readings**.
+Admin sees **no sensor readings** and opens no socket.
 
-### Page: Admin Overview (`/admin`) — new
+### Admin Overview (`/admin`)
+Metric cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged districts**. Real counts only.
 
-Summary cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged districts** (districts with farmers but no manager). Real counts only.
-
-### Page: Managers (`/admin/managers`) — new
-
-- Table of active managers: Name, Email, Phone, Division, District, Farmers (count), Created on, and a **Delete** action.
-- **Add manager** button opens a form (modal or dedicated panel): First name, Last name, Email, Phone, Division, District (dependent dropdowns), Initial password. Inline errors:
-  - "Email already in use"
-  - "This district already has a manager"
-  - validation messages (phone format, password at least 8 characters)
-- **Delete** opens a confirm dialog: "Delete <name>? Their district will have no manager until a new one is added. Farmers and devices are not affected." Soft delete; the row disappears from the list.
-- Empty state: "No managers yet."
+### Managers (`/admin/managers`)
+- Table of active managers: Name, Email, Phone, Division, District, Farmers (count), Created on, **Delete**.
+- **Add manager** opens a dialog: First name, Last name, Email, Phone, Division and District (dependent dropdowns), Initial password. Inline errors keep typed values: "Email already in use", "This district already has a manager", validation messages (required fields, phone format, password at least 8 characters).
+- **Delete** opens a confirm dialog: "Delete <name>? Their district will have no manager until a new one is added. Farmers and devices are not affected." Soft delete; the row disappears.
+- Empty state: "No managers yet." Buttons are disabled while a request is in flight.
 
 ---
 
@@ -170,26 +152,27 @@ Summary cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged di
 | Manager | → `/manager` | `/profile` shown; others → `/manager` | → `/manager` | shown | → `/manager` | → `/manager` |
 | Admin | → `/admin` | `/profile` shown; others → `/admin` | → `/admin` | → `/admin` | shown | → `/admin` |
 
-A minimal loading state renders while the initial `/api/auth/me` check is in flight.
+`/link-device` redirects to `/devices`. A minimal loading state renders while the initial `/api/auth/me` check is in flight.
 
 ---
 
-## Phase 7 Acceptance Checks
+## Phase 7 Acceptance Checks (all passed)
 
-1. **Migration:** existing users become `farmer`/`active`, keep their devices, lose `username`; re-running changes nothing. `seedAdmin.js` creates one admin and is safe to re-run. Old `username` index is gone; the district-manager and pending-device indexes exist.
-2. **Register:** new farmer requires first name, last name, division, district; district not in the division → rejected; a `role` field in the request body is ignored (always farmer).
-3. **Complete profile:** a migrated farmer is forced to `/complete-profile` from every farmer page; after saving, normal access works.
-4. **Admin / managers:** admin adds a manager (unique email and unique active district enforced, second manager in the same district → 409); deletes a manager (soft delete) → district unmanaged, farmers unaffected, removed manager can no longer log in or use an old token (401); admin cannot delete an admin or themselves; admin gets 403 on every `/api/readings/*` route and cannot open a socket.
-5. **Device request flow:** farmer requests a device → pending; no readings access yet; second farmer requesting the same device → 409; manager approves → device appears in the farmer's list, farmer's socket reconnects and live updates arrive; manager rejects → farmer sees Rejected with note and may retry; approving a device already owned elsewhere → 409 and request auto-rejected.
-6. **District scoping:** manager A (district X) cannot list, open or read data of farmers in district Y: `GET /api/manager/farmers/:id` → 404 and `/api/readings/latest?deviceId=<Y's device>` → 403; manager without `?deviceId=` → 400; manager A does not receive live events for district Y's devices; manager A cannot approve/reject district Y's requests.
-7. **Unmanaged district:** farmer in a district with no manager can register, request devices (pending) and use the app; profile shows "No manager assigned yet"; once a manager is added, they see the farmer and the pending request.
-8. **Farmer ↔ manager visibility:** farmer's profile shows the manager's name and a working `tel:` call link; manager sees each farmer's profile and device data read-only; there are no write controls in manager farmer views.
-9. **Profiles:** every role can open `/profile` from the header icon, update permitted fields (managers cannot change district/division), and change their password (wrong current password rejected).
-10. **Guards:** each role is redirected to its own home from other roles' routes; a farmer with only pending requests lands on `/devices` (no redirect loop); logging out and in as a different role in the same tab shows the correct panel and clears the saved selected device.
+1. **Migration:** existing users became `farmer`/`active`, kept their devices, lost `username`; re-running changes nothing. `seedAdmin.js` creates one admin and is safe to re-run. The old `username` index is gone; the district-manager and pending-device indexes exist.
+2. **Register:** requires first name, last name, division, district; a district not in the division is rejected; a `role` in the body is ignored.
+3. **Complete profile:** a migrated farmer is forced to `/complete-profile` from every farmer page; after saving, access works.
+4. **Admin / managers:** unique email and unique active district enforced; soft delete frees the district, farmers unaffected; a removed manager cannot log in or use an old token (401); admin gets 403 on every `/api/readings/*` route and cannot open a socket.
+5. **Device request flow:** pending request has no readings access; a second farmer requesting the same device gets 409; approval adds the device, the farmer's page flips to Approved without a reload and live updates arrive; rejection shows the note and allows retry; approving a device owned elsewhere → 409 and the request is auto-rejected.
+6. **District scoping:** manager A cannot list, open or read farmers/devices/requests of district B (404/403), a missing `deviceId` gives 400, and A receives no live events for B's devices.
+7. **Unmanaged district:** farmers there can register, request devices and use the app; the profile shows "No manager assigned yet"; once a manager is added, they see the farmer and the pending request.
+8. **Farmer ↔ manager visibility:** farmer's profile shows the manager's name and a working `tel:` link; manager sees each farmer's data read-only.
+9. **Profiles:** every role can open `/profile` from the header icon, edit permitted fields, and change the password (wrong current password rejected).
+10. **Guards:** each role is redirected to its own home from other roles' routes; a farmer with only pending requests lands on `/devices` (no loop); switching roles in one tab shows the correct panel and clears the saved selected device.
+11. **Request dialog:** opens from My Devices and the DeviceSwitcher, closes on Escape/backdrop/Cancel, keeps typed values on error, and does not reopen on refresh; `/link-device` redirects to `/devices`.
 
 ---
 
-## Explicitly NOT in Phase 7 (future phases)
+## Explicitly NOT built (future phases)
 
 - Messaging between farmer and manager
 - Multiple managers per district / automatic manager selection
@@ -214,4 +197,4 @@ A minimal loading state renders while the initial `/api/auth/me` check is in fli
 - **Phase 4 (COMPLETE)**: Authentication (Register/Login), Link Device, route guards, data scoped to the linked device.
 - **Phase 5 (COMPLETE)**: Six devices, one account per device, per-device socket rooms.
 - **Phase 6 (COMPLETE)**: Multiple devices per user, header device switcher, "Add device" flow.
-- **Phase 7 (IN PROGRESS)**: RBAC — farmer / manager / admin, district-based manager, device-request approval, manager and admin panels, profile pages for all roles.
+- **Phase 7 (COMPLETE)**: RBAC — farmer / manager / admin, district-based manager, device-request approval via a request dialog, manager and admin panels, profile pages for all roles.
