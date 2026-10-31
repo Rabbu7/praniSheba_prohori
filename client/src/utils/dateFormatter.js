@@ -46,3 +46,9 @@ export function formatChartTime(dateInput, range = '7d') {
     hour12: false,
   });
 }
+
+export function formatDate(dateInput) {
+  if (!dateInput) return '—';
+  const date = new Date(dateInput);
+  return isNaN(date.getTime()) ? '—' : date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}

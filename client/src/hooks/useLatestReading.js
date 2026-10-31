@@ -4,7 +4,7 @@ import socket, { connectSocket, disconnectSocket } from '../services/socket';
 import { useAuth } from '../context/AuthContext';
 import { useDevice } from '../context/DeviceContext';
 
-export default function useLatestReading() {
+export default function useLatestReading(deviceIdOverride, connect = true) {
   const { token } = useAuth();
   const { devices, selectedDeviceId } = useDevice();
   const [data, setData] = useState(null);
@@ -14,16 +14,17 @@ export default function useLatestReading() {
   useEffect(() => {
     let cancelled = false;
 
-    if (!token || devices.length === 0) {
+    const deviceId = deviceIdOverride || selectedDeviceId;
+    if (!token || (!deviceIdOverride && devices.length === 0)) {
       disconnectSocket();
       setData(null);
       setLoading(false);
       return undefined;
     }
 
-    connectSocket(token);
+    if (connect) connectSocket(token);
 
-    if (!selectedDeviceId) {
+    if (!deviceId) {
       setData(null);
       setLoading(false);
       return undefined;
@@ -34,7 +35,7 @@ export default function useLatestReading() {
 
     const fetchLatest = async () => {
       try {
-        const result = await getLatestReading(selectedDeviceId);
+        const result = await getLatestReading(deviceId);
         if (!cancelled) {
           setData(result);
           setError(null);
@@ -47,7 +48,7 @@ export default function useLatestReading() {
     };
 
     const handleNewReading = (payload) => {
-      if (!cancelled && payload?.device_id === selectedDeviceId) {
+      if (!cancelled && payload?.device_id === deviceId) {
         setData(payload);
         setError(null);
       }
@@ -60,7 +61,7 @@ export default function useLatestReading() {
       cancelled = true;
       socket.off('new-reading', handleNewReading);
     };
-  }, [token, selectedDeviceId, devices.length]);
+  }, [token, selectedDeviceId, devices.length, deviceIdOverride, connect]);
 
   return { data, loading, error };
 }

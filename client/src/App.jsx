@@ -14,7 +14,12 @@ import Devices from './pages/Devices';
 import CompleteProfile from './pages/CompleteProfile';
 import Profile from './pages/Profile';
 import ManagerOverview from './pages/manager/Overview';
+import ManagerFarmers from './pages/manager/Farmers';
+import ManagerFarmerDetail from './pages/manager/FarmerDetail';
+import ManagerFarmerDevice from './pages/manager/FarmerDevice';
+import ManagerRequests from './pages/manager/Requests';
 import AdminOverview from './pages/admin/Overview';
+import AdminManagers from './pages/admin/Managers';
 
 function AuthLoading() {
   return (
@@ -147,12 +152,14 @@ export default function App() {
 
         {/* Manager routes */}
         <Route path="/manager" element={<ManagerGuard><ManagerOverview title="Overview" /></ManagerGuard>} />
-        <Route path="/manager/farmers" element={<ManagerGuard><ManagerOverview title="Farmers" /></ManagerGuard>} />
-        <Route path="/manager/requests" element={<ManagerGuard><ManagerOverview title="Requests" /></ManagerGuard>} />
+        <Route path="/manager/farmers" element={<ManagerGuard><ManagerFarmers /></ManagerGuard>} />
+        <Route path="/manager/farmers/:farmerId" element={<ManagerGuard><ManagerFarmerDetail /></ManagerGuard>} />
+        <Route path="/manager/farmers/:farmerId/devices/:deviceId" element={<ManagerGuard><ManagerFarmerDevice /></ManagerGuard>} />
+        <Route path="/manager/requests" element={<ManagerGuard><ManagerRequests /></ManagerGuard>} />
 
         {/* Admin routes */}
         <Route path="/admin" element={<AdminGuard><AdminOverview title="Overview" /></AdminGuard>} />
-        <Route path="/admin/managers" element={<AdminGuard><AdminOverview title="Managers" /></AdminGuard>} />
+        <Route path="/admin/managers" element={<AdminGuard><AdminManagers /></AdminGuard>} />
 
         {/* Fallback to role home */}
         <Route path="*" element={<RootCatchAll />} />

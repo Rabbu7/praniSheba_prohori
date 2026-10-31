@@ -1,34 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useDevice } from '../context/DeviceContext';
 import Header from '../components/layout/Header';
 import Sidebar from '../components/layout/Sidebar';
-import CalendarGrid from '../components/calendar/CalendarGrid';
-import DayDetailCards from '../components/calendar/DayDetailCards';
-import useCalendarData from '../hooks/useCalendarData';
-import useDayDetail from '../hooks/useDayDetail';
 import useDeviceStatus from '../hooks/useDeviceStatus';
+import CalendarView from '../components/views/CalendarView';
 
 export default function Calendar() {
   const { selectedDeviceId } = useDevice();
-  // Default to current month in YYYY-MM format
-  const now = new Date();
-  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-  const [month, setMonth] = useState(defaultMonth);
-  const [selectedDate, setSelectedDate] = useState(null);
-
-  useEffect(() => {
-    setSelectedDate(null);
-  }, [selectedDeviceId]);
-
-  const { data: calendarData, error: calendarError } = useCalendarData(month, selectedDeviceId);
-  const { data: dayData, loading: detailLoading, error: detailError } = useDayDetail(selectedDate, selectedDeviceId);
   const { status, lastUpdated } = useDeviceStatus();
-
-  const handleMonthChange = (newMonth) => {
-    setMonth(newMonth);
-    setSelectedDate(null); // Clear selection when navigating months
-  };
 
   return (
     <div className="bg-background text-on-background font-body-sm antialiased h-screen flex overflow-hidden">
@@ -36,35 +15,7 @@ export default function Calendar() {
       <main className="flex-1 md:ml-sidebar-width mt-[64px] md:mt-0 h-full overflow-y-auto w-full bg-background relative">
         <Header title="Calendar" status={status} lastUpdated={lastUpdated} mobileSwitcher />
         <div className="p-container-padding md:p-8 max-w-[1600px] mx-auto pb-24 md:pb-8">
-          {calendarError ? (
-            <div className="bg-surface-white border border-error/30 rounded-lg p-6 flex flex-col items-center justify-center text-center shadow-sm">
-              <span className="material-symbols-outlined text-error text-4xl mb-2">
-                cloud_off
-              </span>
-              <h3 className="font-headline-md text-headline-md font-bold text-on-background mb-1">
-                Unable to load calendar
-              </h3>
-              <p className="text-secondary text-body-sm">
-                Please check backend connectivity. Retrying automatically...
-              </p>
-            </div>
-          ) : (
-            <>
-              <CalendarGrid
-                month={month}
-                data={calendarData}
-                selectedDate={selectedDate}
-                onDayClick={setSelectedDate}
-                onMonthChange={handleMonthChange}
-              />
-              <DayDetailCards
-                date={selectedDate}
-                data={dayData}
-                loading={detailLoading}
-                error={detailError}
-              />
-            </>
-          )}
+          <CalendarView deviceId={selectedDeviceId} />
         </div>
       </main>
     </div>

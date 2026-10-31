@@ -6,6 +6,7 @@ import PasswordForm from '../components/profile/PasswordForm';
 import ManagerCard from '../components/profile/ManagerCard';
 import DistrictCard from '../components/profile/DistrictCard';
 import { useAuth } from '../context/AuthContext';
+import useManagerOverview from '../hooks/useManagerOverview';
 
 export default function Profile() {
   const { user, setUser } = useAuth();
@@ -13,6 +14,7 @@ export default function Profile() {
   const isFarmer = role === 'farmer';
   const isManager = role === 'manager';
   const hasApprovedDevices = Boolean(user?.devices?.length);
+  const managerOverview = useManagerOverview(isManager);
 
   return (
     <div className="bg-background text-on-background font-body-sm antialiased h-screen flex overflow-hidden">
@@ -42,7 +44,7 @@ export default function Profile() {
                 <ManagerCard manager={user?.manager} district={user?.district} />
               )}
               {isManager && (
-                <DistrictCard division={user?.division} district={user?.district} />
+                <DistrictCard division={user?.division} district={user?.district} farmerCount={managerOverview.data?.farmerCount} deviceCount={managerOverview.data?.deviceCount} />
               )}
             </div>
           </div>
@@ -51,4 +53,3 @@ export default function Profile() {
     </div>
   );
 }
-
