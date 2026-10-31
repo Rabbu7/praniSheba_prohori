@@ -98,3 +98,15 @@ export const getDayDetail = async (date, deviceId) => {
   const response = await api.get(`/api/readings/day/${date}`, { params });
   return response.data;
 };
+
+export const getManagerOverview = async () => (await api.get('/api/manager/overview')).data;
+export const getManagerFarmers = async () => (await api.get('/api/manager/farmers')).data;
+export const getManagerFarmer = async (id) => (await api.get(`/api/manager/farmers/${id}`)).data;
+export const getManagerRequests = async (status = 'pending') => (await api.get('/api/manager/device-requests', { params: { status } })).data;
+export const approveRequest = async (id) => (await api.post(`/api/manager/device-requests/${id}/approve`)).data;
+export const rejectRequest = async (id, note) => (await api.post(`/api/manager/device-requests/${id}/reject`, { note })).data;
+
+export const getAdminOverview = async () => (await api.get('/api/admin/overview')).data;
+export const getAdminManagers = async () => (await api.get('/api/admin/managers')).data;
+export const createManager = async (body) => (await api.post('/api/admin/managers', body)).data;
+export const deleteManager = async (id) => (await api.delete(`/api/admin/managers/${id}`)).data;

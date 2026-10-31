@@ -1,20 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useDevice } from '../context/DeviceContext';
 import Header from '../components/layout/Header';
 import Sidebar from '../components/layout/Sidebar';
-import HistoryTable from '../components/dashboard/HistoryTable';
-import useReadingsLog from '../hooks/useReadingsLog';
 import useDeviceStatus from '../hooks/useDeviceStatus';
+import HistoryView from '../components/views/HistoryView';
 
 export default function History() {
   const { selectedDeviceId } = useDevice();
-  const [page, setPage] = useState(1);
-
-  useEffect(() => {
-    setPage(1);
-  }, [selectedDeviceId]);
-
-  const { data: logData, loading, error } = useReadingsLog(page, 20, selectedDeviceId);
   const { status, lastUpdated } = useDeviceStatus();
 
   return (
@@ -23,25 +15,7 @@ export default function History() {
       <main className="flex-1 md:ml-sidebar-width mt-[64px] md:mt-0 h-full overflow-y-auto w-full bg-background relative">
         <Header title="Reading Log" status={status} lastUpdated={lastUpdated} mobileSwitcher />
         <div className="p-container-padding md:p-8 max-w-[1600px] mx-auto pb-24 md:pb-8">
-          {error ? (
-            <div className="bg-surface-white border border-error/30 rounded-lg p-6 flex flex-col items-center justify-center text-center my-6 shadow-sm">
-              <span className="material-symbols-outlined text-error text-4xl mb-2">cloud_off</span>
-              <h3 className="font-headline-md text-headline-md font-bold text-on-background mb-1">
-                Unable to load Reading Log
-              </h3>
-              <p className="text-secondary text-body-sm max-w-md">
-                Please check backend connectivity. Retrying automatically...
-              </p>
-            </div>
-          ) : (
-            <HistoryTable
-              data={logData?.data || []}
-              loading={loading}
-              page={page}
-              totalPages={logData?.totalPages || 1}
-              onPageChange={setPage}
-            />
-          )}
+          <HistoryView deviceId={selectedDeviceId} />
         </div>
       </main>
     </div>

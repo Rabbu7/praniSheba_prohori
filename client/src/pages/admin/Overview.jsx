@@ -1,27 +1,6 @@
 import React from 'react';
 import Sidebar from '../../components/layout/Sidebar';
 import Header from '../../components/layout/Header';
-
-export default function AdminOverview({ title = 'Overview' }) {
-  return (
-    <div className="bg-background text-on-background font-body-sm antialiased h-screen flex overflow-hidden">
-      <Sidebar />
-
-      <main className="flex-1 md:ml-sidebar-width mt-[64px] md:mt-0 h-full overflow-y-auto w-full bg-background relative">
-        <Header title={title} showDevice={false} />
-
-        <div className="p-container-padding md:p-8 max-w-[1200px] mx-auto pb-24 md:pb-8">
-          <div className="bg-surface-white border border-border-subtle rounded-lg p-12 text-center">
-            <h2 className="font-headline-md text-headline-md font-bold text-on-background mb-2">
-              {title}
-            </h2>
-            <p className="text-secondary text-body-sm">
-              Coming in the next stage
-            </p>
-          </div>
-        </div>
-      </main>
-    </div>
-  );
-}
-
+import MetricCard from '../../components/common/MetricCard';
+import useAdminOverview from '../../hooks/useAdminOverview';
+export default function AdminOverview() { const { data, error } = useAdminOverview(); return <div className="flex h-screen overflow-hidden bg-background font-body-sm text-on-background"><Sidebar /><main className="relative mt-[64px] h-full w-full flex-1 overflow-y-auto md:ml-sidebar-width md:mt-0"><Header title="Overview" showDevice={false} /><div className="mx-auto max-w-[1200px] p-container-padding pb-24 md:p-8">{error && <p className="mb-4 text-error">{error.response?.data?.error?.message || 'Unable to load overview'}</p>}<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"><MetricCard label="Managers" value={data?.managerCount} icon="group" /><MetricCard label="Farmers" value={data?.farmerCount} icon="person" tone="tertiary" /><MetricCard label="Devices" value={data?.deviceCount} icon="devices" tone="online" /><MetricCard label="Unmanaged districts" value={data?.unmanagedDistrictCount} icon="location_on" tone="warning" /></div></div></main></div>; }
