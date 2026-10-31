@@ -223,7 +223,7 @@ Topic `prohori/<deviceId>/reading`. `mimic-device/` publishes for all six device
 
 **Frontend:** React (Vite), react-router-dom, Tailwind CSS (tokens in `client/src/index.css` under `@theme`, mirroring `DESIGN.md`), Recharts, Socket.IO client, axios.
 
-**Design source:** Stitch exports for the pre-auth pages (Login, Register, Link Device) via `AuthShell.jsx`. Authenticated pages follow `DESIGN.md` tokens directly. New Phase 7 pages must reuse existing tokens/components — no new colors.
+**Design source:** Stitch exports for the authentication pages (Login, Register, Complete Profile) via `AuthShell.jsx`. Authenticated pages follow `DESIGN.md` tokens directly. New Phase 7 pages must reuse existing tokens/components — no new colors.
 
 ## Data Source — DO NOT GUESS FIELD NAMES
 
@@ -245,7 +245,7 @@ Database `iotdb`, collection keyed per device (`G3036`, `G3037`, `G3038`, `G3040
 Rules:
 - Never invent fields that aren't in this schema.
 - Use `created_at` (not `timestamp`) for all queries, sorting and grouping.
-- Look reading collections up via `getReadingModel(deviceId)`; never hardcode a device ID in controller, hook or component code. (Exceptions: `seedDevices.js`, `.env`/`.env.example` for `mimic-device/`, placeholder text such as "e.g. G3036" in `LinkDevice.jsx`.)
+- Look reading collections up via `getReadingModel(deviceId)`; never hardcode a device ID in controller, hook or component code. (Exceptions: `seedDevices.js`, `.env`/`.env.example` for `mimic-device/`, placeholder text such as "e.g. G3036" in `RequestDeviceModal.jsx`.)
 - `users`, `devices` and `devicerequests` are plain Mongoose models.
 - Connection strings and secrets live in `.env` files — never hardcode, never commit `.env`. `JWT_SECRET` is a locally generated random secret. Admin seed credentials live only in `server/.env`.
 - Never write to, seed, or add to `DEVICE_IDS` any ID whose collection already exists for other reasons (notably `G3039`).
@@ -307,6 +307,7 @@ prohori-dashboard/
 │   │   ├── components/
 │   │   │   ├── layout/    # Sidebar (role-aware), Header (profile link), DeviceSwitcher
 │   │   │   ├── auth/      # AuthShell
+│   │   │   ├── devices/   # RequestDeviceModal
 │   │   │   ├── dashboard/ # SensorCard, ReadingsPanel, HistoryTable, HistoryTabs, TrendChart
 │   │   │   ├── calendar/  # CalendarGrid, DayDetailCards
 │   │   │   ├── profile/   # NEW — ProfileForm, PasswordForm, ManagerCard (name + call link)
@@ -314,7 +315,7 @@ prohori-dashboard/
 │   │   │   └── common/    # StatusBadge
 │   │   ├── context/       # AuthContext, DeviceContext
 │   │   ├── pages/
-│   │   │   ├── Login.jsx, Register.jsx, LinkDevice.jsx (now "Request device"),
+│   │   │   ├── Login.jsx, Register.jsx,
 │   │   │   ├── Dashboard.jsx, History.jsx, Calendar.jsx          # farmer
 │   │   │   ├── Devices.jsx            # NEW — farmer "My Devices" (request statuses)
 │   │   │   ├── CompleteProfile.jsx    # NEW — one-time step for migrated farmers
@@ -341,7 +342,7 @@ prohori-dashboard/
 
 ## Route Guard Summary (single source for `App.jsx`)
 
-| State | Farmer pages `/`, `/history`, `/calendar` | `/link-device`, `/devices`, `/profile` | `/complete-profile` | `/manager/*` | `/admin/*` | `/login`, `/register` |
+| State | Farmer pages `/`, `/history`, `/calendar` | `/devices`, `/profile` | `/complete-profile` | `/manager/*` | `/admin/*` | `/login`, `/register` |
 |---|---|---|---|---|---|---|
 | Not authenticated | → `/login` | → `/login` | → `/login` | → `/login` | → `/login` | shown |
 | Farmer, profile incomplete | → `/complete-profile` | → `/complete-profile` | shown | → `/` | → `/` | → `/` |

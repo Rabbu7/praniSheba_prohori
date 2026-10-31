@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/layout/Sidebar';
 import Header from '../components/layout/Header';
 import RequestStatusBadge from '../components/common/RequestStatusBadge';
+import RequestDeviceModal from '../components/devices/RequestDeviceModal';
 import { useAuth } from '../context/AuthContext';
 import { useDevice } from '../context/DeviceContext';
+import { notifyDeviceRequestCreated } from '../hooks/useFarmerSync';
 import { getMyDeviceRequests } from '../services/api';
 import { formatAbsoluteDate } from '../utils/dateFormatter';
 
@@ -16,6 +18,8 @@ export default function Devices() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [showRequestSentBanner, setShowRequestSentBanner] = useState(false);
 
   const deviceKey = user?.devices?.map((d) => d.deviceId).sort().join(',') || '';
 
@@ -35,6 +39,13 @@ export default function Devices() {
   useEffect(() => {
     loadRequests();
   }, [deviceKey]);
+
+  useEffect(() => {
+    if (!location.state?.openRequest) return;
+
+    setRequestModalOpen(true);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
 
   // Merge in user.devices that have no approved request record
   const userDevices = user?.devices || [];
@@ -72,7 +83,12 @@ export default function Devices() {
 
   const hasApprovedDevices = userDevices.length > 0;
   const isUnmanagedDistrict = !user?.manager;
-  const showRequestSentBanner = Boolean(location.state?.requestSent);
+
+  const handleRequestSuccess = () => {
+    setShowRequestSentBanner(true);
+    loadRequests();
+    notifyDeviceRequestCreated();
+  };
 
   return (
     <div className="bg-background text-on-background font-body-sm antialiased h-screen flex overflow-hidden">
@@ -92,13 +108,14 @@ export default function Devices() {
                 Manage your Prohori monitors and view device request statuses.
               </p>
             </div>
-            <Link
-              to="/link-device"
+            <button
+              type="button"
+              onClick={() => setRequestModalOpen(true)}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-semibold text-on-primary transition hover:bg-primary-container focus:outline-none focus:ring-4 focus:ring-primary/20 shrink-0"
             >
               <span className="material-symbols-outlined text-[20px]">add</span>
               <span>Request device</span>
-            </Link>
+            </button>
           </div>
 
           {/* Request sent success banner */}
@@ -142,13 +159,14 @@ export default function Devices() {
               <p className="text-secondary text-body-sm max-w-sm mb-6">
                 Request a Prohori sensor device using its device ID and security code.
               </p>
-              <Link
-                to="/link-device"
+              <button
+                type="button"
+                onClick={() => setRequestModalOpen(true)}
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-semibold text-on-primary hover:bg-primary-container transition-colors"
               >
                 <span className="material-symbols-outlined text-[20px]">add</span>
                 <span>Request device</span>
-              </Link>
+              </button>
             </div>
           ) : (
             <div className="bg-surface-white border border-border-subtle rounded-lg overflow-hidden shadow-xs">
@@ -200,7 +218,11 @@ export default function Devices() {
           )}
         </div>
       </main>
+      <RequestDeviceModal
+        open={requestModalOpen}
+        onClose={() => setRequestModalOpen(false)}
+        onSuccess={handleRequestSuccess}
+      />
     </div>
   );
 }
-

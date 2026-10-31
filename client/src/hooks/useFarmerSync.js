@@ -3,6 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { getMyDeviceRequests } from '../services/api';
 import { connectSocket, disconnectSocket } from '../services/socket';
 
+export const DEVICE_REQUEST_CREATED_EVENT = 'prohori:device-request-created';
+
+export function notifyDeviceRequestCreated() {
+  window.dispatchEvent(new Event(DEVICE_REQUEST_CREATED_EVENT));
+}
+
 export default function useFarmerSync() {
   const { user, token, refreshUser } = useAuth();
   const isFarmer = user?.role === 'farmer';
@@ -26,6 +32,12 @@ export default function useFarmerSync() {
   useEffect(() => {
     checkPending();
   }, [checkPending, deviceIdsStr]);
+
+  useEffect(() => {
+    const handleDeviceRequestCreated = () => checkPending();
+    window.addEventListener(DEVICE_REQUEST_CREATED_EVENT, handleDeviceRequestCreated);
+    return () => window.removeEventListener(DEVICE_REQUEST_CREATED_EVENT, handleDeviceRequestCreated);
+  }, [checkPending]);
 
   // When the set of user.devices IDs changes, reconnect socket
   useEffect(() => {
@@ -64,4 +76,3 @@ export default function useFarmerSync() {
     };
   }, [isFarmer, hasPending, token, refreshUser, checkPending]);
 }
-
