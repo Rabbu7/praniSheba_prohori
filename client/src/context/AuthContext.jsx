@@ -11,6 +11,14 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(Boolean(token));
 
+  const logout = () => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(SELECTED_DEVICE_KEY);
+    disconnectSocket();
+    setToken(null);
+    setUser(null);
+  };
+
   useEffect(() => {
     if (!token) {
       setLoading(false);
@@ -26,11 +34,7 @@ export function AuthProvider({ children }) {
       })
       .catch((error) => {
         if (!cancelled && error.response?.status === 401) {
-          localStorage.removeItem(TOKEN_KEY);
-          localStorage.removeItem(SELECTED_DEVICE_KEY);
-          disconnectSocket();
-          setToken(null);
-          setUser(null);
+          logout();
         }
       })
       .finally(() => {
@@ -50,20 +54,37 @@ export function AuthProvider({ children }) {
   };
 
   const login = async (email, password) => authenticate(await loginUser({ email, password }));
-  const register = async (username, email, password) => authenticate(
-    await registerUser({ username, email, password }),
+
+  const register = async (firstName, lastName, email, password, division, district) => authenticate(
+    await registerUser({ firstName, lastName, email, password, division, district }),
   );
 
-  const logout = () => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(SELECTED_DEVICE_KEY);
-    disconnectSocket();
-    setToken(null);
-    setUser(null);
+  const refreshUser = async () => {
+    try {
+      const nextUser = await getMe();
+      setUser(nextUser);
+      return nextUser;
+    } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+      }
+      return null;
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, setUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        loading,
+        login,
+        register,
+        logout,
+        setUser,
+        refreshUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

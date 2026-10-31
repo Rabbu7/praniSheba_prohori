@@ -1,12 +1,20 @@
 import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { roleHome } from './utils/roleHome';
+import useFarmerSync from './hooks/useFarmerSync';
+
 import Dashboard from './pages/Dashboard';
 import History from './pages/History';
 import Calendar from './pages/Calendar';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import LinkDevice from './pages/LinkDevice';
+import Devices from './pages/Devices';
+import CompleteProfile from './pages/CompleteProfile';
+import Profile from './pages/Profile';
+import ManagerOverview from './pages/manager/Overview';
+import AdminOverview from './pages/admin/Overview';
 
 function AuthLoading() {
   return (
@@ -16,37 +24,139 @@ function AuthLoading() {
   );
 }
 
-function RequireAuth({ children, requireDevice = false }) {
-  const { user, token, loading } = useAuth();
-
-  if (loading) return <AuthLoading />;
-  if (!token || !user) return <Navigate to="/login" replace />;
-  if (requireDevice && !user.devices?.length) return <Navigate to="/link-device" replace />;
-  return children;
+function FarmerSyncWatcher() {
+  useFarmerSync();
+  return null;
 }
 
 function RedirectIfAuthed({ children }) {
   const { user, token, loading } = useAuth();
-
   if (loading) return <AuthLoading />;
-  if (token && user) return <Navigate to="/" replace />;
+  if (token && user) return <Navigate to={roleHome(user)} replace />;
   return children;
 }
 
-function App() {
+function CompleteProfileGuard({ children }) {
+  const { user, token, loading } = useAuth();
+  if (loading) return <AuthLoading />;
+  if (!token || !user) return <Navigate to="/login" replace />;
+  if (user.role === 'admin') return <Navigate to="/admin" replace />;
+  if (user.role === 'manager') return <Navigate to="/manager" replace />;
+  if (user.role === 'farmer' && user.profileComplete) return <Navigate to="/" replace />;
+  return (
+    <>
+      <FarmerSyncWatcher />
+      {children}
+    </>
+  );
+}
+
+function FarmerDataGuard({ children }) {
+  const { user, token, loading } = useAuth();
+  if (loading) return <AuthLoading />;
+  if (!token || !user) return <Navigate to="/login" replace />;
+  if (user.role === 'admin') return <Navigate to="/admin" replace />;
+  if (user.role === 'manager') return <Navigate to="/manager" replace />;
+  if (user.role === 'farmer') {
+    if (!user.profileComplete) return <Navigate to="/complete-profile" replace />;
+    if (!user.devices || user.devices.length === 0) return <Navigate to="/devices" replace />;
+  }
+  return (
+    <>
+      <FarmerSyncWatcher />
+      {children}
+    </>
+  );
+}
+
+function FarmerDeviceGuard({ children }) {
+  const { user, token, loading } = useAuth();
+  if (loading) return <AuthLoading />;
+  if (!token || !user) return <Navigate to="/login" replace />;
+  if (user.role === 'admin') return <Navigate to="/admin" replace />;
+  if (user.role === 'manager') return <Navigate to="/manager" replace />;
+  if (user.role === 'farmer' && !user.profileComplete) {
+    return <Navigate to="/complete-profile" replace />;
+  }
+  return (
+    <>
+      <FarmerSyncWatcher />
+      {children}
+    </>
+  );
+}
+
+function ProfileGuard({ children }) {
+  const { user, token, loading } = useAuth();
+  if (loading) return <AuthLoading />;
+  if (!token || !user) return <Navigate to="/login" replace />;
+  if (user.role === 'farmer' && !user.profileComplete) {
+    return <Navigate to="/complete-profile" replace />;
+  }
+  return (
+    <>
+      {user.role === 'farmer' && <FarmerSyncWatcher />}
+      {children}
+    </>
+  );
+}
+
+function ManagerGuard({ children }) {
+  const { user, token, loading } = useAuth();
+  if (loading) return <AuthLoading />;
+  if (!token || !user) return <Navigate to="/login" replace />;
+  if (user.role !== 'manager') return <Navigate to={roleHome(user)} replace />;
+  return children;
+}
+
+function AdminGuard({ children }) {
+  const { user, token, loading } = useAuth();
+  if (loading) return <AuthLoading />;
+  if (!token || !user) return <Navigate to="/login" replace />;
+  if (user.role !== 'admin') return <Navigate to={roleHome(user)} replace />;
+  return children;
+}
+
+function RootCatchAll() {
+  const { user, token, loading } = useAuth();
+  if (loading) return <AuthLoading />;
+  if (!token || !user) return <Navigate to="/login" replace />;
+  return <Navigate to={roleHome(user)} replace />;
+}
+
+export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Auth routes */}
         <Route path="/login" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
         <Route path="/register" element={<RedirectIfAuthed><Register /></RedirectIfAuthed>} />
-        <Route path="/link-device" element={<RequireAuth><LinkDevice /></RequireAuth>} />
-        <Route path="/" element={<RequireAuth requireDevice><Dashboard /></RequireAuth>} />
-        <Route path="/history" element={<RequireAuth requireDevice><History /></RequireAuth>} />
-        <Route path="/calendar" element={<RequireAuth requireDevice><Calendar /></RequireAuth>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/complete-profile" element={<CompleteProfileGuard><CompleteProfile /></CompleteProfileGuard>} />
+
+        {/* Farmer reading pages */}
+        <Route path="/" element={<FarmerDataGuard><Dashboard /></FarmerDataGuard>} />
+        <Route path="/history" element={<FarmerDataGuard><History /></FarmerDataGuard>} />
+        <Route path="/calendar" element={<FarmerDataGuard><Calendar /></FarmerDataGuard>} />
+
+        {/* Farmer device pages */}
+        <Route path="/devices" element={<FarmerDeviceGuard><Devices /></FarmerDeviceGuard>} />
+        <Route path="/link-device" element={<FarmerDeviceGuard><LinkDevice /></FarmerDeviceGuard>} />
+
+        {/* Profile (all roles) */}
+        <Route path="/profile" element={<ProfileGuard><Profile /></ProfileGuard>} />
+
+        {/* Manager routes */}
+        <Route path="/manager" element={<ManagerGuard><ManagerOverview title="Overview" /></ManagerGuard>} />
+        <Route path="/manager/farmers" element={<ManagerGuard><ManagerOverview title="Farmers" /></ManagerGuard>} />
+        <Route path="/manager/requests" element={<ManagerGuard><ManagerOverview title="Requests" /></ManagerGuard>} />
+
+        {/* Admin routes */}
+        <Route path="/admin" element={<AdminGuard><AdminOverview title="Overview" /></AdminGuard>} />
+        <Route path="/admin/managers" element={<AdminGuard><AdminOverview title="Managers" /></AdminGuard>} />
+
+        {/* Fallback to role home */}
+        <Route path="*" element={<RootCatchAll />} />
       </Routes>
     </BrowserRouter>
   );
 }
-
-export default App;

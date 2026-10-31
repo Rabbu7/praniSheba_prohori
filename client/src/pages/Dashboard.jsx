@@ -83,7 +83,7 @@ export default function Dashboard() {
               {/* Right Column: Analysis Panel (Chart + History Log) */}
               <div className="lg:col-span-9 space-y-6">
                 {/* Trend Chart Section */}
-                <section className="bg-surface-white border border-[#D1D5DB] rounded-lg p-6 h-full flex flex-col">
+                <section className="bg-surface-white border border-border-subtle rounded-lg p-6 h-full flex flex-col">
                   <div className="flex justify-between items-center mb-6">
                     <h3 className="font-headline-md text-headline-md font-bold text-on-background flex items-center gap-2">
                       <span className="material-symbols-outlined text-primary">monitoring</span>

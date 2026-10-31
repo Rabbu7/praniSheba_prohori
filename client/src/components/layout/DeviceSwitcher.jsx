@@ -149,7 +149,7 @@ export default function DeviceSwitcher() {
           {/* Divider */}
           <div className="my-1 border-t border-border-subtle" role="separator" />
 
-          {/* Add device row */}
+          {/* Request device row */}
           <button
             role="menuitem"
             type="button"
@@ -164,7 +164,7 @@ export default function DeviceSwitcher() {
               add
             </span>
             <span className="font-label-caps text-label-caps font-semibold text-secondary uppercase tracking-wide">
-              Add device
+              Request device
             </span>
           </button>
         </div>

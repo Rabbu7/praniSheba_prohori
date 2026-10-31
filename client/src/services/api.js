@@ -10,8 +10,22 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-export const registerUser = async ({ username, email, password }) => {
-  const response = await api.post('/api/auth/register', { username, email, password });
+export const registerUser = async ({
+  firstName,
+  lastName,
+  email,
+  password,
+  division,
+  district,
+}) => {
+  const response = await api.post('/api/auth/register', {
+    firstName,
+    lastName,
+    email,
+    password,
+    division,
+    district,
+  });
   return response.data;
 };
 
@@ -25,9 +39,29 @@ export const getMe = async () => {
   return response.data;
 };
 
-export const linkDevice = async ({ deviceId, deviceCode }) => {
-  const response = await api.post('/api/auth/link-device', { deviceId, deviceCode });
+export const getLocations = async () => {
+  const response = await api.get('/api/meta/locations');
   return response.data;
+};
+
+export const updateProfile = async (body) => {
+  const response = await api.patch('/api/profile', body);
+  return response.data;
+};
+
+export const changePassword = async ({ currentPassword, newPassword }) => {
+  const response = await api.post('/api/profile/password', { currentPassword, newPassword });
+  return response.data;
+};
+
+export const createDeviceRequest = async ({ deviceId, deviceCode }) => {
+  const response = await api.post('/api/device-requests', { deviceId, deviceCode });
+  return response.data;
+};
+
+export const getMyDeviceRequests = async () => {
+  const response = await api.get('/api/device-requests/mine');
+  return response.data.requests;
 };
 
 export const getLatestReading = async (deviceId) => {
