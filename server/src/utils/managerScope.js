@@ -10,11 +10,4 @@ async function getDistrictFarmers(manager) {
   });
 }
 
-async function getManagerDeviceIds(manager) {
-  const farmers = await getDistrictFarmers(manager);
-  return farmers.flatMap((farmer) => (farmer.devices || [])
-    .map((device) => device.deviceId)
-    .filter(Boolean));
-}
-
-module.exports = { getDistrictFarmers, getManagerDeviceIds };
+module.exports = { getDistrictFarmers };

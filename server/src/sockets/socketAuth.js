@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { getManagerDeviceIds } = require('../utils/managerScope');
+const { getReadableDeviceIds } = require('../utils/readableDevices');
 
 function createAuthError(message = 'Authentication required') {
   const error = new Error(message);
@@ -38,9 +38,7 @@ const socketAuth = async (socket, next) => {
       return next(createAuthError('Authentication required'));
     }
 
-    const deviceIds = user.role === 'manager'
-      ? await getManagerDeviceIds(user)
-      : (user.role === 'farmer' ? (user.devices || []).map((d) => d.deviceId).filter(Boolean) : []);
+    const deviceIds = await getReadableDeviceIds(user);
 
     if (deviceIds.length === 0) {
       return next(createAuthError('Authentication required'));

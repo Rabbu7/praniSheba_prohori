@@ -16,7 +16,7 @@ Phase 8 turns the visual zones into recorded, notified alerts and fixes the temp
 
 ### Phase 8 stages
 
-- **8a** Docs · **8b** Real time windows + `Asia/Dhaka` + `created_at` index (DONE) · **8c** Alert backend · **8d** Notification bell · **8e** Chart upgrade (metric selector + threshold bands + `GET /api/meta/thresholds`)
+- **8a** Docs · **8b** Real time windows + `Asia/Dhaka` + `created_at` index (DONE) · **8c-1** Alert core (DONE) · **8c-2** Alert endpoints · **8d** Notification bell · **8e** Chart upgrade (metric selector + threshold bands + `GET /api/meta/thresholds`)
 
 Order matters: 8b fixes the data foundation first, 8c builds on it, 8d and 8e are frontend.
 
