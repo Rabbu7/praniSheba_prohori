@@ -10,9 +10,31 @@
 Reference product: https://iot.pranisheba.com.bd/#/home
 Company site: https://www.pranisheba.com.bd/-eng
 
-## Current Phase: Phase 7 — Role-Based Access Control (COMPLETE)
+## Current Phase: Phase 8 — Alerts and Data Correctness (IN PROGRESS)
 
-Phase 7 added **three roles** and two new panels on top of the Phase 6 multi-device dashboard. No Phase 8 scope has been defined yet; do not start new features until a new phase is written into this file.
+Phase 8 turns the visual zones into recorded, notified alerts and fixes the temporary data-window workarounds. **No new roles and no new pages.** Do not start Phase 9 (hardening/release) work.
+
+### Phase 8 stages
+
+- **8a** Docs · **8b** Real time windows + `Asia/Dhaka` + `created_at` index · **8c** Alert backend · **8d** Notification bell · **8e** Chart upgrade (metric selector + threshold bands + `GET /api/meta/thresholds`)
+
+Order matters: 8b fixes the data foundation first, 8c builds on it, 8d and 8e are frontend.
+
+### Phase 8 decisions (authoritative)
+
+1. Alerts are **per device**; read-state is **per user** (`readBy`). A farmer and their manager see the same alert and mark it read independently.
+2. **One open alert per device + metric.** Moving to a different non-safe zone resolves the old alert and opens a new one. Returning to safe only sets `resolvedAt`.
+3. **Debounce:** a zone change counts only after **2 consecutive readings** in the new zone.
+4. `/api/alerts` does **not** use `resolveDevice` (the bell needs all of a user's devices). It uses the shared `getReadableDeviceIds(user)` helper.
+5. Timezone is `Asia/Dhaka` (UTC+6, no DST) for day grouping and day/month bounds.
+6. Methane thresholds stay exactly as in the table below. Zones live only in `thresholds.js`; if the company corrects the 5,000 vs 50,000 gap, only that file and the table change.
+7. In-app alerts only. No push, email or SMS.
+
+---
+
+## Previous Phase: Phase 7 — Role-Based Access Control (COMPLETE)
+
+Phase 7 added **three roles** and two new panels on top of the Phase 6 multi-device dashboard.
 
 | Role | Who | What they can do |
 |---|---|---|
@@ -190,6 +212,47 @@ Topic `prohori/<deviceId>/reading`. `mimic-device/` publishes for all six device
   - manager: the socket is opened only on the farmer device view (once on entry) and closed on leaving. Managers and admins never open a socket elsewhere. The REST fetch must work even if the socket fails (`connect_error` is tolerated).
 - Known limitations (accepted): JWT, role and device list are verified only at handshake; a manager or admin with no device IDs cannot connect; an already-open socket of a removed manager stays connected until it disconnects.
 
+### Alerts (Phase 8)
+
+Model `Alert` (collection `alerts`):
+
+```js
+{
+  deviceId: String,
+  metric: 'ammonia' | 'methane' | 'humidity' | 'temperature',
+  zone: 'warning' | 'danger',      // only non-safe zones create an alert
+  value: Number,                   // reading value that triggered it
+  createdAt: Date,
+  resolvedAt: Date | null,         // set when the metric returns to safe, or worsens/changes zone
+  readBy: [ObjectId]               // users who marked it read
+}
+```
+
+- Indexes (declared in the schema, never by hand): `{ deviceId: 1, createdAt: -1 }`, and a **unique partial index** on `{ deviceId: 1, metric: 1 }` where `resolvedAt: null` (one open alert per device + metric). Add `Alert.syncIndexes()` to `seedDevices.js`.
+- Detection lives in `sockets/changeStream.js` and uses `getZones`. The server keeps the last confirmed zone per `deviceId + metric` in memory. A change is confirmed after **2 consecutive readings** in the new zone. On startup, seed that state from each device's latest reading **without creating alerts**.
+- Transitions: safe → warning/danger = open an alert; warning ↔ danger = resolve the open alert, then open a new one; → safe = resolve the open alert only. Use atomic updates, never find-then-save. A duplicate-key `11000` on open is ignored.
+- Emit `new-alert` (serialized alert) and `alert-resolved` `{ id, deviceId, metric, resolvedAt }` only to `io.to('device:' + deviceId)`. Never `io.emit`.
+- One shared serializer: `{ id, deviceId, metric, zone, value, createdAt, resolvedAt, read }`, where `read` is derived for the requesting user from `readBy`. Never return `readBy`. Socket payloads use `read: false`.
+- `utils/readableDevices.js` exports `getReadableDeviceIds(user)`: farmer = approved devices; manager = devices of active farmers in their district; any other role = `[]`. Used by `socketAuth.js` and the alerts controller. Behavior of `getManagerDeviceIds` must stay identical (keep it or delegate to it).
+
+Endpoints (`requireAuth`; admin gets 403 "Forbidden"):
+
+- `GET /api/alerts?limit=20&unreadOnly=true|false&status=open|resolved` → `{ alerts, unreadCount }`, newest first, limited to the user's readable devices. `limit` max 100. Invalid params → 400. `unreadCount` counts all unread in-scope alerts regardless of `limit`.
+- `POST /api/alerts/:id/read` → marks read for this user (`$addToSet`). Invalid, nonexistent or out-of-scope ID → identical 404 "Alert not found". Returns the serialized alert.
+- `POST /api/alerts/read-all` → marks all in-scope unread alerts read. Returns `{ success: true }`.
+
+### Time windows and timezone (Phase 8)
+
+- Remove the document-count `.limit()` workaround. `getHistory` and `getDailyAverages` use `created_at >= now - N days` (7 or 30). Delete every `TODO(revert-for-production)` comment.
+- All day grouping and day/month bounds use `Asia/Dhaka`: `$dateToString` with `timezone: 'Asia/Dhaka'`; bounds computed with a fixed `+06:00` offset (no DST). Helpers live in `utils/dhakaTime.js`. The calendar's `month`/`date` parameters are Dhaka days.
+- Add an index on `created_at` to each reading collection, declared where `getReadingModel` builds the model (`readingSchema.index({ created_at: -1 })`).
+- Reading document shape is unchanged.
+
+### Thresholds endpoint (Phase 8, stage 8e)
+
+- `thresholds.js` additionally exports a plain `THRESHOLDS` object (safe/warning boundaries per metric, as used by the zone functions). The zone functions should read from it so there is one source of truth.
+- `GET /api/meta/thresholds` (no auth) returns `THRESHOLDS`. The client chart draws reference bands from it and never copies the numbers.
+
 ### Frontend
 
 - `AuthContext` exposes `{ user, token, loading, login, register, logout, setUser, refreshUser }`. `register(firstName, lastName, email, password, division, district)`. `refreshUser()` does not toggle `loading` and only handles 401 (logout). Logout disconnects the socket and clears the saved selected device.
@@ -197,7 +260,7 @@ Topic `prohori/<deviceId>/reading`. `mimic-device/` publishes for all six device
 - `DeviceContext` is used by farmer pages. Manager farmer-views pass the farmer's `deviceId` explicitly (read-only) through `useLatestReading(deviceId)` / `useDeviceStatus(deviceId)` and the other data hooks. Never hardcode a device ID in the client (the only allowed literal is the "e.g. G3036" placeholder in `RequestDeviceModal.jsx`).
 - Shared view components `components/views/` (`DashboardView`, `HistoryView`, `CalendarView`) take a `deviceId` and are used by both the farmer pages and the manager device view.
 - **Request device** is a floating dialog (`components/devices/RequestDeviceModal.jsx`), opened from My Devices (header button and empty state) and from the DeviceSwitcher's "Request device" row (navigates to `/devices` with router state `{ openRequest: true }`, cleared after opening). There is no `/link-device` page; `/link-device` redirects to `/devices`.
-- Header: the `account_circle` icon links to `/profile` for every role. The notifications icon stays inert. `showDevice={false}` hides the device label/switcher/status/last-updated for manager and admin pages.
+- Header: the `account_circle` icon links to `/profile` for every role. The notifications icon is the **notification bell** (Phase 8, farmer and manager); it stays inert for admin. `showDevice={false}` hides the device label/switcher/status/last-updated for manager and admin pages.
 - Sidebar items by role:
   - farmer: Dashboard, History, Calendar, My Devices, Profile (Settings stays disabled).
   - manager: Overview, Farmers, Requests, Profile.
@@ -249,10 +312,11 @@ prohori-dashboard/
 ├── server/
 │   ├── src/
 │   │   ├── config/db.js
-│   │   ├── models/            # Reading (factory), User, Device, DeviceRequest
-│   │   ├── controllers/       # auth, profile, deviceRequest, manager, admin, readings
-│   │   ├── utils/             # thresholds, locations, validators, publicUser, managerScope
-│   │   ├── routes/            # auth, profile, meta, deviceRequests, manager, admin, readings
+│   │   ├── models/            # Reading (factory), User, Device, DeviceRequest, Alert (Phase 8)
+│   │   ├── controllers/       # auth, profile, deviceRequest, manager, admin, readings, alerts (Phase 8)
+│   │   ├── utils/             # thresholds, locations, validators, publicUser, managerScope,
+│   │   │                      #   readableDevices, dhakaTime (Phase 8)
+│   │   ├── routes/            # auth, profile, meta, deviceRequests, manager, admin, readings, alerts
 │   │   ├── middleware/        # errorHandler, requireAuth, requireRole, resolveDevice
 │   │   ├── seed/              # seedDevices (+syncIndexes), migrateDevices (Phase 6, done),
 │   │   │                      #   migrateRoles (done), seedAdmin
@@ -266,7 +330,7 @@ prohori-dashboard/
 ├── client/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── layout/    # Sidebar (role-aware), Header, DeviceSwitcher
+│   │   │   ├── layout/    # Sidebar (role-aware), Header, DeviceSwitcher, NotificationBell (Phase 8)
 │   │   │   ├── auth/      # AuthShell
 │   │   │   ├── devices/   # RequestDeviceModal
 │   │   │   ├── dashboard/ # SensorCard, ReadingsPanel, HistoryTable, HistoryTabs, TrendChart
@@ -316,9 +380,11 @@ prohori-dashboard/
 - `GET /api/manager/overview | farmers | farmers/:farmerId | device-requests`, `POST /api/manager/device-requests/:id/approve|reject` (manager)
 - `GET /api/admin/overview`, `GET|POST /api/admin/managers`, `DELETE /api/admin/managers/:id` (admin)
 - `GET /api/readings/latest | daily-averages | log | calendar | day/:date | history` — `?deviceId=` rules per role via `resolveDevice`
+- `GET /api/alerts`, `POST /api/alerts/:id/read`, `POST /api/alerts/read-all` (farmer, manager; admin 403) — Phase 8
+- `GET /api/meta/thresholds` (no auth) — Phase 8
 - `GET /health` — no auth
 - **Removed:** `POST /api/auth/link-device` (replaced by `POST /api/device-requests`; now 404).
-- **Socket.IO:** JWT in `auth.token`; rooms per role; `new-reading` payload matches `/api/readings/latest` (includes `device_id`).
+- **Socket.IO:** JWT in `auth.token`; rooms per role; `new-reading` payload matches `/api/readings/latest` (includes `device_id`). Phase 8 adds `new-alert` and `alert-resolved`, emitted only to `device:<id>` rooms.
 
 ## Conventions
 
@@ -353,8 +419,8 @@ prohori-dashboard/
 
 ## Known Temporary Workarounds / Limitations (Still Open)
 
-- `getHistory`/`getDailyAverages` use document-count `.limit()` windowing instead of a `Date.now()`-relative `$gte` filter. Search `TODO(revert-for-production)` in `readingsController.js`.
-- `getDailyAverages` / calendar grouping uses UTC; may need `timezone: "Asia/Dhaka"`.
+- *(Removed by Phase 8b)* `getHistory`/`getDailyAverages` use document-count `.limit()` windowing instead of a `Date.now()`-relative `$gte` filter. Search `TODO(revert-for-production)` in `readingsController.js`.
+- *(Removed by Phase 8b)* `getDailyAverages` / calendar grouping uses UTC.
 - Socket JWT, role and device list are only checked at handshake.
 - A device approved by mistake stays on that account (no unlink).
 - A manager's initial password is set by the admin; no forced-change or reset-by-email flow.
@@ -384,6 +450,13 @@ prohori-dashboard/
 - Settings page
 - Login timing-side-channel hardening; periodic socket JWT re-validation
 
+### Also out of scope for Phase 8
+
+- Email / SMS / push delivery of alerts
+- Per-user alert rules or custom thresholds
+- Acknowledge / escalate workflows, alert history pages
+- Phase 9 work: login rate limiting, `helmet`, forced manager password change, cleanup list, deployment
+
 ## Phase History
 
 - **Phase 1**: Read-only single-device dashboard, polling updates, threshold-based visual alerts.
@@ -393,3 +466,4 @@ prohori-dashboard/
 - **Phase 5 (COMPLETE)**: Six devices, one account per device (unique partial index), per-device socket rooms.
 - **Phase 6 (COMPLETE)**: Multiple devices per user, `?deviceId=` + `resolveDevice`, `DeviceSwitcher`, add-device flow.
 - **Phase 7 (COMPLETE)**: RBAC — roles (admin / manager / farmer), district-based single manager, farmer registration with name + division/district, device-request approval (dialog-based request flow), manager panel, admin panel (manager add/delete), profile pages for all roles, phone + call link.
+- **Phase 8 (IN PROGRESS)**: Real time windows + Asia/Dhaka, recorded zone-change alerts (debounced, per-user read state), notification bell, chart metric selector + threshold bands.

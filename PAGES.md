@@ -3,9 +3,46 @@
 > Defines the screens/pages/sections that exist in the app for the current phase.
 > Updated at the start of every new phase — sections marked "future" are NOT to be built yet.
 
+## Phase 8 — Pages & Sections — STATUS: IN PROGRESS
+
+No new routes. Existing pages gain the items below. Same `DESIGN.md` tokens, **no new colors**. No Phase 9 pages are defined yet.
+
+### Notification bell (Header; farmer and manager)
+
+- Replaces the inert bell icon in both the desktop and mobile headers. Admin keeps the inert icon.
+- Unread count badge (hidden at 0, shows "9+" above 9).
+- Click opens a dropdown of up to 10 recent alerts. Each row: zone dot (amber = warning, red = danger), "<Metric> <zone>", device ID (monospace), value with unit, relative time, and a "Resolved" tag when `resolvedAt` is set. Unread rows are visually emphasized.
+- Footer button **Mark all as read**. Clicking a row marks it read, then navigates: farmers → `/` with that device selected; managers → `/manager/farmers` (the device view needs a farmerId).
+- Empty state: "No alerts yet."
+- Closes on Escape and outside click; keyboard accessible (same pattern as `DeviceSwitcher`).
+- Live: `new-alert` / `alert-resolved` socket events update the list and badge without reload. Managers only hold a socket on the farmer device view, so elsewhere the bell refetches every 60 s and on tab focus.
+
+### Dashboard trend chart (farmer Dashboard and manager device view)
+
+- **Metric selector**: Ammonia, Methane, Humidity, Temperature. One metric at a time (methane's scale would flatten the others). Default Ammonia.
+- **Threshold reference bands** (safe / warning / danger) drawn behind the line, using values from `GET /api/meta/thresholds`. The client never copies the numbers.
+- X axis shows Asia/Dhaka dates. 7d/30d tabs unchanged.
+
+### Calendar and Day detail
+
+- Days are Asia/Dhaka calendar days (a reading at 23:30 UTC appears on the next Dhaka day).
+
+### Phase 8 Acceptance Checks
+
+1. 7d/30d averages use real date windows; a reading at 23:30 UTC lands on the next Dhaka day; the calendar and day detail agree.
+2. A metric crossing into warning/danger creates exactly one alert; a single-reading blip creates none.
+3. Returning to safe resolves the alert. Warning → danger yields one resolved warning and one open danger.
+4. A server restart creates no duplicate or phantom alerts.
+5. A farmer sees only their devices' alerts; a manager only their district's. A manager in district B gets 404 on district A's alert IDs; an admin gets 403.
+6. Marking read affects only the current user (the farmer's badge stays unread when the manager reads it).
+7. A live alert reaches only the right room and updates the badge without reload.
+8. The chart metric switch and threshold bands render for all four metrics.
+
+---
+
 ## Phase 7 — Pages & Sections — STATUS: COMPLETE
 
-Phase 7 added **role-based access**: `farmer` (existing site, extended), `manager` (new panel) and `admin` (new panel). All pages follow `DESIGN.md` tokens (same Sidebar/Header layout, cards, tables, status pills). No new colors. No Phase 8 pages are defined yet.
+Phase 7 added **role-based access**: `farmer` (existing site, extended), `manager` (new panel) and `admin` (new panel). All pages follow `DESIGN.md` tokens (same Sidebar/Header layout, cards, tables, status pills). No new colors. (Phase 8 changes are described above.)
 
 ### Roles at a glance
 
@@ -186,6 +223,8 @@ Metric cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged dis
 - Settings page
 - OAuth / third-party login
 - Export/download data
+- Email / SMS / push delivery of alerts; per-user alert rules; acknowledge/escalate; alert history page
+- Phase 9 work (rate limiting, `helmet`, forced password change, cleanup, deployment)
 
 ---
 
@@ -198,3 +237,4 @@ Metric cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged dis
 - **Phase 5 (COMPLETE)**: Six devices, one account per device, per-device socket rooms.
 - **Phase 6 (COMPLETE)**: Multiple devices per user, header device switcher, "Add device" flow.
 - **Phase 7 (COMPLETE)**: RBAC — farmer / manager / admin, district-based manager, device-request approval via a request dialog, manager and admin panels, profile pages for all roles.
+- **Phase 8 (IN PROGRESS)**: Notification bell with recorded alerts, chart metric selector + threshold bands, Asia/Dhaka days, real date windows.
