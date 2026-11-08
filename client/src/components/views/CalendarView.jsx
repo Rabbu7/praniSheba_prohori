@@ -3,9 +3,12 @@ import useCalendarData from '../../hooks/useCalendarData';
 import useDayDetail from '../../hooks/useDayDetail';
 import CalendarGrid from '../calendar/CalendarGrid';
 import DayDetailCards from '../calendar/DayDetailCards';
+import { getDhakaToday } from '../../utils/dateFormatter';
 export default function CalendarView({ deviceId }) {
-  const now = new Date();
-  const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+  const [month, setMonth] = useState(() => {
+    const today = getDhakaToday();
+    return `${today.year}-${String(today.month).padStart(2, '0')}`;
+  });
   const [selectedDate, setSelectedDate] = useState(null);
   useEffect(() => setSelectedDate(null), [deviceId]);
   const { data, error } = useCalendarData(month, deviceId);

@@ -1,4 +1,5 @@
 import React from 'react';
+import { getDhakaToday } from '../../utils/dateFormatter';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -31,8 +32,8 @@ export default function CalendarGrid({
   const firstDay = new Date(year, monthNumber - 1, 1).getDay();
   const daysInMonth = new Date(year, monthNumber, 0).getDate();
   const dayData = new Map(data.map((entry) => [entry.date, entry]));
-  const today = new Date();
-  const todayKey = toDateKey(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  const today = getDhakaToday();
+  const todayKey = toDateKey(today.year, today.month, today.day);
   const cells = Array.from({ length: firstDay + daysInMonth }, (_, index) => {
     if (index < firstDay) return null;
     const day = index - firstDay + 1;

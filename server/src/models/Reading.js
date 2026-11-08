@@ -31,6 +31,9 @@ const readingSchema = new mongoose.Schema({
   }
 });
 
+// Supports the time-window, calendar and latest-reading queries on created_at.
+readingSchema.index({ created_at: -1 });
+
 function getReadingModel(deviceId) {
   return mongoose.models[deviceId] || mongoose.model(deviceId, readingSchema, deviceId);
 }

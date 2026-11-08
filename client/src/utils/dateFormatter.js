@@ -2,6 +2,25 @@
  * Date formatting helpers for Prohori Dashboard UI
  */
 
+export const DHAKA_TZ = 'Asia/Dhaka';
+
+/**
+ * Today's calendar date in Asia/Dhaka, independent of the browser timezone.
+ * Returns { year, month, day } as numbers (month is 1-12).
+ */
+export function getDhakaToday(now = new Date()) {
+  const [year, month, day] = new Intl.DateTimeFormat('en-CA', {
+    timeZone: DHAKA_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+    .format(now)
+    .split('-')
+    .map(Number);
+  return { year, month, day };
+}
+
 export function formatAbsoluteDate(dateInput) {
   if (!dateInput) return '—';
   const date = new Date(dateInput);
@@ -13,6 +32,7 @@ export function formatAbsoluteDate(dateInput) {
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
+    timeZone: DHAKA_TZ,
   });
 }
 
@@ -50,5 +70,5 @@ export function formatChartTime(dateInput, range = '7d') {
 export function formatDate(dateInput) {
   if (!dateInput) return '—';
   const date = new Date(dateInput);
-  return isNaN(date.getTime()) ? '—' : date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return isNaN(date.getTime()) ? '—' : date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: DHAKA_TZ });
 }

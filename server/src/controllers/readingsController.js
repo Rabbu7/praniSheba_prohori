@@ -1,5 +1,11 @@
 const { getReadingModel } = require('../models/Reading');
 const { getZones } = require('../utils/thresholds');
+const {
+  DHAKA_TZ,
+  getWindowStart,
+  getDhakaMonthBounds,
+  getDhakaDayBounds
+} = require('../utils/dhakaTime');
 
 /**
  * Fetch the single most recent reading, attach metric zones, and return
@@ -30,7 +36,8 @@ const getLatest = async (req, res, next) => {
 };
 
 /**
- * Fetch readings history by date range (7d or 30d), attach zones, and return sorted ascending
+ * Fetch readings for the last 7 or 30 Asia/Dhaka days (window starts at Dhaka
+ * midnight), attach zones, and return sorted ascending.
  * GET /api/readings/history?range=7d|30d
  */
 const getHistory = async (req, res, next) => {
@@ -48,20 +55,9 @@ const getHistory = async (req, res, next) => {
       days = 7;
     }
 
-    // TEMPORARY DEMO LOGIC — the seeded dataset is bursty (long gaps between
-    // logging sessions), so a literal 7/30-DAY time window often captures only
-    // a few minutes of real data. Using a document count instead guarantees a
-    // continuous, demo-friendly trend regardless of real gaps in the data.
-    // Revert to a true time-window cutoff once the device logs continuously.
-    // See AGENTS.md > Known Temporary Workarounds.
-    const COUNT_BY_RANGE = { '7d': 300, '30d': 1200 };
-    const limit = COUNT_BY_RANGE[days === 30 ? '30d' : '7d'];
-
-    const readings = await Reading.find()
-      .sort({ created_at: -1 })
-      .limit(limit)
+    const readings = await Reading.find({ created_at: { $gte: getWindowStart(days) } })
+      .sort({ created_at: 1 })
       .lean();
-    readings.reverse();
 
     const result = readings.map((reading) => ({
       ...reading,
@@ -75,29 +71,25 @@ const getHistory = async (req, res, next) => {
 };
 
 /**
- * Fetch daily averages for the requested range and classify each averaged metric.
+ * Fetch daily averages (grouped by Asia/Dhaka day) for the last 7 or 30 Dhaka
+ * days and classify each averaged metric.
  * GET /api/readings/daily-averages?range=7d|30d
  */
 const getDailyAverages = async (req, res, next) => {
   try {
     const Reading = getReadingModel(req.deviceId);
     const { range } = req.query;
-    const rangeKey = range === '30d' ? '30d' : '7d';
-
-    // TODO(revert-for-production): replace count-based windowing with a date cutoff
-    // once the device logs continuously. See AGENTS.md > Known Temporary Workarounds.
-    const COUNT_BY_RANGE = { '7d': 300, '30d': 1200 };
-    const limit = COUNT_BY_RANGE[rangeKey];
+    const days = range === '30d' ? 30 : 7;
 
     const averages = await Reading.aggregate([
-      { $sort: { created_at: -1 } },
-      { $limit: limit },
+      { $match: { created_at: { $gte: getWindowStart(days) } } },
       {
         $group: {
           _id: {
             $dateToString: {
               format: '%Y-%m-%d',
-              date: '$created_at'
+              date: '$created_at',
+              timezone: DHAKA_TZ
             }
           },
           ammonia_avg: { $avg: '$ammonia' },
@@ -190,7 +182,8 @@ const getMinMaxPipeline = (start, end) => [
       _id: {
         $dateToString: {
           format: '%Y-%m-%d',
-          date: '$created_at'
+          date: '$created_at',
+          timezone: DHAKA_TZ
         }
       },
       ammonia_min: { $min: '$ammonia' },
@@ -243,31 +236,15 @@ const formatMinMaxReading = (average) => {
   };
 };
 
-const getUtcMonthBounds = (month) => {
-  const isValidMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(month || '');
-  // Invalid or missing months default to the current UTC month for consistency.
-  const monthKey = isValidMonth
-    ? month
-    : new Date().toISOString().slice(0, 7);
-  const [year, monthNumber] = monthKey.split('-').map(Number);
-
-  return {
-    start: new Date(Date.UTC(year, monthNumber - 1, 1)),
-    end: new Date(Date.UTC(year, monthNumber, 1))
-  };
-};
-
 /**
- * Fetch daily minimums and maximums for a UTC calendar month.
+ * Fetch daily minimums and maximums for an Asia/Dhaka calendar month.
  * GET /api/readings/calendar?month=YYYY-MM
  */
 const getCalendar = async (req, res, next) => {
   try {
     const Reading = getReadingModel(req.deviceId);
-    const { start, end } = getUtcMonthBounds(req.query.month);
+    const { start, end } = getDhakaMonthBounds(req.query.month);
 
-    // Grouping uses UTC calendar days, matching daily-averages; revisit timezone
-    // handling for Bangladesh-based users when the date display is finalized.
     const days = await Reading.aggregate(getMinMaxPipeline(start, end));
     return res.json(days.map(formatMinMaxReading));
   } catch (error) {
@@ -275,30 +252,14 @@ const getCalendar = async (req, res, next) => {
   }
 };
 
-const getUtcDayBounds = (date) => {
-  const isValidDate = /^\d{4}-\d{2}-\d{2}$/.test(date || '');
-  const parsedDate = isValidDate ? new Date(`${date}T00:00:00.000Z`) : null;
-  const isRealDate = parsedDate && !Number.isNaN(parsedDate.getTime())
-    && parsedDate.toISOString().slice(0, 10) === date;
-
-  if (!isRealDate) {
-    return null;
-  }
-
-  return {
-    start: parsedDate,
-    end: new Date(parsedDate.getTime() + 24 * 60 * 60 * 1000)
-  };
-};
-
 /**
- * Fetch daily minimums and maximums for one UTC calendar day.
+ * Fetch daily minimums and maximums for one Asia/Dhaka calendar day.
  * GET /api/readings/day/:date
  */
 const getDay = async (req, res, next) => {
   try {
     const Reading = getReadingModel(req.deviceId);
-    const bounds = getUtcDayBounds(req.params.date);
+    const bounds = getDhakaDayBounds(req.params.date);
 
     if (!bounds) {
       return res.status(400).json({
