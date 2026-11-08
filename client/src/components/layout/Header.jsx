@@ -2,6 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../common/StatusBadge';
 import DeviceSwitcher from './DeviceSwitcher';
+import NotificationBell from './NotificationBell';
+import { useAuth } from '../../context/AuthContext';
+import useAlerts from '../../hooks/useAlerts';
 
 function formatRelativeTime(date) {
   if (!date) return '—';
@@ -29,6 +32,9 @@ export default function Header({
   mobileSwitcher = false,
   showDevice = true,
 }) {
+  const { user } = useAuth();
+  const isAlertsRole = user?.role === 'farmer' || user?.role === 'manager';
+  const alertsState = useAlerts(isAlertsRole);
   const formattedTime = formatRelativeTime(lastUpdated);
 
   return (
@@ -44,7 +50,19 @@ export default function Header({
           )}
         </div>
         <div className="flex items-center gap-4 text-on-surface-variant">
-          <span className="material-symbols-outlined">notifications</span>
+          {isAlertsRole ? (
+            <NotificationBell
+              alerts={alertsState.alerts}
+              unreadCount={alertsState.unreadCount}
+              loading={alertsState.loading}
+              error={alertsState.error}
+              onMarkRead={alertsState.markRead}
+              onMarkAllRead={alertsState.markAllRead}
+              variant="mobile"
+            />
+          ) : (
+            <span className="material-symbols-outlined">notifications</span>
+          )}
           <Link
             to="/profile"
             title="Profile"
@@ -82,7 +100,19 @@ export default function Header({
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-4 ml-4 text-on-surface-variant">
-            <span className="material-symbols-outlined">notifications</span>
+            {isAlertsRole ? (
+              <NotificationBell
+                alerts={alertsState.alerts}
+                unreadCount={alertsState.unreadCount}
+                loading={alertsState.loading}
+                error={alertsState.error}
+                onMarkRead={alertsState.markRead}
+                onMarkAllRead={alertsState.markAllRead}
+                variant="desktop"
+              />
+            ) : (
+              <span className="material-symbols-outlined">notifications</span>
+            )}
             <Link
               to="/profile"
               title="Profile"

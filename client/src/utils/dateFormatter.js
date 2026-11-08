@@ -72,3 +72,20 @@ export function formatDate(dateInput) {
   const date = new Date(dateInput);
   return isNaN(date.getTime()) ? '—' : date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: DHAKA_TZ });
 }
+
+export function formatRelativeTime(dateInput) {
+  if (!dateInput) return '—';
+  const date = new Date(dateInput);
+  const time = date.getTime();
+  if (isNaN(time)) return '—';
+
+  const diffInSeconds = Math.floor((Date.now() - time) / 1000);
+  if (diffInSeconds < 60) return 'Just now';
+  const mins = Math.floor(diffInSeconds / 60);
+  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+

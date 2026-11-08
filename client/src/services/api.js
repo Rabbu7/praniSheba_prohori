@@ -110,3 +110,23 @@ export const getAdminOverview = async () => (await api.get('/api/admin/overview'
 export const getAdminManagers = async () => (await api.get('/api/admin/managers')).data;
 export const createManager = async (body) => (await api.post('/api/admin/managers', body)).data;
 export const deleteManager = async (id) => (await api.delete(`/api/admin/managers/${id}`)).data;
+
+export const getAlerts = async ({ limit, unreadOnly, status } = {}) => {
+  const params = {};
+  if (limit !== undefined) params.limit = limit;
+  if (unreadOnly !== undefined) params.unreadOnly = unreadOnly;
+  if (status !== undefined) params.status = status;
+  const response = await api.get('/api/alerts', { params });
+  return response.data;
+};
+
+export const markAlertRead = async (id) => {
+  const response = await api.post(`/api/alerts/${id}/read`);
+  return response.data;
+};
+
+export const markAllAlertsRead = async () => {
+  const response = await api.post('/api/alerts/read-all');
+  return response.data;
+};
+
