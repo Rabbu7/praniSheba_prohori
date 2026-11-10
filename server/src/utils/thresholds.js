@@ -10,6 +10,47 @@
  * - Temperature (°F): 40–68 safe, 25–40 or 68–79 warning, below 25 or above 79 danger
  */
 
+const THRESHOLDS = {
+  ammonia: {
+    unit: 'ppm',
+    bands: [
+      { zone: 'safe', min: 0, max: 10 },
+      { zone: 'warning', min: 10, max: 25 },
+      { zone: 'danger', min: 25, max: null }
+    ]
+  },
+  methane: {
+    unit: 'ppm',
+    bands: [
+      { zone: 'safe', min: 10, max: 1000 },
+      { zone: 'warning', min: 1000, max: 5000 },
+      { zone: 'danger', min: 50000, max: null }
+    ]
+  },
+  humidity: {
+    unit: '%',
+    bands: [
+      { zone: 'danger', min: null, max: 40 },
+      { zone: 'warning', min: 40, max: 50 },
+      { zone: 'safe', min: 50, max: 70 },
+      { zone: 'warning', min: 70, max: 80 },
+      { zone: 'danger', min: 80, max: null }
+    ]
+  },
+  temperature: {
+    unit: '°F',
+    bands: [
+      { zone: 'danger', min: null, max: 25 },
+      { zone: 'warning', min: 25, max: 40 },
+      { zone: 'safe', min: 40, max: 68 },
+      { zone: 'warning', min: 68, max: 79 },
+      { zone: 'danger', min: 79, max: null }
+    ]
+  }
+};
+
+// NOTE: THRESHOLDS and the zone functions below must stay in sync. If thresholds change, update both.
+
 function getAmmoniaZone(val) {
   if (val === undefined || val === null) return 'safe';
   if (val > 25) return 'danger';
@@ -53,6 +94,7 @@ function getZones(reading = {}) {
 }
 
 module.exports = {
+  THRESHOLDS,
   getZones,
   getAmmoniaZone,
   getMethaneZone,

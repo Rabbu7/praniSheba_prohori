@@ -10,13 +10,13 @@
 Reference product: https://iot.pranisheba.com.bd/#/home
 Company site: https://www.pranisheba.com.bd/-eng
 
-## Current Phase: Phase 8 — Alerts and Data Correctness (IN PROGRESS)
+## Current Phase: Phase 8 — Alerts and Data Correctness (IN PROGESS)
 
 Phase 8 turns the visual zones into recorded, notified alerts and fixes the temporary data-window workarounds. **No new roles and no new pages.** Do not start Phase 9 (hardening/release) work.
 
 ### Phase 8 stages
 
-- **8a** Docs · **8b** Real time windows + `Asia/Dhaka` + `created_at` index (DONE) · **8c-1** Alert core (DONE) · **8c-2** Alert endpoints (DONE) · **8d** Notification bell (DONE) · **8e** Chart upgrade (metric selector + threshold bands + `GET /api/meta/thresholds`)
+- **8a** Docs · **8b** Real time windows + `Asia/Dhaka` + `created_at` index (DONE) · **8c-1** Alert core (DONE) · **8c-2** Alert endpoints (DONE) · **8d** Notification bell (DONE) · **8e** Chart upgrade (metric selector + threshold bands + `GET /api/meta/thresholds`) (DONE)
 
 Order matters: 8b fixes the data foundation first, 8c builds on it, 8d and 8e are frontend.
 
@@ -408,7 +408,7 @@ prohori-dashboard/
 | Metric | Safe Zone | Warning Zone | Danger Zone |
 |---|---|---|---|
 | Ammonia (NH₃, ppm) | 0–10 | 10–25 | Above 25 |
-| Methane (CH₄, ppm) | 10–1,000 | 1,000–5,000 | Above 50,000 (5% air, explosion risk) |
+| Methane (CH₄, ppm) | 10–1,000 | 1,000–5,000 | Above 12,500 |
 | Humidity (%) | 50–70% | 40–50% or 70–80% | Below 40% or above 80% |
 | Temperature (°F) | 40–68°F | 25–40°F or 68–79°F | Below 25°F or above 79°F |
 

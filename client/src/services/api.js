@@ -130,3 +130,6 @@ export const markAllAlertsRead = async () => {
   return response.data;
 };
 
+export const getThresholds = async () => (await api.get('/api/meta/thresholds')).data;
+
+
