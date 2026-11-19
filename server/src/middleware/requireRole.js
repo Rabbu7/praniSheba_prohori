@@ -3,6 +3,7 @@ function requireRole(...roles) {
     if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).json({
         error: {
+          code: 'FORBIDDEN',
           message: 'Forbidden',
           status: 403
         }

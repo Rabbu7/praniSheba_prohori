@@ -3,12 +3,7 @@ const Device = require('../models/Device');
 const DeviceRequest = require('../models/DeviceRequest');
 const User = require('../models/User');
 const { getDistrictFarmers } = require('../utils/managerScope');
-
-function createError(message, status) {
-  const error = new Error(message);
-  error.status = status;
-  return error;
-}
+const { createError } = require('../utils/errors');
 
 function requestSummary(request) {
   const id = request._id ? request._id.toString() : (request.id ? request.id.toString() : '');
@@ -38,30 +33,30 @@ async function createDeviceRequest(req, res, next) {
     const { deviceId, deviceCode } = req.body || {};
     if (typeof deviceId !== 'string' || !deviceId.trim()
       || typeof deviceCode !== 'string' || !deviceCode.trim()) {
-      throw createError('Invalid device ID or code', 400);
+      throw createError('Invalid device ID or code', 400, 'INVALID_DEVICE_CREDENTIALS');
     }
 
     const normalizedDeviceId = deviceId.trim();
     const normalizedDeviceCode = deviceCode.trim();
     const seededDevice = await Device.findOne({ deviceId: normalizedDeviceId });
     if (!seededDevice || seededDevice.deviceCode !== normalizedDeviceCode) {
-      throw createError('Invalid device ID or code', 400);
+      throw createError('Invalid device ID or code', 400, 'INVALID_DEVICE_CREDENTIALS');
     }
 
     if ((req.user.devices || []).some((device) => device.deviceId === normalizedDeviceId)) {
-      throw createError('You have already added this device', 409);
+      throw createError('You have already added this device', 409, 'DEVICE_ALREADY_OWNED');
     }
 
     if (await User.exists({ 'devices.deviceId': normalizedDeviceId })) {
-      throw createError('This device is already linked to another account', 409);
+      throw createError('This device is already linked to another account', 409, 'DEVICE_LINKED_OTHER');
     }
 
     if (await DeviceRequest.exists({ farmerId: req.user._id, deviceId: normalizedDeviceId, status: 'pending' })) {
-      throw createError('You already have a pending request for this device', 409);
+      throw createError('You already have a pending request for this device', 409, 'DEVICE_REQUEST_PENDING_SELF');
     }
 
     if (await DeviceRequest.exists({ deviceId: normalizedDeviceId, status: 'pending' })) {
-      throw createError('This device already has a pending request from another account', 409);
+      throw createError('This device already has a pending request from another account', 409, 'DEVICE_REQUEST_PENDING_OTHER');
     }
 
     let request;
@@ -73,7 +68,7 @@ async function createDeviceRequest(req, res, next) {
       });
     } catch (error) {
       if (error.code === 11000) {
-        throw createError('This device already has a pending request from another account', 409);
+        throw createError('This device already has a pending request from another account', 409, 'DEVICE_REQUEST_PENDING_OTHER');
       }
       throw error;
     }
@@ -109,7 +104,7 @@ async function listManagerRequests(req, res, next) {
   try {
     const allowedStatuses = ['pending', 'approved', 'rejected'];
     const status = req.query.status || 'pending';
-    if (!allowedStatuses.includes(status)) throw createError('Invalid request status', 400);
+    if (!allowedStatuses.includes(status)) throw createError('Invalid request status', 400, 'INVALID_REQUEST_STATUS');
 
     const farmers = await getDistrictFarmers(req.user);
     const farmerIds = farmers.map((farmer) => farmer._id);
@@ -148,8 +143,8 @@ async function markUnavailable(requestId, managerId, note) {
 async function approveRequest(req, res, next) {
   try {
     const scoped = await findScopedRequest(req.user, req.params.id);
-    if (!scoped) throw createError('Request not found', 404);
-    if (scoped.request.status !== 'pending') throw createError('Request is no longer pending', 409);
+    if (!scoped) throw createError('Request not found', 404, 'REQUEST_NOT_FOUND');
+    if (scoped.request.status !== 'pending') throw createError('Request is no longer pending', 409, 'REQUEST_NOT_PENDING');
 
     let result;
     try {
@@ -160,14 +155,14 @@ async function approveRequest(req, res, next) {
     } catch (error) {
       if (error.code === 11000) {
         await markUnavailable(req.params.id, req.user._id, 'Already linked to another account');
-        throw createError('Already linked to another account', 409);
+        throw createError('Already linked to another account', 409, 'DEVICE_LINKED_OTHER');
       }
       throw error;
     }
 
     if (result.matchedCount === 0) {
       await markUnavailable(req.params.id, req.user._id, 'Already added');
-      throw createError('Already added', 409);
+      throw createError('Already added', 409, 'DEVICE_ALREADY_OWNED');
     }
 
     const decidedAt = new Date();
@@ -177,7 +172,7 @@ async function approveRequest(req, res, next) {
       { returnDocument: 'after' }
     ).lean();
 
-    if (!updated) throw createError('Request is no longer pending', 409);
+    if (!updated) throw createError('Request is no longer pending', 409, 'REQUEST_NOT_PENDING');
     return res.json({ request: requestSummary(updated) });
   } catch (error) {
     return next(error);
@@ -187,15 +182,15 @@ async function approveRequest(req, res, next) {
 async function rejectRequest(req, res, next) {
   try {
     const scoped = await findScopedRequest(req.user, req.params.id);
-    if (!scoped) throw createError('Request not found', 404);
-    if (scoped.request.status !== 'pending') throw createError('Request is no longer pending', 409);
+    if (!scoped) throw createError('Request not found', 404, 'REQUEST_NOT_FOUND');
+    if (scoped.request.status !== 'pending') throw createError('Request is no longer pending', 409, 'REQUEST_NOT_PENDING');
 
     const rawNote = req.body && req.body.note;
     if (rawNote !== undefined && typeof rawNote !== 'string') {
-      throw createError('Invalid rejection note', 400);
+      throw createError('Invalid rejection note', 400, 'INVALID_REJECTION_NOTE');
     }
     const note = rawNote === undefined ? null : rawNote.trim();
-    if (note && note.length > 200) throw createError('Invalid rejection note', 400);
+    if (note && note.length > 200) throw createError('Invalid rejection note', 400, 'INVALID_REJECTION_NOTE');
 
     const updated = await DeviceRequest.findOneAndUpdate(
       { _id: req.params.id, status: 'pending' },
@@ -210,7 +205,7 @@ async function rejectRequest(req, res, next) {
       { returnDocument: 'after' }
     ).lean();
 
-    if (!updated) throw createError('Request is no longer pending', 409);
+    if (!updated) throw createError('Request is no longer pending', 409, 'REQUEST_NOT_PENDING');
     return res.json({ request: requestSummary(updated) });
   } catch (error) {
     return next(error);

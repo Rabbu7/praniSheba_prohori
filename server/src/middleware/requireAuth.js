@@ -1,10 +1,17 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-function createAuthError(message = 'Authentication required') {
+function createAuthError(message = 'Authentication required', status = 401, code = 'UNAUTHORIZED') {
   const error = new Error(message);
-  error.status = 401;
+  error.status = status;
+  error.code = code;
   return error;
+}
+
+function isAllowedDuringPasswordChange(req) {
+  const path = (req.originalUrl || req.url || '').split('?')[0];
+  return (req.method === 'GET' && path === '/api/auth/me')
+    || (req.method === 'POST' && path === '/api/profile/password');
 }
 
 const requireAuth = async (req, res, next) => {
@@ -30,6 +37,10 @@ const requireAuth = async (req, res, next) => {
 
     if (user.status !== 'active') {
       return next(createAuthError('Authentication required'));
+    }
+
+    if (user.mustChangePassword && !isAllowedDuringPasswordChange(req)) {
+      return next(createAuthError('Password change required', 403, 'PASSWORD_CHANGE_REQUIRED'));
     }
 
     req.user = user;

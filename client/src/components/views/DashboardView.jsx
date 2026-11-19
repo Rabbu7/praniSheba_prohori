@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import useDeviceStatus from '../../hooks/useDeviceStatus';
 import useDailyAverages from '../../hooks/useDailyAverages';
 import StatusBadge from '../common/StatusBadge';
+import ServerUnreachable from '../common/ServerUnreachable';
 import ReadingsPanel from '../dashboard/ReadingsPanel';
 import HistoryTabs from '../dashboard/HistoryTabs';
 import TrendChart from '../dashboard/TrendChart';
@@ -10,7 +11,7 @@ export default function DashboardView({ deviceId }) {
   const { reading, status, lastUpdated, error } = useDeviceStatus(deviceId);
   const [range, setRange] = useState('7d');
   const { data, loading } = useDailyAverages(range, deviceId);
-  if (error) return <div className="rounded-lg border border-error/30 bg-surface-white p-8 text-center text-error">Unable to reach Prohori server</div>;
+  if (error) return <ServerUnreachable />;
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
       <div className="lg:col-span-3"><ReadingsPanel reading={reading} /></div>

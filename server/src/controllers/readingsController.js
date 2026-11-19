@@ -2,10 +2,13 @@ const { getReadingModel } = require('../models/Reading');
 const { getZones } = require('../utils/thresholds');
 const {
   DHAKA_TZ,
+  toDhakaShifted,
   getWindowStart,
   getDhakaMonthBounds,
   getDhakaDayBounds
 } = require('../utils/dhakaTime');
+
+const MAX_EXPORT_ROWS = 5000;
 
 /**
  * Fetch the single most recent reading, attach metric zones, and return
@@ -19,6 +22,7 @@ const getLatest = async (req, res, next) => {
     if (!reading) {
       return res.status(404).json({
         error: {
+          code: 'NO_READINGS_FOUND',
           message: 'No readings found',
           status: 404
         }
@@ -30,41 +34,6 @@ const getLatest = async (req, res, next) => {
       ...reading,
       ...zones
     });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Fetch readings for the last 7 or 30 Asia/Dhaka days (window starts at Dhaka
- * midnight), attach zones, and return sorted ascending.
- * GET /api/readings/history?range=7d|30d
- */
-const getHistory = async (req, res, next) => {
-  try {
-    const Reading = getReadingModel(req.deviceId);
-    const { range } = req.query;
-    let days = 7;
-
-    if (range === '30d') {
-      days = 30;
-    } else if (range === '7d' || !range) {
-      days = 7;
-    } else {
-      // Default safely to 7d for invalid range parameters
-      days = 7;
-    }
-
-    const readings = await Reading.find({ created_at: { $gte: getWindowStart(days) } })
-      .sort({ created_at: 1 })
-      .lean();
-
-    const result = readings.map((reading) => ({
-      ...reading,
-      ...getZones(reading)
-    }));
-
-    return res.json(result);
   } catch (error) {
     next(error);
   }
@@ -264,6 +233,7 @@ const getDay = async (req, res, next) => {
     if (!bounds) {
       return res.status(400).json({
         error: {
+          code: 'INVALID_DATE',
           message: 'Invalid date; expected YYYY-MM-DD',
           status: 400
         }
@@ -275,6 +245,7 @@ const getDay = async (req, res, next) => {
     if (!day) {
       return res.status(404).json({
         error: {
+          code: 'NO_READINGS_FOR_DATE',
           message: 'No readings found for this date',
           status: 404
         }
@@ -287,11 +258,103 @@ const getDay = async (req, res, next) => {
   }
 };
 
+function formatCsvCell(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? String(value) : '';
+  }
+  let str = String(value);
+  if (/^[=+\-@]/.test(str)) {
+    str = `'${str}`;
+  }
+  if (/[",\r\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+/**
+ * Export readings in a required Asia/Dhaka date range as CSV (row-capped).
+ * GET /api/readings/export?from=YYYY-MM-DD&to=YYYY-MM-DD
+ */
+const exportCsv = async (req, res, next) => {
+  try {
+    const { from, to } = req.query;
+    if (typeof from !== 'string' || typeof to !== 'string') {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_DATE_RANGE',
+          message: 'Valid from and to dates (YYYY-MM-DD) are required',
+          status: 400
+        }
+      });
+    }
+
+    const fromBounds = getDhakaDayBounds(from);
+    const toBounds = getDhakaDayBounds(to);
+    if (!fromBounds || !toBounds) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_DATE_RANGE',
+          message: 'Valid from and to dates (YYYY-MM-DD) are required',
+          status: 400
+        }
+      });
+    }
+
+    if (fromBounds.start >= toBounds.end) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_DATE_RANGE',
+          message: 'Start date must be on or before end date',
+          status: 400
+        }
+      });
+    }
+
+    const Reading = getReadingModel(req.deviceId);
+    const rows = await Reading.find({
+      created_at: { $gte: fromBounds.start, $lt: toBounds.end }
+    })
+      .sort({ created_at: -1 })
+      .limit(MAX_EXPORT_ROWS + 1)
+      .lean();
+
+    const truncated = rows.length > MAX_EXPORT_ROWS;
+    const exportRows = truncated ? rows.slice(0, MAX_EXPORT_ROWS) : rows;
+
+    const header = 'Timestamp (Asia/Dhaka),Device ID,Ammonia (ppm),Methane (ppm),Humidity (%),Temperature (F)';
+    const lines = exportRows.map((row) => {
+      const ts = row.created_at
+        ? toDhakaShifted(row.created_at).toISOString().replace('T', ' ').slice(0, 19)
+        : '';
+      return [
+        formatCsvCell(ts),
+        formatCsvCell(row.device_id || req.deviceId),
+        formatCsvCell(row.ammonia),
+        formatCsvCell(row.methane),
+        formatCsvCell(row.humidity),
+        formatCsvCell(row.temperature)
+      ].join(',');
+    });
+
+    const csv = [header, ...lines].join('\r\n');
+    const safeFilenameDevice = String(req.deviceId).replace(/[^A-Za-z0-9_-]/g, '');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="prohori-${safeFilenameDevice}-${from}-to-${to}.csv"`);
+    res.setHeader('X-Export-Row-Cap', String(MAX_EXPORT_ROWS));
+    res.setHeader('X-Export-Truncated', truncated ? 'true' : 'false');
+    return res.status(200).send(csv);
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   getLatest,
-  getHistory,
   getDailyAverages,
   getLog,
   getCalendar,
-  getDay
+  getDay,
+  exportCsv
 };

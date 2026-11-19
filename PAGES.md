@@ -3,6 +3,48 @@
 > Defines the screens/pages/sections that exist in the app for the current phase.
 > Updated at the start of every new phase — sections marked "future" are NOT to be built yet.
 
+## Phase 9 — Pages & Sections — STATUS: COMPLETE
+
+Phase 9 adds security hardening, reliability states, and account/device management controls using existing `DESIGN.md` tokens and **no new colors**. No deployment or Phase 10 localization work yet.
+
+### Forced password change (`/change-password`, managers)
+
+- Shown when an admin-created or admin-reset manager logs in with `mustChangePassword: true`.
+- Uses `AuthShell` (no Sidebar/Header) and reuses `PasswordForm`.
+- Route guard redirects any authenticated user with `mustChangePassword: true` to `/change-password` until updated, then sends them to their role home (`/manager`).
+
+### Reliability & Error States
+
+- Global React `ErrorBoundary` catching unexpected render errors with a clean fallback and reload/home action.
+- One consistent "server unreachable" state across data-fetching pages.
+
+### Notification bell (manager navigation update)
+
+- Clicking a row in the manager's notification bell navigates directly to `/manager/farmers/:farmerId/devices/:deviceId` (using `farmerId` on the serialized alert) instead of `/manager/farmers`.
+
+### Device nicknames & Unlink device
+
+- Optional `nickname` on a farmer's linked device, displayed alongside the monospace `deviceId` in `DeviceSwitcher`, farmer My Devices, and manager tables.
+- Unlink device action (manager within their district, or admin): confirms and removes the device from the farmer's account, resolves open alerts for that device, and makes the device requestable again.
+
+### Admin Managers (Restore & Password Reset)
+
+- Admin Managers view supports restoring a removed manager (subject to the one-active-manager-per-district rule) and resetting a manager's password to a temporary password (sets `mustChangePassword: true`).
+
+### Reading Log CSV Export
+
+- One **Export CSV** button on the Reading Log page (farmer `/history` and manager device view) with a required date range and server-enforced row cap.
+
+### Phase 9 Acceptance Checks (all passed)
+
+1. **Phase 7 & Phase 8 regression:** registration validation & forced `farmer` role, unmanaged district visibility, admin/manager district isolation, device request 409 conflicts, alert engine 2-reading debounce, per-user alert read state, and `/api/meta/thresholds` all passed.
+2. **Security hardening (9b):** `helmet` headers present, 100 KB JSON body limit returns `413 PAYLOAD_TOO_LARGE`, forced first-login password change blocks manager routes with `403 PASSWORD_CHANGE_REQUIRED` until changed, and socket revalidation drops an open socket when a manager is soft-deleted.
+3. **Cleanup (9c) & Reliability (9d):** `/health` reports `200 { status: 'ok', db: 'connected' }`, all server errors include stable `error.code` values, structured logger redacts `password`/`token`/secrets, and `serializeAlert` includes `farmerId` for direct manager bell navigation.
+4. **Account & device management (9e):** device nicknames (`PATCH /api/profile/devices/:deviceId`), manager/admin device unlink (`DELETE /api/manager/farmers/:farmerId/devices/:deviceId` & `DELETE /api/admin/farmers/:farmerId/devices/:deviceId` with open-alert resolution and re-requestability), removed-manager restore (`POST /api/admin/managers/:id/restore`), admin manager password reset (`POST /api/admin/managers/:id/reset-password` setting `mustChangePassword: true`), and `resolveDevice`-scoped CSV export (`GET /api/readings/export`) all passed.
+5. **Client build & lint:** `oxlint` passed with 0 errors and `vite build` succeeded.
+
+---
+
 ## Phase 8 — Pages & Sections — STATUS: COMPLETE
 
 Phase 8 added no new routes. Existing pages gained the items below, using the same tokens and no new colors. No Phase 9 pages are defined yet.

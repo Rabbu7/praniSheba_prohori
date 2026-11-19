@@ -11,6 +11,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Devices from './pages/Devices';
 import CompleteProfile from './pages/CompleteProfile';
+import ChangePassword from './pages/ChangePassword';
 import Profile from './pages/Profile';
 import ManagerOverview from './pages/manager/Overview';
 import ManagerFarmers from './pages/manager/Farmers';
@@ -40,10 +41,19 @@ function RedirectIfAuthed({ children }) {
   return children;
 }
 
+function ChangePasswordGuard({ children }) {
+  const { user, token, loading } = useAuth();
+  if (loading) return <AuthLoading />;
+  if (!token || !user) return <Navigate to="/login" replace />;
+  if (!user.mustChangePassword) return <Navigate to={roleHome(user)} replace />;
+  return children;
+}
+
 function CompleteProfileGuard({ children }) {
   const { user, token, loading } = useAuth();
   if (loading) return <AuthLoading />;
   if (!token || !user) return <Navigate to="/login" replace />;
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
   if (user.role === 'admin') return <Navigate to="/admin" replace />;
   if (user.role === 'manager') return <Navigate to="/manager" replace />;
   if (user.role === 'farmer' && user.profileComplete) return <Navigate to="/" replace />;
@@ -59,6 +69,7 @@ function FarmerDataGuard({ children }) {
   const { user, token, loading } = useAuth();
   if (loading) return <AuthLoading />;
   if (!token || !user) return <Navigate to="/login" replace />;
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
   if (user.role === 'admin') return <Navigate to="/admin" replace />;
   if (user.role === 'manager') return <Navigate to="/manager" replace />;
   if (user.role === 'farmer') {
@@ -77,6 +88,7 @@ function FarmerDeviceGuard({ children }) {
   const { user, token, loading } = useAuth();
   if (loading) return <AuthLoading />;
   if (!token || !user) return <Navigate to="/login" replace />;
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
   if (user.role === 'admin') return <Navigate to="/admin" replace />;
   if (user.role === 'manager') return <Navigate to="/manager" replace />;
   if (user.role === 'farmer' && !user.profileComplete) {
@@ -94,6 +106,7 @@ function ProfileGuard({ children }) {
   const { user, token, loading } = useAuth();
   if (loading) return <AuthLoading />;
   if (!token || !user) return <Navigate to="/login" replace />;
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
   if (user.role === 'farmer' && !user.profileComplete) {
     return <Navigate to="/complete-profile" replace />;
   }
@@ -109,6 +122,7 @@ function ManagerGuard({ children }) {
   const { user, token, loading } = useAuth();
   if (loading) return <AuthLoading />;
   if (!token || !user) return <Navigate to="/login" replace />;
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
   if (user.role !== 'manager') return <Navigate to={roleHome(user)} replace />;
   return children;
 }
@@ -117,6 +131,7 @@ function AdminGuard({ children }) {
   const { user, token, loading } = useAuth();
   if (loading) return <AuthLoading />;
   if (!token || !user) return <Navigate to="/login" replace />;
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
   if (user.role !== 'admin') return <Navigate to={roleHome(user)} replace />;
   return children;
 }
@@ -135,6 +150,7 @@ export default function App() {
         {/* Auth routes */}
         <Route path="/login" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
         <Route path="/register" element={<RedirectIfAuthed><Register /></RedirectIfAuthed>} />
+        <Route path="/change-password" element={<ChangePasswordGuard><ChangePassword /></ChangePasswordGuard>} />
         <Route path="/complete-profile" element={<CompleteProfileGuard><CompleteProfile /></CompleteProfileGuard>} />
 
         {/* Farmer reading pages */}

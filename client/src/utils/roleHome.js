@@ -1,5 +1,6 @@
 export function roleHome(user) {
   if (!user) return '/login';
+  if (user.mustChangePassword) return '/change-password';
   if (user.role === 'admin') return '/admin';
   if (user.role === 'manager') return '/manager';
   if (user.role === 'farmer') {
@@ -9,4 +10,3 @@ export function roleHome(user) {
   }
   return '/login';
 }
-

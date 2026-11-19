@@ -2,6 +2,12 @@ const mongoose = require('mongoose');
 
 const deviceEntrySchema = new mongoose.Schema({
   deviceId: String,
+  nickname: {
+    type: String,
+    trim: true,
+    maxlength: 50,
+    default: ''
+  },
   linkedAt: Date
 }, { _id: false });
 
@@ -56,6 +62,10 @@ const userSchema = new mongoose.Schema({
   devices: {
     type: [deviceEntrySchema],
     default: []
+  },
+  mustChangePassword: {
+    type: Boolean,
+    default: false
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

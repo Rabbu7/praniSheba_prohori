@@ -10,9 +10,48 @@
 Reference product: https://iot.pranisheba.com.bd/#/home
 Company site: https://www.pranisheba.com.bd/-eng
 
-## Current Phase: Phase 8 — Alerts and Data Correctness (COMPLETE)
+## Current Phase: Phase 9 — Hardening, Cleanup, Reliability and Account Management (COMPLETE)
 
-Phase 8 turned the visual zones into recorded, notified alerts and replaced the temporary data-window workarounds with real Asia/Dhaka time windows. It added no new roles and no new routes. No Phase 9 scope has been written into this file yet; do not start new features (hardening, release, deployment) until a new phase is defined here.
+Phase 9 hardens security and reliability, removes leftover cleanup candidates, adds `error.code` for Phase 10 localization, and adds account/device management features. **No deployment. No new roles.** Automated tests are deferred to Phase 11, so every new endpoint in Phase 9 ships with scripted acceptance checks recorded in `PAGES.md`.
+
+### Phase 9 stages
+
+- **9a** Docs (DONE) · **9b** Security hardening (DONE) · **9c** Cleanup (DONE) · **9d** Reliability and robustness (DONE) · **9e** Account and device management (DONE) · **9f** Verification (DONE)
+
+### Phase 9 decisions (authoritative)
+
+1. **Security hardening (9b):**
+   - Rate limiting on `POST /api/auth/login` and `POST /api/auth/register`.
+   - `helmet` security headers and an explicit JSON body size limit.
+   - Mongo operator-injection sanitizing pass on all request input (`req.body`, `req.query`, `req.params`).
+   - Forced first-login password change: `mustChangePassword` boolean on `User` (default `false`); set `true` when an admin creates a manager or resets a manager's password; cleared on password change. Enforced by route guard on the client and middleware/controller checks on the server.
+   - Login timing side-channel protection: always run `bcrypt.compare` even when the user does not exist.
+   - Periodic re-validation of socket JWT, user `status`, and device access so a removed manager's open socket is dropped (and unlinked devices are removed from rooms).
+   - Startup env validation: `JWT_SECRET` (minimum length), `MONGO_URI`, `CLIENT_ORIGIN`, and `ADMIN_*` for the seed script; fail fast with a clear message.
+   - Secrets hygiene: add `.env` to `client/.gitignore`, replace real-looking broker IP/username in `mimic-device/.env.example` (and its README) with placeholders, and audit git history for anything real that needs rotating.
+2. **Cleanup (9c):**
+   - Remove `client/src/hooks/useReadingsHistory.js`, `GET /api/readings/history`, and `getReadingsHistory` in `client/src/services/api.js`.
+   - Remove `client/stitch-export.html`, unused Vite template assets (`App.css`, `react.svg`, `vite.svg`, `icons.svg`, template favicon), README leftover lines, and all `simulator/` references (including root `.gitignore`).
+   - Empty the "Cleanup Candidates" section in `AGENTS.md`.
+3. **Reliability and robustness (9d):**
+   - Every server error includes a stable `code` field: `{ error: { code, message, status } }` (additive so existing clients keep working; Phase 10 translates by `code`).
+   - Graceful shutdown: close change streams, the Socket.IO server, and the MongoDB connection.
+   - Structured logging with no secrets or passwords.
+   - `/health` also checks the MongoDB connection state.
+   - Global React `ErrorBoundary` and one consistent "server unreachable" state across pages.
+   - Include `farmerId` in alert serialization (`serializeAlert`) so manager bell rows navigate directly to `/manager/farmers/:farmerId/devices/:deviceId`.
+4. **Account and device management (9e):**
+   - **Unlink device:** manager (within their district) or admin removes a device from a farmer via atomic `$pull`; farmer's socket room/connection updates, open alerts for that device are resolved, and the device becomes requestable again.
+   - **Device nicknames:** optional `nickname` on each `user.devices` entry (`{ deviceId, nickname, linkedAt }`), shown in `DeviceSwitcher` and tables while `deviceId` remains the real identifier.
+   - **Restore removed manager:** admin sets `status` back to `'active'`, subject to the unique active-manager-per-district partial index.
+   - **Admin reset of a manager's password:** admin sets a temporary password and sets `mustChangePassword: true` so the manager is forced to change it on next login (reuses the 9b flow).
+   - **Export reading log as CSV:** scoped through `resolveDevice`, date range required, row cap enforced, triggered from one button on the Reading Log page.
+
+**Not in Phase 9:** deployment, email-based flows (reset, verification, invites), offline-device alerts, messaging, multiple managers per district, farms and cow rooms, audit log, per-manager thresholds, a Settings page.
+
+## Previous Phase: Phase 8 — Alerts and Data Correctness (COMPLETE)
+
+Phase 8 turned the visual zones into recorded, notified alerts and replaced the temporary data-window workarounds with real Asia/Dhaka time windows. It added no new roles and no new routes.
 
 ### Phase 8 stages (all done)
 
@@ -192,7 +231,7 @@ Six seeded devices (`devices` collection, upserted by `seedDevices.js`): G3036 `
 
 ### Multi-device MQTT (unchanged)
 
-Topic `prohori/<deviceId>/reading`. `mimic-device/` publishes for all six devices (QoS 1, non-retained, independent random-walk state per device). `mqtt-bridge/` subscribes to `prohori/+/reading`, validates the device ID **from the topic** against the seeded `devices` collection (refreshed every 60s), drops unknown IDs, validates numeric payloads, forces `device_id` to match the topic, sets `created_at` (UTC), and is the **sole writer**. The abandoned topic `farm_controller/CATTLE_CTRL_001/event` must never be used. Never run `simulator/` and the MQTT pipeline at the same time.
+Topic `prohori/<deviceId>/reading`. `mimic-device/` publishes for all six devices (QoS 1, non-retained, independent random-walk state per device). `mqtt-bridge/` subscribes to `prohori/+/reading`, validates the device ID **from the topic** against the seeded `devices` collection (refreshed every 60s), drops unknown IDs, validates numeric payloads, forces `device_id` to match the topic, sets `created_at` (UTC), and is the **sole writer**. The abandoned topic `farm_controller/CATTLE_CTRL_001/event` must never be used.
 
 ### Socket.IO rooms
 
@@ -241,7 +280,7 @@ Endpoints (`requireAuth` + `requireRole('farmer', 'manager')`; admin gets 403 "F
 
 ### Time windows and timezone (Phase 8)
 
-- The document-count `.limit()` workaround is gone. `getDailyAverages` and `getHistory` filter with `created_at >= getWindowStart(days)`, where the window starts at the beginning of the Dhaka day `days - 1` days ago, so the first bucket is always a full day.
+- The document-count `.limit()` workaround is gone. `getDailyAverages` filters with `created_at >= getWindowStart(days)`, where the window starts at the beginning of the Dhaka day `days - 1` days ago, so the first bucket is always a full day.
 - All day grouping and day/month bounds use `Asia/Dhaka` (`$dateToString` with `timezone: 'Asia/Dhaka'`; bounds use a fixed +06:00 offset, no library). Helpers are in `server/src/utils/dhakaTime.js`: `DHAKA_TZ`, `dhakaDateKey`, `startOfDhakaDay`, `getWindowStart`, `getDhakaMonthBounds`, `getDhakaDayBounds`.
 - Each reading collection has an index on `created_at` (`readingSchema.index({ created_at: -1 })` in `Reading.js`). The reading document shape is unchanged.
 - Client: `dateFormatter.js` formats with `timeZone: 'Asia/Dhaka'` and exports `getDhakaToday()` (used for the calendar's starting month and "today" marker) and `formatRelativeTime()`.
@@ -273,7 +312,7 @@ Endpoints (`requireAuth` + `requireRole('farmer', 'manager')`; admin gets 403 "F
 
 **Backend:** Node.js + Express, Mongoose, Socket.IO (JWT-authenticated per-device rooms), MongoDB Change Streams, `bcrypt` (cost 10), `jsonwebtoken` (7-day expiry, no refresh tokens), dotenv, cors.
 
-**Device pipeline:** `mimic-device/` (Python, fake readings over MQTT), `mqtt-bridge/` (Python, sole writer to reading collections), `simulator/` (retired).
+**Device pipeline:** `mimic-device/` (Python, fake readings over MQTT), `mqtt-bridge/` (Python, sole writer to reading collections).
 
 **Database:** MongoDB Atlas, database `iotdb`. Reading collections keyed per device. `devices` (seeded), `users`, `devicerequests`. `server/` is read-only for reading data.
 
@@ -327,7 +366,6 @@ prohori-dashboard/
 │   └── package.json
 ├── mimic-device/   ...unchanged
 ├── mqtt-bridge/    ...unchanged
-├── simulator/      # RETIRED
 ├── client/
 │   ├── src/
 │   │   ├── components/
@@ -381,7 +419,7 @@ prohori-dashboard/
 - `POST /api/device-requests`, `GET /api/device-requests/mine` (farmer)
 - `GET /api/manager/overview | farmers | farmers/:farmerId | device-requests`, `POST /api/manager/device-requests/:id/approve|reject` (manager)
 - `GET /api/admin/overview`, `GET|POST /api/admin/managers`, `DELETE /api/admin/managers/:id` (admin)
-- `GET /api/readings/latest | daily-averages | log | calendar | day/:date | history` — `?deviceId=` rules per role via `resolveDevice`
+- `GET /api/readings/latest | daily-averages | log | calendar | day/:date` — `?deviceId=` rules per role via `resolveDevice`
 - `GET /api/meta/thresholds` → `THRESHOLDS` (no auth)
 - `GET /api/alerts`, `POST /api/alerts/:id/read`, `POST /api/alerts/read-all` (farmer, manager; admin 403)
 - `GET /health` — no auth
@@ -432,29 +470,26 @@ prohori-dashboard/
 - On `/devices` and `/profile` a farmer has no live socket, so the bell updates through the 60 s poll and tab-focus refetch.
 - Mongoose may print a deprecation warning on some update options; harmless.
 
-## Cleanup Candidates (not yet removed)
+## Cleanup Candidates
 
-- `client/src/hooks/useReadingsHistory.js` and `GET /api/readings/history` (unused).
-- `client/stitch-export.html` (static design reference, not served).
-- Unused Vite template assets: `client/src/App.css`, `client/src/assets/react.svg`, `client/src/assets/vite.svg`, `client/public/icons.svg` and the template favicon file, if confirmed unused.
-- README leftover lines (`// palash, i am here` etc.) and the retired `simulator/` references.
+*(None — cleared in Phase 9c.)*
 
-## Out of Scope (Deferred beyond Phase 8)
+## Out of Scope (Deferred beyond Phase 9)
 
+- Deployment (deferred to Final phase)
+- Localization (English & Bangla — planned for Phase 10)
+- Automated unit/API test suite (planned for Phase 11)
+- Offline-device alerts (planned for Phase 11+)
 - Messaging between farmer and manager
 - Multiple managers per district and automatic manager selection
 - Farms / cow rooms hierarchy
 - Audit-log module and activity history pages
-- Per-manager (local) thresholds, persisted alerts, acknowledge/escalate workflows
+- Per-manager (local) thresholds, acknowledge/escalate workflows
 - MQTT topic administration / health pages; managers registering new devices
-- Unlink / re-link device flow, device nicknames, device limit per account
-- Password reset / email verification / email invites
-- Push/email/SMS notifications
-- Export/download data
+- Device limit per account
+- Email-based flows (password reset, email verification, email invites)
+- Push/email/SMS notifications and per-user alert rules
 - Settings page
-- Email/SMS/push delivery of alerts, per-user alert rules, acknowledge/escalate workflows
-- Hardening and release work (login rate limiting, `helmet`, forced first-login password change, deployment, final cleanup) until a phase defines it
-- Login timing-side-channel hardening; periodic socket JWT re-validation
 
 ## Phase History
 
@@ -466,3 +501,4 @@ prohori-dashboard/
 - **Phase 6 (COMPLETE)**: Multiple devices per user, `?deviceId=` + `resolveDevice`, `DeviceSwitcher`, add-device flow.
 - **Phase 7 (COMPLETE)**: RBAC — roles (admin / manager / farmer), district-based single manager, farmer registration with name + division/district, device-request approval (dialog-based request flow), manager panel, admin panel (manager add/delete), profile pages for all roles, phone + call link.
 - **Phase 8 (COMPLETE)**: Real Asia/Dhaka time windows and indexes, persisted debounced alerts (engine, `/api/alerts`, per-user read state, live socket events), notification bell for farmers and managers, trend chart metric selector with threshold bands and `GET /api/meta/thresholds`.
+- **Phase 9 (COMPLETE)**: Security hardening (rate limiting, `helmet`, body limit, Mongo operator sanitization, forced first-login password change, timing-safe login, socket revalidation, startup env validation, secrets hygiene), cleanup, reliability (stable `error.code`, graceful shutdown, structured redacting logger, `/health` DB check, React `ErrorBoundary` + `ServerUnreachable`, `farmerId` on alerts), and account/device management (device nicknames, device unlink, removed-manager restore, admin manager password reset, Reading Log CSV export).

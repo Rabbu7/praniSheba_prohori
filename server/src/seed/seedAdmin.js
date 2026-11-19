@@ -2,15 +2,11 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const connectDB = require('../config/db');
+const { validateEnv } = require('../config/env');
 const User = require('../models/User');
 
-const REQUIRED_ENV = ['ADMIN_EMAIL', 'ADMIN_PASSWORD', 'ADMIN_FIRST_NAME', 'ADMIN_LAST_NAME'];
-
 async function seedAdmin() {
-  const missing = REQUIRED_ENV.filter((name) => !process.env[name] || !process.env[name].trim());
-  if (missing.length > 0) {
-    throw new Error(`Missing required admin environment variable(s): ${missing.join(', ')}`);
-  }
+  validateEnv({ requireAdmin: true });
 
   await connectDB();
   const email = process.env.ADMIN_EMAIL.trim().toLowerCase();

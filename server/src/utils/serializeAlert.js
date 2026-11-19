@@ -1,4 +1,4 @@
-function serializeAlert(alert, userId = null) {
+function serializeAlert(alert, userId = null, farmerId = null) {
   if (!alert) return null;
 
   const doc = typeof alert.toObject === 'function' ? alert.toObject() : alert;
@@ -10,9 +10,14 @@ function serializeAlert(alert, userId = null) {
     read = doc.readBy.some((item) => (item ? item.toString() === targetIdStr : false));
   }
 
+  const resolvedFarmerId = farmerId
+    ? farmerId.toString()
+    : (doc.farmerId ? doc.farmerId.toString() : null);
+
   return {
     id,
     deviceId: doc.deviceId,
+    farmerId: resolvedFarmerId,
     metric: doc.metric,
     zone: doc.zone,
     value: doc.value,
@@ -23,4 +28,3 @@ function serializeAlert(alert, userId = null) {
 }
 
 module.exports = { serializeAlert };
-

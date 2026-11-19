@@ -2,10 +2,6 @@
 
 This standalone process subscribes to `prohori/+/reading`, validates incoming JSON readings against the seeded devices in `iotdb.devices`, and routes each message into its matching MongoDB collection (`iotdb.<deviceId>`). It is the sole writer for reading collections; the API server remains read-only.
 
-## Hard single-writer rule
-
-**Never run `simulator/` at the same time as `mqtt-bridge/`.** Stop `simulator/` before starting this bridge.
-
 ## Security & Filtering
 
 - **Dynamic Device Registry**: The bridge loads allowed device IDs from `iotdb.devices` on startup and refreshes every 60s.

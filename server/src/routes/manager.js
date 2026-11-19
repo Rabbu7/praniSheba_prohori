@@ -4,7 +4,8 @@ const requireRole = require('../middleware/requireRole');
 const {
   getOverview,
   listFarmers,
-  getFarmer
+  getFarmer,
+  unlinkDevice
 } = require('../controllers/managerController');
 const {
   listManagerRequests,
@@ -18,6 +19,7 @@ router.use(requireAuth, requireRole('manager'));
 router.get('/overview', getOverview);
 router.get('/farmers', listFarmers);
 router.get('/farmers/:farmerId', getFarmer);
+router.delete('/farmers/:farmerId/devices/:deviceId', unlinkDevice);
 router.get('/device-requests', listManagerRequests);
 router.post('/device-requests/:id/approve', approveRequest);
 router.post('/device-requests/:id/reject', rejectRequest);

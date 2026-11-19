@@ -65,6 +65,7 @@ const getDhakaDayBounds = (date) => {
 
 module.exports = {
   DHAKA_TZ,
+  toDhakaShifted,
   dhakaDateKey,
   startOfDhakaDay,
   getWindowStart,

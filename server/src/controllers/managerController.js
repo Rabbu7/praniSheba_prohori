@@ -1,12 +1,9 @@
 const mongoose = require('mongoose');
 const DeviceRequest = require('../models/DeviceRequest');
 const { getDistrictFarmers } = require('../utils/managerScope');
+const { unlinkFarmerDevice } = require('../utils/unlinkDevice');
 
-function createError(message, status) {
-  const error = new Error(message);
-  error.status = status;
-  return error;
-}
+const { createError } = require('../utils/errors');
 
 function farmerSummary(farmer) {
   return {
@@ -30,7 +27,11 @@ function farmerProfile(farmer) {
     phone: farmer.phone || '',
     division: farmer.division || '',
     district: farmer.district || '',
-    devices: farmer.devices || []
+    devices: (farmer.devices || []).map((d) => ({
+      deviceId: d.deviceId,
+      nickname: d.nickname || '',
+      linkedAt: d.linkedAt
+    }))
   };
 }
 
@@ -67,12 +68,12 @@ async function listFarmers(req, res, next) {
 async function getFarmer(req, res, next) {
   try {
     if (!mongoose.isValidObjectId(req.params.farmerId)) {
-      throw createError('Farmer not found', 404);
+      throw createError('Farmer not found', 404, 'FARMER_NOT_FOUND');
     }
 
     const farmer = (await getDistrictFarmers(req.user))
       .find((candidate) => candidate._id.toString() === req.params.farmerId);
-    if (!farmer) throw createError('Farmer not found', 404);
+    if (!farmer) throw createError('Farmer not found', 404, 'FARMER_NOT_FOUND');
 
     return res.json(farmerProfile(farmer));
   } catch (error) {
@@ -80,4 +81,18 @@ async function getFarmer(req, res, next) {
   }
 }
 
-module.exports = { getOverview, listFarmers, getFarmer };
+async function unlinkDevice(req, res, next) {
+  try {
+    const result = await unlinkFarmerDevice({
+      farmerId: req.params.farmerId,
+      deviceId: req.params.deviceId,
+      managerUser: req.user,
+      io: req.app.get('io')
+    });
+    return res.json({ success: true, deviceId: result.deviceId });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+module.exports = { getOverview, listFarmers, getFarmer, unlinkDevice };

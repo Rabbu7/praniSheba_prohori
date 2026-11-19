@@ -1,9 +1,11 @@
 const { getReadingModel } = require('../models/Reading');
 const Device = require('../models/Device');
 const Alert = require('../models/Alert');
+const User = require('../models/User');
 const { getZones } = require('../utils/thresholds');
 const { createAlertEngine } = require('../utils/alertEngine');
 const { serializeAlert } = require('../utils/serializeAlert');
+const logger = require('../utils/logger');
 
 const RECONNECT_DELAY_MS = 5000;
 
@@ -28,7 +30,7 @@ function queueDeviceTask(deviceId, task) {
   const next = previous
     .then(task)
     .catch((err) => {
-      console.error(`Task queue error for device ${deviceId}:`, err);
+      logger.error(`Task queue error for device ${deviceId}`, { error: err.message });
     });
   deviceQueues.set(deviceId, next);
   return next;
@@ -72,7 +74,7 @@ function initChangeStream(io) {
     try {
       await initDeviceAlerts(deviceId);
     } catch (err) {
-      console.error(`Error initializing alerts for device ${deviceId}:`, err);
+      logger.error(`Error initializing alerts for device ${deviceId}`, { error: err.message });
     }
 
     const Reading = getReadingModel(deviceId);
@@ -81,7 +83,7 @@ function initChangeStream(io) {
     ]);
     changeStreams.set(deviceId, changeStream);
 
-    console.log(`MongoDB change stream watching for device ${deviceId}`);
+    logger.info(`MongoDB change stream watching for device ${deviceId}`);
 
     changeStream.on('change', (change) => {
       if (!change || !change.fullDocument) {
@@ -165,22 +167,31 @@ function initChangeStream(io) {
                   readBy: []
                 });
 
-                io.to(`device:${deviceId}`).emit('new-alert', serializeAlert(newAlert));
+                const owner = await User.findOne({
+                  role: 'farmer',
+                  status: 'active',
+                  'devices.deviceId': deviceId
+                }).select('_id').lean();
+
+                io.to(`device:${deviceId}`).emit(
+                  'new-alert',
+                  serializeAlert(newAlert, null, owner ? owner._id.toString() : null)
+                );
               } catch (err) {
                 if (err.code !== 11000) {
-                  console.error(`Alert creation error for ${deviceId}:${metric}:`, err);
+                  logger.error(`Alert creation error for ${deviceId}:${metric}`, { error: err.message });
                 }
               }
             }
           }
         } catch (alertError) {
-          console.error(`Alert processing error for ${deviceId}:`, alertError);
+          logger.error(`Alert processing error for ${deviceId}`, { error: alertError.message });
         }
       });
     });
 
     changeStream.on('error', (error) => {
-      console.error(`MongoDB change stream error for ${deviceId}: ${error.message}`);
+      logger.error(`MongoDB change stream error for ${deviceId}`, { error: error.message });
 
       if (changeStreams.get(deviceId) === changeStream) {
         changeStreams.delete(deviceId);
@@ -209,7 +220,7 @@ function initChangeStream(io) {
       return changeStreams;
     } catch (error) {
       initializationPromise = null;
-      console.error(`MongoDB device watch initialization failed: ${error.message}`);
+      logger.error('MongoDB device watch initialization failed', { error: error.message });
       throw error;
     }
   })();
@@ -218,5 +229,17 @@ function initChangeStream(io) {
 }
 
 initChangeStream.engine = engine;
+initChangeStream.closeAll = async () => {
+  for (const timer of reconnectTimers.values()) {
+    clearTimeout(timer);
+  }
+  reconnectTimers.clear();
+
+  const streams = Array.from(changeStreams.values());
+  changeStreams.clear();
+  initializationPromise = null;
+
+  await Promise.allSettled(streams.map((stream) => stream.close()));
+};
 
 module.exports = initChangeStream;

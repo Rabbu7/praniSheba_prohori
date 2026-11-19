@@ -100,7 +100,11 @@ export default function NotificationBell({
     }
     close();
     if (user?.role === 'manager') {
-      navigate('/manager/farmers');
+      if (alert.farmerId && alert.deviceId) {
+        navigate(`/manager/farmers/${alert.farmerId}/devices/${alert.deviceId}`);
+      } else {
+        navigate('/manager/farmers');
+      }
     } else {
       if (alert.deviceId) {
         selectDevice(alert.deviceId);

@@ -86,6 +86,8 @@ export default function DeviceSwitcher() {
     );
   }
 
+  const selectedDevice = devices.find((d) => d.deviceId === selectedDeviceId);
+
   return (
     <div className="relative inline-block">
       {/* Trigger button */}
@@ -95,11 +97,18 @@ export default function DeviceSwitcher() {
         onClick={handleToggle}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-1 rounded-md px-1 py-0.5 hover:bg-surface-container-low focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-colors"
+        className="flex items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-surface-container-low focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-colors"
       >
-        <span className="font-mono font-body-sm text-body-sm font-medium text-on-background">
-          {selectedDeviceId}
-        </span>
+        {selectedDevice?.nickname ? (
+          <span className="flex items-center gap-1.5 font-body-sm text-body-sm font-medium text-on-background">
+            <span>{selectedDevice.nickname}</span>
+            <span className="font-mono text-xs text-secondary">({selectedDeviceId})</span>
+          </span>
+        ) : (
+          <span className="font-mono font-body-sm text-body-sm font-medium text-on-background">
+            {selectedDeviceId}
+          </span>
+        )}
         <span
           className={`material-symbols-outlined text-[18px] text-secondary transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
           aria-hidden="true"
@@ -131,8 +140,21 @@ export default function DeviceSwitcher() {
                   isSelected ? 'bg-surface-container-low' : ''
                 }`}
               >
-                <span className="font-mono font-body-sm text-body-sm font-medium text-on-background">
-                  {device.deviceId}
+                <span className="flex flex-col text-left">
+                  {device.nickname ? (
+                    <>
+                      <span className="font-body-sm text-body-sm font-medium text-on-background">
+                        {device.nickname}
+                      </span>
+                      <span className="font-mono text-xs text-secondary">
+                        {device.deviceId}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="font-mono font-body-sm text-body-sm font-medium text-on-background">
+                      {device.deviceId}
+                    </span>
+                  )}
                 </span>
                 {isSelected && (
                   <span

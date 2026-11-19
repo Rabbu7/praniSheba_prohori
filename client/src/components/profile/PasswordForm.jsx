@@ -3,7 +3,7 @@ import { changePassword } from '../../services/api';
 
 const inputClass = 'mt-2 w-full rounded-lg border border-outline-variant bg-surface-white px-4 py-3 text-body-lg text-on-background outline-none transition placeholder:text-secondary/60 focus:border-primary focus:ring-4 focus:ring-primary/10';
 
-export default function PasswordForm() {
+export default function PasswordForm({ onSuccess, bare = false }) {
   const [form, setForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -43,7 +43,7 @@ export default function PasswordForm() {
     setSuccess(false);
 
     try {
-      await changePassword({
+      const updatedUser = await changePassword({
         currentPassword: form.currentPassword,
         newPassword: form.newPassword,
       });
@@ -53,6 +53,7 @@ export default function PasswordForm() {
         newPassword: '',
         confirmPassword: '',
       });
+      onSuccess?.(updatedUser);
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Failed to update password.');
     } finally {
@@ -60,11 +61,13 @@ export default function PasswordForm() {
     }
   };
 
-  return (
-    <div className="bg-surface-white border border-border-subtle rounded-lg p-6 shadow-xs">
-      <h3 className="font-headline-md text-headline-md font-bold text-on-background mb-4">
-        Change Password
-      </h3>
+  const formContent = (
+    <>
+      {!bare && (
+        <h3 className="font-headline-md text-headline-md font-bold text-on-background mb-4">
+          Change Password
+        </h3>
+      )}
 
       <form className="space-y-4" onSubmit={handleSubmit} noValidate>
         {success && (
@@ -139,6 +142,16 @@ export default function PasswordForm() {
           </button>
         </div>
       </form>
+    </>
+  );
+
+  if (bare) {
+    return formContent;
+  }
+
+  return (
+    <div className="bg-surface-white border border-border-subtle rounded-lg p-6 shadow-xs">
+      {formContent}
     </div>
   );
 }

@@ -9,9 +9,9 @@ This folder contains the fake sensor publisher for Prohori devices.
 Copy `.env.example` to `.env`, then configure broker details and `DEVICE_IDS` (comma-separated):
 
 ```text
-MQTT_HOST=152.42.179.228
-MQTT_PORT=1885
-MQTT_USER=apsIoT
+MQTT_HOST=your_mqtt_broker_host
+MQTT_PORT=1883
+MQTT_USER=your_mqtt_username
 MQTT_PASS=your_password
 DEVICE_IDS=G3036,G3037,G3038,G3040,G3041,G3042
 PUBLISH_INTERVAL_SECONDS=60

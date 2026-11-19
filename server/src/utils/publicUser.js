@@ -24,7 +24,12 @@ async function publicUser(user) {
     division: user.division || '',
     district: user.district || '',
     phone: user.phone || '',
-    devices: user.devices || [],
+    devices: (user.devices || []).map((d) => ({
+      deviceId: d.deviceId,
+      nickname: d.nickname || '',
+      linkedAt: d.linkedAt
+    })),
+    mustChangePassword: Boolean(user.mustChangePassword),
     profileComplete,
     manager: manager
       ? { firstName: manager.firstName, lastName: manager.lastName, phone: manager.phone || '' }

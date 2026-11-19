@@ -54,6 +54,11 @@ export const changePassword = async ({ currentPassword, newPassword }) => {
   return response.data;
 };
 
+export const updateDeviceNickname = async (deviceId, nickname) => {
+  const response = await api.patch(`/api/profile/devices/${encodeURIComponent(deviceId)}`, { nickname });
+  return response.data;
+};
+
 export const createDeviceRequest = async ({ deviceId, deviceCode }) => {
   const response = await api.post('/api/device-requests', { deviceId, deviceCode });
   return response.data;
@@ -70,11 +75,6 @@ export const getLatestReading = async (deviceId) => {
   return response.data;
 };
 
-export const getReadingsHistory = async (range) => {
-  const response = await api.get(`/api/readings/history?range=${range}`);
-  return response.data;
-};
-
 export const getDailyAverages = async (range, deviceId) => {
   const params = { range, ...(deviceId ? { deviceId } : {}) };
   const response = await api.get('/api/readings/daily-averages', { params });
@@ -85,6 +85,12 @@ export const getReadingsLog = async (page = 1, limit = 20, deviceId) => {
   const params = { page, limit, ...(deviceId ? { deviceId } : {}) };
   const response = await api.get('/api/readings/log', { params });
   return response.data;
+};
+
+export const exportReadingsCsv = async ({ from, to, deviceId }) => {
+  const params = { from, to, ...(deviceId ? { deviceId } : {}) };
+  const response = await api.get('/api/readings/export', { params, responseType: 'blob' });
+  return { blob: response.data, headers: response.headers };
 };
 
 export const getCalendarMonth = async (month, deviceId) => {
@@ -102,14 +108,23 @@ export const getDayDetail = async (date, deviceId) => {
 export const getManagerOverview = async () => (await api.get('/api/manager/overview')).data;
 export const getManagerFarmers = async () => (await api.get('/api/manager/farmers')).data;
 export const getManagerFarmer = async (id) => (await api.get(`/api/manager/farmers/${id}`)).data;
+export const unlinkManagerDevice = async (farmerId, deviceId) => (
+  await api.delete(`/api/manager/farmers/${farmerId}/devices/${encodeURIComponent(deviceId)}`)
+).data;
 export const getManagerRequests = async (status = 'pending') => (await api.get('/api/manager/device-requests', { params: { status } })).data;
 export const approveRequest = async (id) => (await api.post(`/api/manager/device-requests/${id}/approve`)).data;
 export const rejectRequest = async (id, note) => (await api.post(`/api/manager/device-requests/${id}/reject`, { note })).data;
 
 export const getAdminOverview = async () => (await api.get('/api/admin/overview')).data;
-export const getAdminManagers = async () => (await api.get('/api/admin/managers')).data;
+export const getAdminManagers = async (status = 'active') => (
+  await api.get('/api/admin/managers', { params: { status } })
+).data;
 export const createManager = async (body) => (await api.post('/api/admin/managers', body)).data;
 export const deleteManager = async (id) => (await api.delete(`/api/admin/managers/${id}`)).data;
+export const restoreManager = async (id) => (await api.post(`/api/admin/managers/${id}/restore`)).data;
+export const resetManagerPassword = async (id, password) => (
+  await api.post(`/api/admin/managers/${id}/reset-password`, { password })
+).data;
 
 export const getAlerts = async ({ limit, unreadOnly, status } = {}) => {
   const params = {};

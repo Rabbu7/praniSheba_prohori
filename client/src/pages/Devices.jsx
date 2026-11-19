@@ -4,22 +4,27 @@ import Sidebar from '../components/layout/Sidebar';
 import Header from '../components/layout/Header';
 import RequestStatusBadge from '../components/common/RequestStatusBadge';
 import RequestDeviceModal from '../components/devices/RequestDeviceModal';
+import ServerUnreachable from '../components/common/ServerUnreachable';
 import { useAuth } from '../context/AuthContext';
 import { useDevice } from '../context/DeviceContext';
 import { notifyDeviceRequestCreated } from '../hooks/useFarmerSync';
-import { getMyDeviceRequests } from '../services/api';
+import { getMyDeviceRequests, updateDeviceNickname } from '../services/api';
 import { formatAbsoluteDate } from '../utils/dateFormatter';
 
 export default function Devices() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { selectDevice } = useDevice();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [showRequestSentBanner, setShowRequestSentBanner] = useState(false);
+  const [editingDevice, setEditingDevice] = useState(null);
+  const [nicknameInput, setNicknameInput] = useState('');
+  const [nicknameBusy, setNicknameBusy] = useState(false);
+  const [nicknameError, setNicknameError] = useState('');
 
   const deviceKey = user?.devices?.map((d) => d.deviceId).sort().join(',') || '';
 
@@ -83,6 +88,29 @@ export default function Devices() {
 
   const hasApprovedDevices = userDevices.length > 0;
   const isUnmanagedDistrict = !user?.manager;
+  const nicknameByDeviceId = new Map(userDevices.map((d) => [d.deviceId, d.nickname || '']));
+
+  const openNicknameModal = (deviceId) => {
+    setEditingDevice(deviceId);
+    setNicknameInput(nicknameByDeviceId.get(deviceId) || '');
+    setNicknameError('');
+  };
+
+  const saveNickname = async (e) => {
+    e.preventDefault();
+    if (!editingDevice) return;
+    setNicknameBusy(true);
+    setNicknameError('');
+    try {
+      const updatedUser = await updateDeviceNickname(editingDevice, nicknameInput.trim());
+      updateUser(updatedUser);
+      setEditingDevice(null);
+    } catch (err) {
+      setNicknameError(err.response?.data?.error?.message || 'Unable to update nickname');
+    } finally {
+      setNicknameBusy(false);
+    }
+  };
 
   const handleRequestSuccess = () => {
     setShowRequestSentBanner(true);
@@ -140,8 +168,8 @@ export default function Devices() {
 
           {/* Error banner */}
           {error && (
-            <div className="mb-6 rounded-lg border border-error/30 bg-error-container p-4 text-on-error-container text-body-sm">
-              {error}
+            <div className="mb-6">
+              <ServerUnreachable onRetry={loadRequests} />
             </div>
           )}
 
@@ -182,10 +210,33 @@ export default function Devices() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border-subtle">
-                    {dedupedItems.map((item) => (
+                    {dedupedItems.map((item) => {
+                      const nickname = nicknameByDeviceId.get(item.deviceId) || '';
+                      return (
                       <tr key={item.id || item.deviceId} className="hover:bg-surface-container-low/50 transition-colors">
-                        <td className="py-4 px-4 font-mono font-bold text-on-background">
-                          {item.deviceId}
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-2">
+                            <div>
+                              {nickname && (
+                                <div className="font-semibold text-on-background">
+                                  {nickname}
+                                </div>
+                              )}
+                              <div className="font-mono font-bold text-on-background">
+                                {item.deviceId}
+                              </div>
+                            </div>
+                            {item.status === 'approved' && (
+                              <button
+                                type="button"
+                                onClick={() => openNicknameModal(item.deviceId)}
+                                aria-label={`Edit nickname for ${item.deviceId}`}
+                                className="rounded p-1 text-secondary hover:bg-surface-container-low hover:text-primary transition-colors"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">edit</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td className="py-4 px-4 text-secondary text-body-sm">
                           {formatAbsoluteDate(item.requestedAt)}
@@ -210,7 +261,8 @@ export default function Devices() {
                           )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -223,6 +275,58 @@ export default function Devices() {
         onClose={() => setRequestModalOpen(false)}
         onSuccess={handleRequestSuccess}
       />
+      {editingDevice && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-sidebar-bg/40 p-4">
+          <form
+            onSubmit={saveNickname}
+            className="w-full max-w-md rounded-lg border border-border-subtle bg-surface-white p-6 shadow-lg"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-headline-md text-headline-md font-bold text-on-background">
+                Device nickname
+              </h3>
+              <button
+                type="button"
+                aria-label="Close"
+                disabled={nicknameBusy}
+                onClick={() => setEditingDevice(null)}
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <p className="mb-3 font-mono text-xs text-secondary">{editingDevice}</p>
+            <label className="block text-body-sm font-semibold text-on-background">
+              Nickname (optional)
+              <input
+                type="text"
+                maxLength={50}
+                value={nicknameInput}
+                onChange={(e) => setNicknameInput(e.target.value)}
+                placeholder="e.g. North Shed"
+                className="mt-2 w-full rounded-md border border-outline-variant px-3 py-2 font-normal outline-none focus:border-primary"
+              />
+            </label>
+            {nicknameError && <p className="mt-3 text-xs text-error">{nicknameError}</p>}
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={nicknameBusy}
+                onClick={() => setEditingDevice(null)}
+                className="rounded-md border border-border-subtle px-4 py-2 text-body-sm font-semibold text-on-background"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={nicknameBusy}
+                className="rounded-md bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary disabled:opacity-50"
+              >
+                {nicknameBusy ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
