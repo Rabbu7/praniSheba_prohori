@@ -16,15 +16,15 @@ Phase 9 hardens security and reliability, removes leftover cleanup candidates, a
 
 ### Phase 9 stages
 
-- **9a** Docs (DONE) · **9b** Security hardening (DONE) · **9c** Cleanup (DONE) · **9d** Reliability and robustness (DONE) · **9e** Account and device management (DONE) · **9f** Verification (DONE)
+- **9a** Docs (DONE) · **9b** Security hardening (DONE) · **9c** Cleanup (DONE) · **9d** Reliability and robustness (DONE) · **9e** Account and device management (DONE) · **9f** Verification (DONE) · **9g** Follow-up fixes (DONE)
 
 ### Phase 9 decisions (authoritative)
 
 1. **Security hardening (9b):**
-   - Rate limiting on `POST /api/auth/login` and `POST /api/auth/register`.
+   - Rate limiting on `POST /api/auth/login` (with `skipSuccessfulRequests: true`) and `POST /api/auth/register`.
    - `helmet` security headers and an explicit JSON body size limit.
-   - Mongo operator-injection sanitizing pass on all request input (`req.body`, `req.query`, `req.params`).
-   - Forced first-login password change: `mustChangePassword` boolean on `User` (default `false`); set `true` when an admin creates a manager or resets a manager's password; cleared on password change. Enforced by route guard on the client and middleware/controller checks on the server.
+   - Mongo operator-injection sanitizing pass on `req.body` (`sanitizeInput`) plus per-route query validation (`rejectOperatorKeys`, returning `400 INVALID_QUERY_PARAMETERS` for keys starting with `$`, containing `.`/`[`/`]`, or non-string values) on `/api/readings/*`, `/api/alerts`, `/api/manager/device-requests`, and `/api/admin/managers`.
+   - Forced first-login password change: `mustChangePassword` boolean on `User` (default `false`); set `true` when an admin creates a manager or resets a manager's password; cleared on password change (`POST /api/profile/password` also rejects `newPassword === currentPassword` with `400 PASSWORD_UNCHANGED`). Enforced by route guard on the client and middleware/controller checks on the server.
    - Login timing side-channel protection: always run `bcrypt.compare` even when the user does not exist.
    - Periodic re-validation of socket JWT, user `status`, and device access so a removed manager's open socket is dropped (and unlinked devices are removed from rooms).
    - Startup env validation: `JWT_SECRET` (minimum length), `MONGO_URI`, `CLIENT_ORIGIN`, and `ADMIN_*` for the seed script; fail fast with a clear message.
@@ -91,7 +91,7 @@ Phase 7 added **three roles** and two new panels on top of the Phase 6 multi-dev
   - The first admin is created only by `server/src/seed/seedAdmin.js` (idempotent; reads `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_FIRST_NAME`, `ADMIN_LAST_NAME` from `server/.env`). There is no UI or API to create an admin.
 - `User.status` is `'active' | 'removed'`. `requireAuth` rejects non-active users with the same generic 401 ("Authentication required"). `login` rejects them with the generic "Invalid email or password". Socket handshake rejects them too.
 - Authorization is enforced **on the backend**. The frontend only hides UI; it is never the security boundary.
-- `requireRole(...roles)` middleware (after `requireAuth`) returns 403 `{ error: { message: 'Forbidden', status: 403 } }` for other roles.
+- `requireRole(...roles)` middleware (after `requireAuth`) returns 403 `{ error: { code: 'FORBIDDEN', message: 'Forbidden', status: 403 } }` for other roles.
 - Nobody can delete or demote themselves. Admins cannot be deleted. Only `manager` accounts can be deleted through the API.
 
 ### Manager ↔ farmer relationship (district-based)
