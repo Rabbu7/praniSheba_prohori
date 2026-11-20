@@ -15,8 +15,9 @@ Phase 9 adds security hardening, reliability states, and account/device manageme
 
 ### Reliability & Error States
 
-- Global React `ErrorBoundary` catching unexpected render errors with a clean fallback and reload/home action.
-- One consistent "server unreachable" state across data-fetching pages.
+- Global React `ErrorBoundary` catching unexpected render errors with a clean fallback, **Reload page**, and **Go to home** buttons.
+- One consistent "server unreachable" state (`ServerUnreachable`) across data-fetching pages, shown only on network errors or 5xx responses.
+- Empty readings state: `404 NO_READINGS_FOUND` from `/api/readings/latest` renders the Dashboard normally with `—` sensor cards and an inline `"No readings received yet"` note in the readings panel.
 
 ### Notification bell (manager navigation update)
 
@@ -25,7 +26,7 @@ Phase 9 adds security hardening, reliability states, and account/device manageme
 ### Device nicknames & Unlink device
 
 - Optional `nickname` on a farmer's linked device, displayed alongside the monospace `deviceId` in `DeviceSwitcher`, farmer My Devices, and manager tables.
-- Unlink device action (manager within their district, or admin): confirms and removes the device from the farmer's account, resolves open alerts for that device, and makes the device requestable again.
+- Unlink device action (manager within their district via UI; admin unlink `DELETE /api/admin/farmers/:farmerId/devices/:deviceId` is API-only for now): confirms and removes the device from the farmer's account, marks that farmer's `approved` request(s) for that device as `unlinked` (shown with a neutral **Unlinked** pill in My Devices, with no Open dashboard or edit-nickname actions), resolves open alerts for that device, resets the alert engine state for that device, and makes the device requestable again.
 
 ### Admin Managers (Restore & Password Reset)
 
@@ -42,6 +43,19 @@ Phase 9 adds security hardening, reliability states, and account/device manageme
 3. **Cleanup (9c) & Reliability (9d):** `/health` reports `200 { status: 'ok', db: 'connected' }`, all server errors include stable `error.code` values, structured logger redacts `password`/`token`/secrets, and `serializeAlert` includes `farmerId` for direct manager bell navigation.
 4. **Account & device management (9e):** device nicknames (`PATCH /api/profile/devices/:deviceId`), manager/admin device unlink (`DELETE /api/manager/farmers/:farmerId/devices/:deviceId` & `DELETE /api/admin/farmers/:farmerId/devices/:deviceId` with open-alert resolution and re-requestability), removed-manager restore (`POST /api/admin/managers/:id/restore`), admin manager password reset (`POST /api/admin/managers/:id/reset-password` setting `mustChangePassword: true`), and `resolveDevice`-scoped CSV export (`GET /api/readings/export`) all passed.
 5. **Client build & lint:** `oxlint` passed with 0 errors and `vite build` succeeded.
+
+### Phase 9g Acceptance Checks (all passed)
+
+1. **Nickname save:** `PATCH /api/profile/devices/:deviceId` saves and returns the updated nickname; `Devices.jsx` uses `setUser(updatedUser)` with no error.
+2. **Unlink request status:** after unlink, `GET /api/device-requests/mine` shows the request as `unlinked` (rendered with the neutral `Unlinked` pill and `—` action), and a new request for that device succeeds (`201`).
+3. **Empty readings state:** a device with zero readings returns `404 NO_READINGS_FOUND`; `DashboardView` renders the empty `"No readings received yet"` state instead of `ServerUnreachable`.
+4. **Stale device recovery:** after unlink, a failing readings call returns `403` (`NO_DEVICE_LINKED` / `DEVICE_NOT_FOUND`), triggering `refreshUser()` once in `useLatestReading`.
+5. **CSV export CORS & errors:** `Access-Control-Expose-Headers` exposes `X-Export-Truncated`, `X-Export-Row-Cap`, and `Content-Disposition`; failed export returns JSON `{ error: { message } }` parsed from the Blob in `HistoryView.jsx`.
+6. **Query operator rejection:** `?deviceId[$ne]=x`, `?status[$gt]=`, and `?limit[]=1` all return `400 INVALID_QUERY_PARAMETERS` on `/api/readings/*`, `/api/alerts`, `/api/manager/device-requests`, and `/api/admin/managers`.
+7. **Alert engine reset on unlink:** unlinking a device in `danger` calls `engine.forget(deviceId)` so re-linking to a new farmer opens a new alert after 2 danger readings.
+8. **Login rate limit:** 3 successful logins do not count toward the limit (`skipSuccessfulRequests: true`), 10 failed logins return `401`, and the 11th failed login returns `429 RATE_LIMITED`.
+9. **Password unchanged:** changing the password to the same value returns `400 PASSWORD_UNCHANGED` (`"New password must be different from the current password"`), matching `PasswordForm.jsx`.
+10. **Client lint & build:** `oxlint` passed with 0 errors (3 pre-existing warnings) and `vite build` succeeded.
 
 ---
 
@@ -226,14 +240,15 @@ Metric cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged dis
 
 ## Route Guard Summary (single source of truth for `App.jsx`)
 
-| State | Farmer pages `/`, `/history`, `/calendar` | `/devices`, `/profile` | `/complete-profile` | `/manager/*` | `/admin/*` | `/login`, `/register` |
-|---|---|---|---|---|---|---|
-| Not authenticated | → `/login` | → `/login` | → `/login` | → `/login` | → `/login` | shown |
-| Farmer, profile incomplete | → `/complete-profile` | → `/complete-profile` | shown | → `/` | → `/` | → `/` |
-| Farmer, complete, no approved device | → `/devices` | shown | → `/` | → `/` | → `/` | → `/` |
-| Farmer, complete, ≥1 approved device | shown | shown | → `/` | → `/` | → `/` | → `/` |
-| Manager | → `/manager` | `/profile` shown; others → `/manager` | → `/manager` | shown | → `/manager` | → `/manager` |
-| Admin | → `/admin` | `/profile` shown; others → `/admin` | → `/admin` | → `/admin` | shown | → `/admin` |
+| State | Farmer pages `/`, `/history`, `/calendar` | `/devices`, `/profile` | `/complete-profile` | `/change-password` | `/manager/*` | `/admin/*` | `/login`, `/register` |
+|---|---|---|---|---|---|---|---|
+| Not authenticated | → `/login` | → `/login` | → `/login` | → `/login` | → `/login` | → `/login` | shown |
+| Authenticated, `mustChangePassword` | → `/change-password` | → `/change-password` | → `/change-password` | shown | → `/change-password` | → `/change-password` | → `/change-password` |
+| Farmer, profile incomplete | → `/complete-profile` | → `/complete-profile` | shown | → `/` | → `/` | → `/` | → `/` |
+| Farmer, complete, no approved device | → `/devices` | shown | → `/` | → `/` | → `/` | → `/` | → `/` |
+| Farmer, complete, ≥1 approved device | shown | shown | → `/` | → `/` | → `/` | → `/` | → `/` |
+| Manager | → `/manager` | `/profile` shown; others → `/manager` | → `/manager` | → `/manager` | shown | → `/manager` | → `/manager` |
+| Admin | → `/admin` | `/profile` shown; others → `/admin` | → `/admin` | → `/admin` | → `/admin` | shown | → `/admin` |
 
 `/link-device` redirects to `/devices`. A minimal loading state renders while the initial `/api/auth/me` check is in flight.
 
@@ -263,14 +278,12 @@ Metric cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged dis
 - Audit-log and activity-history pages
 - Per-manager thresholds, acknowledge/escalate workflows, per-user alert rules
 - Email/SMS/push delivery of alerts
-- Hardening and release work (rate limiting, `helmet`, forced first-login password change, deployment) until a phase defines it
+- Deployment and `trust proxy` configuration
 - MQTT admin / health pages; managers registering new devices
-- Unlink / re-link device; device nicknames
-- Password reset, email verification, email invites
+- Email-based password reset, email verification, email invites
 - Push/email/SMS notifications
 - Settings page
 - OAuth / third-party login
-- Export/download data
 
 ---
 

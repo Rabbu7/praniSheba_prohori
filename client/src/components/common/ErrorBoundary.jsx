@@ -35,16 +35,28 @@ export default class ErrorBoundary extends React.Component {
             <p className="mt-2 text-sm text-on-surface-variant">
               An unexpected error occurred while rendering this page.
             </p>
-            <button
-              type="button"
-              onClick={this.handleReload}
-              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-on-primary transition-opacity hover:opacity-90"
-            >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">
-                refresh
-              </span>
-              Reload page
-            </button>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={this.handleReload}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-on-primary transition-opacity hover:opacity-90"
+              >
+                <span className="material-symbols-outlined text-base" aria-hidden="true">
+                  refresh
+                </span>
+                Reload page
+              </button>
+              <button
+                type="button"
+                onClick={() => { window.location.href = '/'; }}
+                className="inline-flex items-center gap-2 rounded-lg border border-border-subtle bg-surface px-5 py-2.5 text-sm font-medium text-on-background transition-colors hover:bg-surface-container-low"
+              >
+                <span className="material-symbols-outlined text-base" aria-hidden="true">
+                  home
+                </span>
+                Go to home
+              </button>
+            </div>
           </div>
         </div>
       );

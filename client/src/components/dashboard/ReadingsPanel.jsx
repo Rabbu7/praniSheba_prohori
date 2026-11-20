@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import SensorCard from './SensorCard';
 
-export default function ReadingsPanel({ reading = null, previousReading = null }) {
+export default function ReadingsPanel({ reading = null, previousReading = null, empty = false }) {
   const [changedMetrics, setChangedMetrics] = useState({
     ammonia: false,
     methane: false,
@@ -82,6 +82,11 @@ export default function ReadingsPanel({ reading = null, previousReading = null }
         icon="thermostat"
         changed={changedMetrics.temperature}
       />
+      {empty && !reading && (
+        <p className="pt-1 text-center text-xs text-secondary">
+          No readings received yet
+        </p>
+      )}
     </div>
   );
 }

@@ -33,6 +33,11 @@ export default function PasswordForm({ onSuccess, bare = false }) {
       return;
     }
 
+    if (form.newPassword === form.currentPassword) {
+      setError('New password must be different from the current password');
+      return;
+    }
+
     if (form.newPassword !== form.confirmPassword) {
       setError('New passwords do not match.');
       return;

@@ -1,6 +1,7 @@
 const express = require('express');
 const requireAuth = require('../middleware/requireAuth');
 const requireRole = require('../middleware/requireRole');
+const { rejectOperatorKeys } = require('../middleware/sanitizeInput');
 const {
   getOverview,
   listManagers,
@@ -15,7 +16,7 @@ const router = express.Router();
 router.use(requireAuth, requireRole('admin'));
 
 router.get('/overview', getOverview);
-router.get('/managers', listManagers);
+router.get('/managers', rejectOperatorKeys, listManagers);
 router.post('/managers', createManager);
 router.delete('/managers/:id', deleteManager);
 router.post('/managers/:id/restore', restoreManager);

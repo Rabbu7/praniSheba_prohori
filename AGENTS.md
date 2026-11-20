@@ -124,7 +124,8 @@ userSchema.index(
   division: String,          // farmers and managers
   district: String,          // farmers and managers (managers: required, unique among active managers)
   phone: String,             // required for managers, optional for farmers and admin
-  devices: [{ deviceId, linkedAt }],      // APPROVED devices only (farmers); default []
+  devices: [{ deviceId, nickname, linkedAt }], // APPROVED devices only (farmers); default []
+  mustChangePassword: Boolean,            // default false; true for admin-created/reset managers
   createdBy: ObjectId | null,             // admin who created a manager
   createdAt: Date
 }
@@ -133,7 +134,7 @@ userSchema.index(
 - **`username` is removed** everywhere. Login is email + password. Declare every index in the schema, never by hand.
 - Keep the unique partial index on `devices.deviceId` (a device belongs to at most one account).
 - `profileComplete` is **derived**: for a farmer, true when `firstName`, `lastName`, `division` and `district` are all non-empty. Managers and admins are always complete.
-- `publicUser(user)` (`utils/publicUser.js`) returns: `{ id, firstName, lastName, email, role, status, division, district, phone, devices, profileComplete, manager }` where `manager` is `{ firstName, lastName, phone }` for a farmer whose district has an active manager, otherwise `null`. Never return `passwordHash`.
+- `publicUser(user)` (`utils/publicUser.js`) returns: `{ id, firstName, lastName, email, role, status, division, district, phone, devices, mustChangePassword, profileComplete, manager }` where `manager` is `{ firstName, lastName, phone }` for a farmer whose district has an active manager, otherwise `null`. Never return `passwordHash`.
 
 ### Locations (division / district)
 
@@ -155,7 +156,7 @@ userSchema.index(
 
 - Names: trimmed, 1–50 characters. Email: trimmed, lowercased, basic format check. Password: at least 8 characters.
 - Phone: spaces and dashes stripped, then must match `/^\+?[0-9]{10,15}$/`. Stored stripped. The client renders `tel:<phone>` links.
-- All server errors keep the shape `{ error: { message, status } }`; the client reads `err.response?.data?.error?.message`.
+- All server errors keep the shape `{ error: { code, message, status } }`; the client reads `err.response?.data?.error?.message`.
 
 ### Device requests (farmer → manager approval)
 
@@ -165,7 +166,7 @@ Model `DeviceRequest` (collection `devicerequests`):
 {
   farmerId: ObjectId,         // ref User
   deviceId: String,
-  status: 'pending' | 'approved' | 'rejected',
+  status: 'pending' | 'approved' | 'rejected' | 'unlinked',
   requestedAt: Date,
   decidedBy: ObjectId | null, // manager who decided
   decidedAt: Date | null,
@@ -298,14 +299,14 @@ Endpoints (`requireAuth` + `requireRole('farmer', 'manager')`; admin gets 403 "F
 - `DeviceContext` is used by farmer pages. Manager farmer-views pass the farmer's `deviceId` explicitly (read-only) through `useLatestReading(deviceId)` / `useDeviceStatus(deviceId)` and the other data hooks. Never hardcode a device ID in the client (the only allowed literal is the "e.g. G3036" placeholder in `RequestDeviceModal.jsx`).
 - Shared view components `components/views/` (`DashboardView`, `HistoryView`, `CalendarView`) take a `deviceId` and are used by both the farmer pages and the manager device view.
 - **Request device** is a floating dialog (`components/devices/RequestDeviceModal.jsx`), opened from My Devices (header button and empty state) and from the DeviceSwitcher's "Request device" row (navigates to `/devices` with router state `{ openRequest: true }`, cleared after opening). There is no `/link-device` page; `/link-device` redirects to `/devices`.
-- Header: the `account_circle` icon links to `/profile` for every role. The notifications icon stays inert. `showDevice={false}` hides the device label/switcher/status/last-updated for manager and admin pages.
+- Header: the `account_circle` icon links to `/profile` for every role. The notifications bell is live for farmer and manager (admin keeps the inert icon and makes no `/api/alerts` request). `showDevice={false}` hides the device label/switcher/status/last-updated for manager and admin pages.
 - Sidebar items by role:
   - farmer: Dashboard, History, Calendar, My Devices, Profile (Settings stays disabled).
   - manager: Overview, Farmers, Requests, Profile.
   - admin: Overview, Managers, Profile.
 - Components stay small and single-purpose; data fetching lives in `hooks/`. New API wrappers go in `services/api.js` with the Bearer interceptor.
 - Call links use `<a href={"tel:" + phone}>` with the Material Symbols `call` icon.
-- **Notification bell** (`components/layout/NotificationBell.jsx`, fed by one `useAlerts(enabled)` call in `Header`, shared by the mobile and desktop headers). Enabled for farmer and manager; admin keeps the inert icon and makes no `/api/alerts` request. `useAlerts` fetches `getAlerts({ limit: 10 })` on mount, every 60 s and on tab focus, listens on the shared socket for `new-alert` and `alert-resolved` (deduped by id, list capped at 10), and never calls `connectSocket`/`disconnectSocket`. Mark-read is optimistic with `reload()` on failure. Row click: farmer → `selectDevice(deviceId)` then `/`; manager → `/manager/farmers` (alerts carry no farmerId).
+- **Notification bell** (`components/layout/NotificationBell.jsx`, fed by one `useAlerts(enabled)` call in `Header`, shared by the mobile and desktop headers). Enabled for farmer and manager; admin keeps the inert icon and makes no `/api/alerts` request. `useAlerts` fetches `getAlerts({ limit: 10 })` on mount, every 60 s and on tab focus, listens on the shared socket for `new-alert` and `alert-resolved` (deduped by id, list capped at 10), and never calls `connectSocket`/`disconnectSocket`. Mark-read is optimistic with `reload()` on failure. Row click: farmer → `selectDevice(deviceId)` then `/`; manager → `/manager/farmers/:farmerId/devices/:deviceId` (falling back to `/manager/farmers` if `farmerId`/`deviceId` is absent).
 - **Trend chart** (`TrendChart.jsx`): metric selector (Ammonia, Methane, Humidity, Temperature, default Ammonia), one line at a time from `ammonia_avg`, `methane_avg`, `humidity_avg`, `temperature_avg`, with `ReferenceArea` threshold bands from `useThresholds` drawn behind the line using the status color tokens. The chart still renders without bands if the thresholds request fails.
 
 ## Stack
@@ -351,13 +352,14 @@ Rules:
 prohori-dashboard/
 ├── server/
 │   ├── src/
-│   │   ├── config/db.js
+│   │   ├── config/            # db.js, env.js
 │   │   ├── models/            # Reading (factory), User, Device, DeviceRequest, Alert
 │   │   ├── controllers/       # auth, profile, deviceRequest, manager, admin, readings, alerts
 │   │   ├── utils/             # thresholds, locations, validators, publicUser, managerScope,
-│   │   │                      #   readableDevices, alertEngine, serializeAlert, dhakaTime
+│   │   │                      #   readableDevices, alertEngine, serializeAlert, dhakaTime,
+│   │   │                      #   logger, errors, unlinkDevice
 │   │   ├── routes/            # auth, profile, meta, deviceRequests, manager, admin, readings, alerts
-│   │   ├── middleware/        # errorHandler, requireAuth, requireRole, resolveDevice
+│   │   ├── middleware/        # errorHandler, requireAuth, requireRole, resolveDevice, sanitizeInput
 │   │   ├── seed/              # seedDevices (+syncIndexes), migrateDevices (Phase 6, done),
 │   │   │                      #   migrateRoles (done), seedAdmin
 │   │   ├── sockets/           # changeStream, socketAuth
@@ -377,14 +379,15 @@ prohori-dashboard/
 │   │   │   ├── views/     # DashboardView, HistoryView, CalendarView (take deviceId)
 │   │   │   ├── profile/   # ProfileForm, PasswordForm, ManagerCard, DistrictCard
 │   │   │   ├── location/  # LocationSelect
-│   │   │   └── common/    # StatusBadge, RequestStatusBadge, MetricCard, ConfirmDialog
+│   │   │   └── common/    # StatusBadge, RequestStatusBadge, MetricCard, ConfirmDialog,
+│   │   │   │              #   ErrorBoundary, ServerUnreachable
 │   │   ├── context/       # AuthContext, DeviceContext
-│   │   ├── pages/         # Login, Register, CompleteProfile, Dashboard, History, Calendar,
-│   │   │                  #   Devices, Profile, manager/*, admin/*
+│   │   ├── pages/         # Login, Register, CompleteProfile, ChangePassword, Dashboard,
+│   │   │                  #   History, Calendar, Devices, Profile, manager/*, admin/*
 │   │   ├── hooks/         # reading hooks, useLocations, useThresholds, useAlerts, useFarmerSync,
 │   │   │                      #   manager/admin data hooks
 │   │   ├── services/      # api.js, socket.js
-│   │   ├── utils/         # dateFormatter, roleHome
+│   │   ├── utils/         # dateFormatter, roleHome, isServerUnreachable
 │   │   ├── App.jsx        # role-aware route guards
 │   │   ├── main.jsx       # AuthProvider > DeviceProvider > App
 │   │   └── index.css
@@ -398,14 +401,15 @@ prohori-dashboard/
 
 ## Route Guard Summary (single source for `App.jsx`)
 
-| State | Farmer pages `/`, `/history`, `/calendar` | `/devices`, `/profile` | `/complete-profile` | `/manager/*` | `/admin/*` | `/login`, `/register` |
-|---|---|---|---|---|---|---|
-| Not authenticated | → `/login` | → `/login` | → `/login` | → `/login` | → `/login` | shown |
-| Farmer, profile incomplete | → `/complete-profile` | → `/complete-profile` | shown | → `/` | → `/` | → `/` |
-| Farmer, profile complete, no approved device | → `/devices` | shown | → `/` | → `/` | → `/` | → `/` |
-| Farmer, profile complete, ≥1 approved device | shown | shown | → `/` | → `/` | → `/` | → `/` |
-| Manager | → `/manager` | `/profile` shown; others → `/manager` | → `/manager` | shown | → `/manager` | → `/manager` |
-| Admin | → `/admin` | `/profile` shown; others → `/admin` | → `/admin` | → `/admin` | shown | → `/admin` |
+| State | Farmer pages `/`, `/history`, `/calendar` | `/devices`, `/profile` | `/complete-profile` | `/change-password` | `/manager/*` | `/admin/*` | `/login`, `/register` |
+|---|---|---|---|---|---|---|---|
+| Not authenticated | → `/login` | → `/login` | → `/login` | → `/login` | → `/login` | → `/login` | shown |
+| Authenticated, `mustChangePassword` | → `/change-password` | → `/change-password` | → `/change-password` | shown | → `/change-password` | → `/change-password` | → `/change-password` |
+| Farmer, profile incomplete | → `/complete-profile` | → `/complete-profile` | shown | → `/` | → `/` | → `/` | → `/` |
+| Farmer, profile complete, no approved device | → `/devices` | shown | → `/` | → `/` | → `/` | → `/` | → `/` |
+| Farmer, profile complete, ≥1 approved device | shown | shown | → `/` | → `/` | → `/` | → `/` | → `/` |
+| Manager | → `/manager` | `/profile` shown; others → `/manager` | → `/manager` | → `/manager` | shown | → `/manager` | → `/manager` |
+| Admin | → `/admin` | `/profile` shown; others → `/admin` | → `/admin` | → `/admin` | → `/admin` | shown | → `/admin` |
 
 `/link-device` redirects to `/devices`. While the initial `/api/auth/me` is in flight (`loading: true`), a minimal loading state renders instead of any redirect.
 
@@ -415,14 +419,14 @@ prohori-dashboard/
 - `POST /api/auth/login` → `{ email, password }` → `{ token, user }`; generic "Invalid email or password"
 - `GET /api/auth/me` → `publicUser`
 - `GET /api/meta/locations` → `{ [division]: string[] }` (no auth)
-- `PATCH /api/profile`, `POST /api/profile/password`
+- `PATCH /api/profile`, `POST /api/profile/password`, `PATCH /api/profile/devices/:deviceId`
 - `POST /api/device-requests`, `GET /api/device-requests/mine` (farmer)
-- `GET /api/manager/overview | farmers | farmers/:farmerId | device-requests`, `POST /api/manager/device-requests/:id/approve|reject` (manager)
-- `GET /api/admin/overview`, `GET|POST /api/admin/managers`, `DELETE /api/admin/managers/:id` (admin)
-- `GET /api/readings/latest | daily-averages | log | calendar | day/:date` — `?deviceId=` rules per role via `resolveDevice`
+- `GET /api/manager/overview | farmers | farmers/:farmerId | device-requests`, `POST /api/manager/device-requests/:id/approve|reject`, `DELETE /api/manager/farmers/:farmerId/devices/:deviceId` (manager)
+- `GET /api/admin/overview`, `GET /api/admin/managers?status=active|removed|all`, `POST /api/admin/managers`, `DELETE /api/admin/managers/:id`, `POST /api/admin/managers/:id/restore`, `POST /api/admin/managers/:id/reset-password`, `DELETE /api/admin/farmers/:farmerId/devices/:deviceId` (admin)
+- `GET /api/readings/latest | daily-averages | log | calendar | day/:date | export` — `?deviceId=` rules per role via `resolveDevice` (CORS exposes `X-Export-Truncated`, `X-Export-Row-Cap`, `Content-Disposition`)
 - `GET /api/meta/thresholds` → `THRESHOLDS` (no auth)
 - `GET /api/alerts`, `POST /api/alerts/:id/read`, `POST /api/alerts/read-all` (farmer, manager; admin 403)
-- `GET /health` — no auth
+- `GET /health` — no auth; checks MongoDB connection state (`200 { status: 'ok', db: 'connected' }` / `503 { status: 'degraded', db: 'disconnected' }`)
 - **Removed:** `POST /api/auth/link-device` (replaced by `POST /api/device-requests`; now 404).
 - **Socket.IO:** JWT in `auth.token`; rooms per role; `new-reading` payload matches `/api/readings/latest` (includes `device_id`); `new-alert` (serialized alert) and `alert-resolved` `{ id, deviceId, metric, resolvedAt }` go to the same `device:<id>` rooms.
 
@@ -461,11 +465,12 @@ prohori-dashboard/
 
 ## Known Temporary Workarounds / Limitations (Still Open)
 
-- Socket JWT, role and device list are only checked at handshake.
-- A device approved by mistake stays on that account (no unlink).
-- A manager's initial password is set by the admin; no forced-change or reset-by-email flow.
-- A removed manager's email stays taken (email index covers all users); admin cannot edit or restore a removed manager.
-- Managers/admins with no device IDs cannot open a socket; an open socket of a removed manager persists until disconnect.
+- Re-linked devices expose prior historical readings to the new owner (same physical shed; not filtered by `linkedAt`).
+- Admin device unlink (`DELETE /api/admin/farmers/:farmerId/devices/:deviceId`) is API-only (no admin farmers UI).
+- `app.set('trust proxy', ...)` must be configured in the deployment phase so `express-rate-limit` identifies client IPs behind a reverse proxy.
+- Existing JWTs are not revoked on a normal password change (they expire after 7 days; removed managers are rejected via `requireAuth` and periodic `revalidateSocket`).
+- A removed manager's email stays taken (email index covers all users).
+- Managers/admins with no device IDs cannot open a socket.
 - The alert engine keeps its confirmed zones in memory; a server restart re-seeds from each device's latest reading and resolves stale open alerts (no phantom alerts).
 - On `/devices` and `/profile` a farmer has no live socket, so the bell updates through the 60 s poll and tab-focus refetch.
 - Mongoose may print a deprecation warning on some update options; harmless.

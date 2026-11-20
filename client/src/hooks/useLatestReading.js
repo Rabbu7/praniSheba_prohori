@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getLatestReading } from '../services/api';
 import socket, { connectSocket, disconnectSocket } from '../services/socket';
 import { useAuth } from '../context/AuthContext';
 import { useDevice } from '../context/DeviceContext';
 
 export default function useLatestReading(deviceIdOverride, connect = true) {
-  const { token } = useAuth();
+  const { token, refreshUser } = useAuth();
   const { devices, selectedDeviceId } = useDevice();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const refreshedForDeviceRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,7 +42,18 @@ export default function useLatestReading(deviceIdOverride, connect = true) {
           setError(null);
         }
       } catch (err) {
-        if (!cancelled) setError(err);
+        if (!cancelled) {
+          setError(err);
+          const code = err.response?.data?.error?.code;
+          if (
+            err.response?.status === 403
+            && (code === 'DEVICE_NOT_FOUND' || code === 'NO_DEVICE_LINKED')
+            && refreshedForDeviceRef.current !== deviceId
+          ) {
+            refreshedForDeviceRef.current = deviceId;
+            refreshUser();
+          }
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -61,7 +73,7 @@ export default function useLatestReading(deviceIdOverride, connect = true) {
       cancelled = true;
       socket.off('new-reading', handleNewReading);
     };
-  }, [token, selectedDeviceId, devices.length, deviceIdOverride, connect]);
+  }, [token, selectedDeviceId, devices.length, deviceIdOverride, connect, refreshUser]);
 
   return { data, loading, error };
 }

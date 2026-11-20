@@ -10,11 +10,12 @@ import { useDevice } from '../context/DeviceContext';
 import { notifyDeviceRequestCreated } from '../hooks/useFarmerSync';
 import { getMyDeviceRequests, updateDeviceNickname } from '../services/api';
 import { formatAbsoluteDate } from '../utils/dateFormatter';
+import { isServerUnreachable } from '../utils/isServerUnreachable';
 
 export default function Devices() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, updateUser } = useAuth();
+  const { user, setUser } = useAuth();
   const { selectDevice } = useDevice();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +36,7 @@ export default function Devices() {
       setRequests(data || []);
       setError(null);
     } catch (err) {
-      setError(err.response?.data?.error?.message || 'Failed to load device requests');
+      setError(err);
     } finally {
       setLoading(false);
     }
@@ -103,7 +104,7 @@ export default function Devices() {
     setNicknameError('');
     try {
       const updatedUser = await updateDeviceNickname(editingDevice, nicknameInput.trim());
-      updateUser(updatedUser);
+      setUser(updatedUser);
       setEditingDevice(null);
     } catch (err) {
       setNicknameError(err.response?.data?.error?.message || 'Unable to update nickname');
@@ -169,7 +170,13 @@ export default function Devices() {
           {/* Error banner */}
           {error && (
             <div className="mb-6">
-              <ServerUnreachable onRetry={loadRequests} />
+              {isServerUnreachable(error) ? (
+                <ServerUnreachable onRetry={loadRequests} />
+              ) : (
+                <div className="rounded-lg border border-error/30 bg-error-container p-4 text-on-error-container text-body-sm">
+                  {error.response?.data?.error?.message || 'Failed to load device requests'}
+                </div>
+              )}
             </div>
           )}
 

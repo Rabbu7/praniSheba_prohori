@@ -86,6 +86,10 @@ const changePassword = async (req, res, next) => {
     const matches = user && await bcrypt.compare(currentPassword, user.passwordHash);
     if (!matches) throw createError('Current password is incorrect', 400, 'CURRENT_PASSWORD_INCORRECT');
 
+    if (newPassword === currentPassword) {
+      throw createError('New password must be different from the current password', 400, 'PASSWORD_UNCHANGED');
+    }
+
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     user.mustChangePassword = false;
     await user.save();

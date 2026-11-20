@@ -4,6 +4,7 @@ import HistoryTable from '../dashboard/HistoryTable';
 import ServerUnreachable from '../common/ServerUnreachable';
 import { exportReadingsCsv } from '../../services/api';
 import { getDhakaToday } from '../../utils/dateFormatter';
+import { isServerUnreachable } from '../../utils/isServerUnreachable';
 
 function formatDhakaDateInput(today, offsetDays = 0) {
   const date = new Date(Date.UTC(today.year, today.month - 1, today.day + offsetDays));
@@ -57,13 +58,36 @@ export default function HistoryView({ deviceId }) {
       }
       setExportOpen(false);
     } catch (err) {
-      setExportError(err.response?.data?.error?.message || 'Unable to export CSV');
+      let message = 'Unable to export CSV';
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const parsed = JSON.parse(text);
+          if (parsed?.error?.message) {
+            message = parsed.error.message;
+          }
+        } catch {
+          // Keep fallback message
+        }
+      } else if (err.response?.data?.error?.message) {
+        message = err.response.data.error.message;
+      }
+      setExportError(message);
     } finally {
       setExportBusy(false);
     }
   };
 
-  if (error) return <ServerUnreachable />;
+  if (error) {
+    if (isServerUnreachable(error)) {
+      return <ServerUnreachable />;
+    }
+    return (
+      <div className="rounded-lg border border-error/30 bg-surface-white p-8 text-center text-error">
+        {error.response?.data?.error?.message || 'Unable to load Reading Log'}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

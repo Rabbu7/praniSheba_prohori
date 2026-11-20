@@ -5,6 +5,7 @@ import CalendarGrid from '../calendar/CalendarGrid';
 import DayDetailCards from '../calendar/DayDetailCards';
 import ServerUnreachable from '../common/ServerUnreachable';
 import { getDhakaToday } from '../../utils/dateFormatter';
+import { isServerUnreachable } from '../../utils/isServerUnreachable';
 export default function CalendarView({ deviceId }) {
   const [month, setMonth] = useState(() => {
     const today = getDhakaToday();
@@ -14,6 +15,15 @@ export default function CalendarView({ deviceId }) {
   useEffect(() => setSelectedDate(null), [deviceId]);
   const { data, error } = useCalendarData(month, deviceId);
   const detail = useDayDetail(selectedDate, deviceId);
-  if (error) return <ServerUnreachable />;
+  if (error) {
+    if (isServerUnreachable(error)) {
+      return <ServerUnreachable />;
+    }
+    return (
+      <div className="rounded-lg border border-error/30 bg-surface-white p-8 text-center text-error">
+        {error.response?.data?.error?.message || 'Unable to load calendar'}
+      </div>
+    );
+  }
   return <><CalendarGrid month={month} data={data} selectedDate={selectedDate} onDayClick={setSelectedDate} onMonthChange={(value) => { setMonth(value); setSelectedDate(null); }} /><DayDetailCards date={selectedDate} data={detail.data} loading={detail.loading} error={detail.error} /></>;
 }

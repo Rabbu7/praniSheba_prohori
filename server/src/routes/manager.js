@@ -1,6 +1,7 @@
 const express = require('express');
 const requireAuth = require('../middleware/requireAuth');
 const requireRole = require('../middleware/requireRole');
+const { rejectOperatorKeys } = require('../middleware/sanitizeInput');
 const {
   getOverview,
   listFarmers,
@@ -20,7 +21,7 @@ router.get('/overview', getOverview);
 router.get('/farmers', listFarmers);
 router.get('/farmers/:farmerId', getFarmer);
 router.delete('/farmers/:farmerId/devices/:deviceId', unlinkDevice);
-router.get('/device-requests', listManagerRequests);
+router.get('/device-requests', rejectOperatorKeys, listManagerRequests);
 router.post('/device-requests/:id/approve', approveRequest);
 router.post('/device-requests/:id/reject', rejectRequest);
 

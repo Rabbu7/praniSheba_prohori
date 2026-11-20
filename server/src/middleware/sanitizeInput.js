@@ -1,3 +1,5 @@
+const { createError } = require('../utils/errors');
+
 const DANGEROUS_PROPS = new Set(['__proto__', 'constructor', 'prototype']);
 
 function isPlainObject(value) {
@@ -29,12 +31,29 @@ function sanitizeInPlace(target) {
 
 function sanitizeInput(req, _res, next) {
   if (req.body) sanitizeInPlace(req.body);
-  if (req.query) sanitizeInPlace(req.query);
-  if (req.params) sanitizeInPlace(req.params);
   next();
+}
+
+function rejectOperatorKeys(req, _res, next) {
+  const query = req.query;
+  if (query && typeof query === 'object') {
+    for (const [key, value] of Object.entries(query)) {
+      if (
+        key.startsWith('$')
+        || key.includes('.')
+        || key.includes('[')
+        || key.includes(']')
+        || typeof value !== 'string'
+      ) {
+        return next(createError('Invalid query parameters', 400, 'INVALID_QUERY_PARAMETERS'));
+      }
+    }
+  }
+  return next();
 }
 
 module.exports = {
   sanitizeInPlace,
-  sanitizeInput
+  sanitizeInput,
+  rejectOperatorKeys
 };

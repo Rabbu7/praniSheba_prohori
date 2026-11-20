@@ -1,7 +1,10 @@
 const express = require('express');
 const requireAuth = require('../middleware/requireAuth');
 const resolveDevice = require('../middleware/resolveDevice');
+const { rejectOperatorKeys } = require('../middleware/sanitizeInput');
 const router = express.Router();
+
+router.use(rejectOperatorKeys);
 const {
 	getLatest,
 	getDailyAverages,

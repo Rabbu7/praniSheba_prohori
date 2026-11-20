@@ -53,13 +53,14 @@ app.use(helmet());
 
 // CORS setup
 app.use(cors({
-  origin: CLIENT_ORIGIN
+  origin: CLIENT_ORIGIN,
+  exposedHeaders: ['X-Export-Truncated', 'X-Export-Row-Cap', 'Content-Disposition']
 }));
 
 // Body parser with explicit size limit
 app.use(express.json({ limit: '100kb' }));
 
-// Strip Mongo operator-injection keys from body, query, params
+// Strip Mongo operator-injection keys from request body
 app.use(sanitizeInput);
 
 // Health check endpoint

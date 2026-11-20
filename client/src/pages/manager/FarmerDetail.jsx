@@ -6,6 +6,7 @@ import ConfirmDialog from '../../components/common/ConfirmDialog';
 import useManagerFarmer from '../../hooks/useManagerFarmer';
 import useDeviceStatus from '../../hooks/useDeviceStatus';
 import { unlinkManagerDevice } from '../../services/api';
+import { isServerUnreachable } from '../../utils/isServerUnreachable';
 
 function DeviceRow({ device, farmerId, onUnlink, busy }) {
   const id = device.deviceId;
@@ -71,11 +72,11 @@ export default function FarmerDetail() {
   if (error) {
     return (
       <Shell title="Farmer">
-        {!error.response ? (
+        {isServerUnreachable(error) ? (
           <ServerUnreachable />
         ) : (
           <p className="rounded-lg border border-border-subtle bg-surface-white p-10 text-center text-secondary">
-            Farmer not found
+            {error.response?.status === 404 ? 'Farmer not found' : (error.response?.data?.error?.message || 'Unable to load farmer')}
           </p>
         )}
       </Shell>

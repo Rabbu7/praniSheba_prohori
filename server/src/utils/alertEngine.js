@@ -60,9 +60,15 @@ function createAlertEngine() {
     return transitions;
   }
 
+  function forget(deviceId) {
+    if (!deviceId) return;
+    seed(deviceId, {});
+  }
+
   return {
     seed,
-    process
+    process,
+    forget
   };
 }
 

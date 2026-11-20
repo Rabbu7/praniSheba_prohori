@@ -12,7 +12,7 @@ const deviceRequestSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected'],
+    enum: ['pending', 'approved', 'rejected', 'unlinked'],
     default: 'pending'
   },
   requestedAt: {

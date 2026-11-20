@@ -19,6 +19,15 @@ export default function RequestStatusBadge({ status }) {
     );
   }
 
+  if (status === 'unlinked') {
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-surface-container-low text-secondary border border-border-subtle text-xs font-medium">
+        <span className="w-1.5 h-1.5 rounded-full bg-status-offline mr-1.5" />
+        Unlinked
+      </span>
+    );
+  }
+
   return (
     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium">
       <span className="w-1.5 h-1.5 rounded-full bg-status-warning mr-1.5 animate-pulse" />

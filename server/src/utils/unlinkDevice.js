@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const Alert = require('../models/Alert');
+const DeviceRequest = require('../models/DeviceRequest');
 const { createError } = require('./errors');
 const { revalidateSocket } = require('../sockets/socketAuth');
 
@@ -38,6 +39,11 @@ async function unlinkFarmerDevice({ farmerId, deviceId, managerUser = null, io =
     throw createError('Device not found for this account', 404, 'DEVICE_NOT_FOUND');
   }
 
+  await DeviceRequest.updateMany(
+    { farmerId: farmer._id, deviceId: normalizedDeviceId, status: 'approved' },
+    { $set: { status: 'unlinked' } }
+  );
+
   const resolvedAt = new Date();
   const openAlerts = await Alert.find({ deviceId: normalizedDeviceId, resolvedAt: null })
     .select('_id metric')
@@ -59,6 +65,11 @@ async function unlinkFarmerDevice({ farmerId, deviceId, managerUser = null, io =
         });
       }
     }
+  }
+
+  const { engine } = require('../sockets/changeStream');
+  if (engine && typeof engine.forget === 'function') {
+    engine.forget(normalizedDeviceId);
   }
 
   if (io) {

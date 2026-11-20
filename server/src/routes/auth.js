@@ -9,7 +9,9 @@ const {
 
 const router = express.Router();
 
-function createAuthLimiter(maxEnvName, defaultMax) {
+// Note: app.set('trust proxy', ...) must be configured in the deployment phase
+// so express-rate-limit identifies client IPs behind a reverse proxy.
+function createAuthLimiter(maxEnvName, defaultMax, options = {}) {
   const parsed = Number.parseInt(process.env[maxEnvName] || '', 10);
   const limit = Number.isInteger(parsed) && parsed > 0 ? parsed : defaultMax;
 
@@ -18,6 +20,7 @@ function createAuthLimiter(maxEnvName, defaultMax) {
     limit,
     standardHeaders: true,
     legacyHeaders: false,
+    ...options,
     message: {
       error: {
         code: 'RATE_LIMITED',
@@ -28,7 +31,7 @@ function createAuthLimiter(maxEnvName, defaultMax) {
   });
 }
 
-const loginLimiter = createAuthLimiter('LOGIN_RATE_LIMIT_MAX', 10);
+const loginLimiter = createAuthLimiter('LOGIN_RATE_LIMIT_MAX', 10, { skipSuccessfulRequests: true });
 const registerLimiter = createAuthLimiter('REGISTER_RATE_LIMIT_MAX', 10);
 
 router.post('/register', registerLimiter, register);

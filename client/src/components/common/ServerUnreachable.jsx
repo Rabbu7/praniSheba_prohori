@@ -14,7 +14,7 @@ export default function ServerUnreachable({ onRetry, message = 'Unable to reach 
         <button
           type="button"
           onClick={onRetry}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-xs font-medium text-on-background transition-colors hover:bg-surface-hover"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-xs font-medium text-on-background transition-colors hover:bg-surface-container-low"
         >
           <span className="material-symbols-outlined text-base" aria-hidden="true">
             refresh

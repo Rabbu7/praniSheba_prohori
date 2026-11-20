@@ -11,6 +11,7 @@ import LocationSelect from '../../components/location/LocationSelect';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import ServerUnreachable from '../../components/common/ServerUnreachable';
 import { formatDate } from '../../utils/dateFormatter';
+import { isServerUnreachable } from '../../utils/isServerUnreachable';
 
 const initial = { firstName: '', lastName: '', email: '', phone: '', division: '', district: '', password: '' };
 
@@ -103,7 +104,19 @@ export default function Managers() {
     }
   };
 
-  if (error) return <Shell title="Managers"><ServerUnreachable onRetry={reload} /></Shell>;
+  if (error) {
+    return (
+      <Shell title="Managers">
+        {isServerUnreachable(error) ? (
+          <ServerUnreachable onRetry={reload} />
+        ) : (
+          <p className="rounded-lg border border-error/30 bg-surface-white p-8 text-center text-error">
+            {error.response?.data?.error?.message || 'Unable to load managers'}
+          </p>
+        )}
+      </Shell>
+    );
+  }
 
   return (
     <Shell title="Managers">
