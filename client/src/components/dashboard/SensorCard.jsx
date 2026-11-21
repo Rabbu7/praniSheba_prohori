@@ -17,7 +17,7 @@ const zoneColorMap = {
 };
 
 export default function SensorCard({
-  label = 'Metric',
+  label = '',
   value = null,
   unit = '',
   zone = 'safe',
@@ -47,7 +47,7 @@ export default function SensorCard({
       <div className="flex justify-between items-start mb-1.5">
         <div className="flex items-center gap-2">
           <span className="font-label-caps text-label-caps text-secondary uppercase tracking-wider">
-            {label}
+            {label || t('dashboard.metric')}
           </span>
           <div className={`w-2 h-2 rounded-full ${zoneConfig.bg}`}></div>
         </div>
@@ -72,7 +72,7 @@ export default function SensorCard({
             <span className={`${zoneConfig.text} font-medium mr-2`}>
               {trend.delta > 0 ? `+${trend.delta}` : trend.delta}
             </span>
-            <span className="text-secondary text-xs">{trend.message || 'vs last hour'}</span>
+            <span className="text-secondary text-xs">{trend.message || t('dashboard.vsLastHour')}</span>
           </>
         ) : (
           <span className="text-secondary text-xs">

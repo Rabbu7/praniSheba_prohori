@@ -7,11 +7,12 @@ import ReadingsPanel from '../dashboard/ReadingsPanel';
 import HistoryTabs from '../dashboard/HistoryTabs';
 import TrendChart from '../dashboard/TrendChart';
 import { isServerUnreachable } from '../../utils/isServerUnreachable';
+import { formatAbsoluteDate } from '../../utils/dateFormatter';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function DashboardView({ deviceId }) {
   const { reading, status, lastUpdated, error } = useDeviceStatus(deviceId);
-  const { t, translateError } = useLanguage();
+  const { t, language, translateError } = useLanguage();
   const [range, setRange] = useState('7d');
   const { data, loading } = useDailyAverages(range, deviceId);
   const isNoReadings = error?.response?.status === 404
@@ -37,7 +38,9 @@ export default function DashboardView({ deviceId }) {
           <div className="flex items-center gap-3"><StatusBadge status={status} /><HistoryTabs range={range} onChange={setRange} /></div>
         </div>
         <TrendChart data={data} loading={loading} range={range} />
-        <span className="sr-only">Last updated {lastUpdated ? new Date(lastUpdated).toLocaleString() : 'never'}</span>
+        <span className="sr-only">
+          {t('dashboard.lastUpdated')}: {lastUpdated ? formatAbsoluteDate(lastUpdated, language) : t('common.none')}
+        </span>
       </section>
     </div>
   );

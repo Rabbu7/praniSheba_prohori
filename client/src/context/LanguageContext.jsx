@@ -25,7 +25,13 @@ export function LanguageProvider({ children }) {
   const [language, setLanguageState] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      return saved === 'bn' ? 'bn' : 'en';
+      if (saved === 'bn' || saved === 'en') {
+        return saved;
+      }
+      if (typeof navigator !== 'undefined' && navigator.language?.startsWith('bn')) {
+        return 'bn';
+      }
+      return 'en';
     } catch {
       return 'en';
     }
@@ -52,6 +58,9 @@ export function LanguageProvider({ children }) {
       template = getNestedValue(DICTIONARIES.en, key);
     }
     if (!template) {
+      if (import.meta.env.DEV) {
+        console.warn(`[i18n] Missing translation for key: "${key}" in language "${language}"`);
+      }
       return key;
     }
     if (params && typeof params === 'object') {
@@ -64,6 +73,12 @@ export function LanguageProvider({ children }) {
 
   const translateError = useCallback((err, fallbackKey = 'errors.UNKNOWN_ERROR') => {
     if (!err) return '';
+    // Network failure (no response from server)
+    const isAxios = Boolean(err.isAxiosError || err.name === 'AxiosError' || err.config);
+    if (isAxios && !err.response) {
+      return t('errors.SERVER_UNREACHABLE');
+    }
+    // Stable error code lookup
     const code = err?.response?.data?.error?.code || err?.code;
     if (code) {
       const key = `errors.${code}`;
@@ -72,11 +87,13 @@ export function LanguageProvider({ children }) {
         return translated;
       }
     }
+    // Backend message from response
     const backendMsg = err?.response?.data?.error?.message;
     if (backendMsg && typeof backendMsg === 'string') {
       return backendMsg;
     }
-    if (err?.message && typeof err.message === 'string') {
+    // Only use err.message for non-axios/native exceptions
+    if (!isAxios && err?.message && typeof err.message === 'string') {
       return err.message;
     }
     return t(fallbackKey);

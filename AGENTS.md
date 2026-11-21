@@ -30,8 +30,8 @@ Phase 10 adds full bilingual support (English and Bangla) across the entire appl
 5. **Typography & fonts:** Google Font `Noto Sans Bengali` imported in `client/index.css` and added to the font-sans stack to ensure clean Bangla rendering on all devices without layout distortion.
 6. **Date and time formatting:** `dateFormatter.js` accepts active locale (`en-US` vs `bn-BD`) while preserving UTC+6 `Asia/Dhaka` calculations and day boundaries. Relative time (alerts, reading cards) localized.
 7. **Canonical location storage:** Division and district values sent to and stored in the database remain canonical English strings (`server/src/utils/locations.js`). Display names in dropdowns and profile tables are translated through localized mappings.
-8. **Error translation:** Server errors formatted as `{ error: { code, message, status } }` are translated via `translateError(err)` matching `error.code` to dictionary keys in `locales/{lang}.json`, falling back to `error.message`.
-9. **No external i18n bloat:** Pure React context (`LanguageContext`) with nested dictionary lookup, parameterized strings (`t('key', { var })`), and pluralization support. No external i18next runtime dependencies.
+8. **Error translation:** Server errors formatted as `{ error: { code, message, status } }` are translated via `translateError(err, fallbackKey)` matching `error.code` against the active locale, falling back safely if no code matches.
+9. **No external i18n bloat:** Pure React context (`LanguageContext`) with nested dictionary lookup and parameterized strings (`t('key', { var })`). Relative time is localized via `Intl.RelativeTimeFormat`. No external i18next runtime dependencies.
 
 ## Previous Phase: Phase 9 — Hardening, Cleanup, Reliability and Account Management (COMPLETE)
 
@@ -179,7 +179,48 @@ userSchema.index(
 
 - Names: trimmed, 1–50 characters. Email: trimmed, lowercased, basic format check. Password: at least 8 characters.
 - Phone: spaces and dashes stripped, then must match `/^\+?[0-9]{10,15}$/`. Stored stripped. The client renders `tel:<phone>` links.
-- All server errors keep the shape `{ error: { code, message, status } }`; the client reads `err.response?.data?.error?.message`.
+- All server errors keep the shape `{ error: { code, message, status } }`; the client translates errors via `translateError(err, fallbackKey)` using `error.code` against the active locale.
+
+#### Server Error Codes (Audited)
+
+| Error Code | Status | Message |
+|---|---|---|
+| `INVALID_CREDENTIALS` | 401 | Invalid email or password |
+| `EMAIL_IN_USE` | 409 | Email already in use |
+| `UNAUTHORIZED` | 401 | Authentication required |
+| `FORBIDDEN` | 403 | Forbidden |
+| `PASSWORD_CHANGE_REQUIRED` | 403 | Password change required |
+| `CURRENT_PASSWORD_INCORRECT` | 400 | Current password is incorrect |
+| `PASSWORD_UNCHANGED` | 400 | New password must be different from the current password |
+| `INVALID_PASSWORD` | 400 | Password must be at least 8 characters |
+| `INVALID_REGISTRATION_DETAILS` | 400 | Invalid registration details |
+| `INVALID_FIRST_NAME` / `INVALID_LAST_NAME` | 400 | Name must be between 1 and 50 characters |
+| `NAME_REQUIRED` | 400 | First name and last name are required |
+| `INVALID_PHONE` | 400 | Phone number is required and must be valid |
+| `INVALID_LOCATION` | 400 | District does not belong to the selected division |
+| `INVALID_NICKNAME` | 400 | Nickname must be 50 characters or fewer |
+| `INVALID_QUERY_PARAMETERS` | 400 | Invalid query parameters |
+| `RATE_LIMITED` | 429 | Too many requests |
+| `PAYLOAD_TOO_LARGE` | 413 | Uploaded data is too large |
+| `DISTRICT_HAS_MANAGER` | 409 | This district already has a manager |
+| `MANAGER_NOT_FOUND` | 404 | Manager not found |
+| `FARMER_NOT_FOUND` | 404 | Farmer not found |
+| `NO_DEVICE_LINKED` | 403 | No device linked |
+| `DEVICE_ID_REQUIRED` | 400 | deviceId is required |
+| `DEVICE_NOT_FOUND` | 403 / 404 | Device not found for this account |
+| `INVALID_DEVICE_CREDENTIALS` | 400 | Invalid device ID or code |
+| `DEVICE_ALREADY_OWNED` | 409 | You have already added this device / Already added |
+| `DEVICE_LINKED_OTHER` | 409 | This device is already linked to another account |
+| `DEVICE_REQUEST_PENDING_SELF` | 409 | You already have a pending request for this device |
+| `DEVICE_REQUEST_PENDING_OTHER` | 409 | This device already has a pending request from another account |
+| `INVALID_REQUEST_STATUS` | 400 | Invalid request status |
+| `REQUEST_NOT_FOUND` | 404 | Request not found |
+| `REQUEST_NOT_PENDING` | 409 | Request is no longer pending |
+| `INVALID_REJECTION_NOTE` | 400 | Invalid rejection note |
+| `ALERT_NOT_FOUND` | 404 | Alert not found |
+| `NO_READINGS_FOUND` | 404 | No readings received yet |
+| `NO_READINGS_FOR_DATE` | 404 | No readings recorded for this date |
+| `INVALID_DATE` / `INVALID_DATE_RANGE` | 400 | Invalid date specified / range |
 
 ### Device requests (farmer → manager approval)
 
@@ -392,6 +433,8 @@ prohori-dashboard/
 ├── mimic-device/   ...unchanged
 ├── mqtt-bridge/    ...unchanged
 ├── client/
+│   ├── scripts/
+│   │   └── check-i18n.mjs     # automated dictionary parity and code usage guard
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── layout/    # Sidebar (role-aware), Header, DeviceSwitcher, NotificationBell
@@ -403,16 +446,17 @@ prohori-dashboard/
 │   │   │   ├── profile/   # ProfileForm, PasswordForm, ManagerCard, DistrictCard
 │   │   │   ├── location/  # LocationSelect
 │   │   │   └── common/    # StatusBadge, RequestStatusBadge, MetricCard, ConfirmDialog,
-│   │   │   │              #   ErrorBoundary, ServerUnreachable
-│   │   ├── context/       # AuthContext, DeviceContext
+│   │   │   │              #   ErrorBoundary, ServerUnreachable, LanguageToggle
+│   │   ├── context/       # AuthContext, DeviceContext, LanguageContext
+│   │   ├── locales/       # en.json, bn.json (393 keys each)
 │   │   ├── pages/         # Login, Register, CompleteProfile, ChangePassword, Dashboard,
 │   │   │                  #   History, Calendar, Devices, Profile, manager/*, admin/*
 │   │   ├── hooks/         # reading hooks, useLocations, useThresholds, useAlerts, useFarmerSync,
 │   │   │                      #   manager/admin data hooks
 │   │   ├── services/      # api.js, socket.js
-│   │   ├── utils/         # dateFormatter, roleHome, isServerUnreachable
+│   │   ├── utils/         # dateFormatter, roleHome, isServerUnreachable, formatRequestNote
 │   │   ├── App.jsx        # role-aware route guards
-│   │   ├── main.jsx       # AuthProvider > DeviceProvider > App
+│   │   ├── main.jsx       # LanguageProvider > ErrorBoundary > AuthProvider > DeviceProvider > App
 │   │   └── index.css
 │   └── package.json
 ├── AGENTS.md  PAGES.md  DESIGN.md  README.md
@@ -529,4 +573,4 @@ prohori-dashboard/
 - **Phase 7 (COMPLETE)**: RBAC — roles (admin / manager / farmer), district-based single manager, farmer registration with name + division/district, device-request approval (dialog-based request flow), manager panel, admin panel (manager add/delete), profile pages for all roles, phone + call link.
 - **Phase 8 (COMPLETE)**: Real Asia/Dhaka time windows and indexes, persisted debounced alerts (engine, `/api/alerts`, per-user read state, live socket events), notification bell for farmers and managers, trend chart metric selector with threshold bands and `GET /api/meta/thresholds`.
 - **Phase 9 (COMPLETE)**: Security hardening (rate limiting, `helmet`, body limit, Mongo operator sanitization, forced first-login password change, timing-safe login, socket revalidation, startup env validation, secrets hygiene), cleanup, reliability (stable `error.code`, graceful shutdown, structured redacting logger, `/health` DB check, React `ErrorBoundary` + `ServerUnreachable`, `farmerId` on alerts), and account/device management (device nicknames, device unlink, removed-manager restore, admin manager password reset, Reading Log CSV export).
-- **Phase 10 (COMPLETE)**: Localization (English and Bangla) — zero-dependency `LanguageContext` + `prohori_lang` persistence, `Noto Sans Bengali` font integration, identical English and Bangla JSON dictionaries (351 keys each), `LanguageToggle` header/shell integration, locale-aware date/relative time formatting with Latin numerals, complete translations across all authentication, farmer, manager, admin, and profile views, localized divisions/districts, and localized server error codes.
+- **Phase 10 (COMPLETE)**: Localization (English and Bangla) — zero-dependency `LanguageContext` + `prohori_lang` persistence (browser auto-detect fallback), `Noto Sans Bengali` font integration, identical English and Bangla JSON dictionaries (393 keys each) verified via `npm run i18n:check`, `LanguageToggle` header/shell integration, `Intl.RelativeTimeFormat` date formatting with Latin numerals, complete translations across all authentication, farmer, manager, admin, and profile views, localized divisions/districts, and complete server error code translation with network fallback.

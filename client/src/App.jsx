@@ -20,11 +20,13 @@ import ManagerFarmerDevice from './pages/manager/FarmerDevice';
 import ManagerRequests from './pages/manager/Requests';
 import AdminOverview from './pages/admin/Overview';
 import AdminManagers from './pages/admin/Managers';
+import { useLanguage } from './context/LanguageContext';
 
 function AuthLoading() {
+  const { t } = useLanguage();
   return (
     <main className="flex min-h-screen items-center justify-center bg-surface text-sm text-secondary">
-      Checking your session...
+      {t('common.checkingSession')}
     </main>
   );
 }

@@ -38,7 +38,12 @@
     "switchDevice": "Switch device",
     "noDevices": "No devices",
     "active": "Active",
-    "removed": "Removed"
+    "removed": "Removed",
+    "viewAll": "View all",
+    "required": "required",
+    "checkingSession": "Checking your session...",
+    "languageSelector": "Language selector",
+    "logoAlt": "Prohori logo"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -113,7 +118,6 @@
     "title": "Cowshed Monitoring",
     "subtitle": "Live telemetry from IoT sensors",
     "liveReadings": "Live Readings",
-    "readingsNote": "Readings update in real-time via Socket.IO",
     "emptyReadingsNote": "No readings received yet",
     "historicalTrends": "Historical Trends",
     "selectMetric": "Select metric",
@@ -127,7 +131,9 @@
     "avg": "Avg",
     "noReadings": "No readings available",
     "range7dLabel": "Last 7 days",
-    "range30dLabel": "Last 30 days"
+    "range30dLabel": "Last 30 days",
+    "metric": "Metric",
+    "vsLastHour": "vs last hour"
   },
   "log": {
     "title": "Reading Log",
@@ -139,7 +145,7 @@
     "endDate": "End date",
     "selectDates": "Select date range to export",
     "timestamp": "Timestamp",
-    "rowCapNotice": "Showing recent records (max 10,000 per export)",
+    "rowCapNotice": "Showing recent records (max 5,000 per export)",
     "noReadingsFound": "No readings found for the selected period",
     "totalRows": "Total records",
     "truncatedNotice": "Export was capped at {{count}} rows."
@@ -162,9 +168,9 @@
     "requestDeviceTitle": "Request a Prohori Device",
     "requestDeviceSubtitle": "Enter the Device ID and registration code found on your hardware.",
     "deviceIdLabel": "Device ID",
-    "deviceIdPlaceholder": "e.g. PROHORI-G3036-7X4K2",
+    "deviceIdPlaceholder": "e.g. G3036",
     "deviceCodeLabel": "Registration Code",
-    "deviceCodePlaceholder": "Enter 6-digit code",
+    "deviceCodePlaceholder": "e.g. PROHORI-G3036-7X4K2",
     "submittingRequest": "Submitting...",
     "requestSuccess": "Device request submitted successfully. Awaiting manager approval.",
     "linkedAt": "Linked Date",
@@ -177,7 +183,8 @@
     "unlinkTitle": "Unlink Device",
     "unlinkConfirm": "Are you sure you want to unlink {{deviceId}}? Historical data will remain preserved.",
     "unlinking": "Unlinking...",
-    "noDevicesMessage": "You don't have any linked devices yet. Click 'Request Device' to add one."
+    "noDevicesMessage": "You don't have any linked devices yet. Click 'Request Device' to add one.",
+    "editNicknameAria": "Edit nickname for {{deviceId}}"
   },
   "alerts": {
     "title": "Notifications",
@@ -185,12 +192,9 @@
     "noAlerts": "No alerts yet",
     "unableToLoad": "Unable to load alerts",
     "resolved": "Resolved",
-    "justNow": "just now",
-    "minutesAgo": "{{count}}m ago",
-    "hoursAgo": "{{count}}h ago",
-    "daysAgo": "{{count}}d ago",
     "level": "Level",
-    "value": "Value"
+    "value": "Value",
+    "unread": "unread"
   },
   "manager": {
     "overviewTitle": "District Overview",
@@ -259,7 +263,13 @@
     "allStatus": "All status",
     "activeOnly": "Active only",
     "removedOnly": "Removed only",
-    "noManagersFound": "No managers found."
+    "noManagersFound": "No managers found.",
+    "managerName": "Manager Name",
+    "managerEmail": "Email",
+    "managerPhone": "Phone",
+    "farmerCount": "Assigned Farmers",
+    "createdAt": "Created On",
+    "resetPasswordSubtitle": "Set a temporary password for this manager. They will be forced to change it on their next login."
   },
   "profile": {
     "title": "Account Profile",
@@ -287,29 +297,54 @@
   },
   "errors": {
     "INVALID_CREDENTIALS": "Invalid email or password",
-    "EMAIL_IN_USE": "Email address is already registered",
-    "ACCOUNT_REMOVED": "Account has been deactivated. Please contact support.",
-    "FORBIDDEN": "You do not have permission to perform this action.",
-    "NO_DEVICE_LINKED": "No devices are linked to this account.",
-    "DEVICE_NOT_FOUND": "Device not found or not accessible.",
-    "INVALID_DEVICE_CREDENTIALS": "Invalid device ID or registration code.",
-    "DEVICE_ALREADY_LINKED": "This device is already linked to another account.",
-    "DEVICE_ALREADY_OWNED": "You have already linked this device.",
-    "DEVICE_ALREADY_REQUESTED": "You already have a pending request for this device.",
-    "DEVICE_REQUEST_EXISTS": "This device already has a pending request from another account.",
-    "REQUEST_NOT_PENDING": "This request is no longer pending.",
-    "INVALID_QUERY_PARAMETERS": "Invalid query parameters provided.",
-    "PASSWORD_UNCHANGED": "New password must be different from the current password.",
-    "PASSWORD_CHANGE_REQUIRED": "You must change your temporary password before continuing.",
+    "EMAIL_IN_USE": "Email address is already in use",
+    "UNAUTHORIZED": "Authentication required",
+    "FORBIDDEN": "You do not have permission to perform this action",
+    "PASSWORD_CHANGE_REQUIRED": "Password change required before continuing",
+    "CURRENT_PASSWORD_INCORRECT": "Current password is incorrect",
+    "PASSWORD_UNCHANGED": "New password must be different from current password",
+    "PASSWORD_TOO_SHORT": "Password must be at least 8 characters",
+    "INVALID_PASSWORD": "Password must be at least 8 characters",
+    "INVALID_REGISTRATION_DETAILS": "Invalid registration details",
+    "INVALID_FIRST_NAME": "First name must be 1 to 50 characters",
+    "INVALID_LAST_NAME": "Last name must be 1 to 50 characters",
+    "NAME_REQUIRED": "First name and last name are required",
+    "INVALID_PHONE": "Phone number is invalid (must be 10-15 digits)",
+    "PHONE_INVALID": "Phone number is invalid (must be 10-15 digits)",
+    "INVALID_LOCATION": "District does not belong to the selected division",
+    "INVALID_NICKNAME": "Nickname must be 50 characters or fewer",
+    "INVALID_QUERY_PARAMETERS": "Invalid query parameters provided",
     "RATE_LIMITED": "Too many requests. Please try again later.",
-    "NO_READINGS_FOUND": "No readings received yet.",
+    "PAYLOAD_TOO_LARGE": "Uploaded data is too large",
+    "BAD_REQUEST": "Invalid request",
+    "NOT_FOUND": "Requested resource not found",
+    "CONFLICT": "A conflict occurred with existing data",
+    "INTERNAL_ERROR": "Internal server error. Please try again.",
+    "DISTRICT_HAS_MANAGER": "This district already has an active manager",
+    "MANAGER_NOT_FOUND": "Manager not found",
+    "FARMER_NOT_FOUND": "Farmer not found",
+    "NO_DEVICE_LINKED": "No devices are linked to this account",
+    "DEVICE_ID_REQUIRED": "Device ID is required",
+    "DEVICE_NOT_FOUND": "Device not found for this account",
+    "INVALID_DEVICE_CREDENTIALS": "Invalid device ID or registration code",
+    "DEVICE_ALREADY_OWNED": "You have already added this device",
+    "DEVICE_LINKED_OTHER": "This device is already linked to another account",
+    "DEVICE_ALREADY_LINKED": "This device is already linked to another account",
+    "DEVICE_REQUEST_PENDING_SELF": "You already have a pending request for this device",
+    "DEVICE_REQUEST_PENDING_OTHER": "This device already has a pending request from another account",
+    "INVALID_REQUEST_STATUS": "Invalid device request status",
+    "REQUEST_NOT_FOUND": "Device request not found",
+    "REQUEST_NOT_PENDING": "This request is no longer pending",
+    "INVALID_REJECTION_NOTE": "Rejection note must be 200 characters or fewer",
+    "ALERT_NOT_FOUND": "Alert notification not found",
+    "NO_READINGS_FOUND": "No readings received yet",
+    "NO_READINGS_FOR_DATE": "No readings recorded for this date",
+    "INVALID_DATE": "Invalid date specified",
+    "INVALID_DATE_RANGE": "Invalid date range specified",
     "SERVER_UNREACHABLE": "Unable to reach the server. Please check your connection.",
     "UNKNOWN_ERROR": "An unexpected error occurred. Please try again.",
     "FIELD_REQUIRED": "This field is required",
-    "INVALID_EMAIL": "Please enter a valid email address",
-    "PASSWORD_TOO_SHORT": "Password must be at least 8 characters",
-    "PHONE_INVALID": "Please enter a valid phone number (10-15 digits)",
-    "INVALID_LOCATION": "Please select a valid division and district"
+    "INVALID_EMAIL": "Please enter a valid email address"
   },
   "locations": {
     "divisions": {
@@ -388,5 +423,9 @@
       "Sunamganj": "Sunamganj",
       "Sylhet": "Sylhet"
     }
+  },
+  "requests": {
+    "noteAlreadyAdded": "Already added",
+    "noteAlreadyLinked": "Already linked to another account"
   }
 }

@@ -132,9 +132,23 @@
 
 body {
   margin: 0;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
   background-color: var(--color-surface, #f9f9f8);
   color: var(--color-on-surface, #1a1c1c);
+}
+
+/* Bangla Typography Overrides */
+html[lang='bn'] {
+  line-height: 1.5;
+}
+
+html[lang='bn'] .tracking-wider,
+html[lang='bn'] .tracking-widest,
+html[lang='bn'] [class*="tracking-"],
+html[lang='bn'] .font-label-caps,
+html[lang='bn'] .uppercase {
+  letter-spacing: normal !important;
+  text-transform: none !important;
 }
 
 .material-symbols-outlined {

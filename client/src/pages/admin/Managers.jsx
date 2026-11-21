@@ -121,13 +121,13 @@ export default function Managers() {
   }
 
   const tableHeaders = [
-    t('manager.farmerName'),
-    t('manager.farmerEmail'),
-    t('manager.farmerPhone'),
+    t('admin.managerName'),
+    t('admin.managerEmail'),
+    t('admin.managerPhone'),
     t('auth.division'),
     t('auth.district'),
-    t('manager.farmersTab'),
-    t('devices.linkedAt'),
+    t('admin.farmerCount'),
+    t('admin.createdAt'),
     t('common.actions'),
   ];
 
@@ -343,7 +343,7 @@ export default function Managers() {
               </button>
             </div>
             <p className="mb-4 text-body-sm text-secondary">
-              {t('auth.changePasswordSubtitle')}
+              {t('admin.resetPasswordSubtitle')}
             </p>
             <label className="block text-body-sm font-semibold">
               {t('admin.tempPasswordLabel')}

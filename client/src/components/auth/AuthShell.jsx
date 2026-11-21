@@ -12,7 +12,7 @@ export default function AuthShell({ title, eyebrow, children, footer }) {
         <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full border-32 border-on-primary/10" />
         <div className="absolute -bottom-32 -left-24 h-96 w-96 rounded-full border-48 border-on-primary/10" />
         <div className="relative z-10 flex items-center gap-4">
-          <img src={logo} alt="Prohori logo" className="h-14 w-14 rounded-full object-cover ring-4 ring-on-primary/20" />
+          <img src={logo} alt={t('common.logoAlt')} className="h-14 w-14 rounded-full object-cover ring-4 ring-on-primary/20" />
           <div>
             <p className="text-xl font-semibold tracking-tight">{t('common.appName')}</p>
             <p className="text-sm text-on-primary/70">{t('auth.brandSub')}</p>
@@ -37,7 +37,7 @@ export default function AuthShell({ title, eyebrow, children, footer }) {
         </div>
         <div className="w-full max-w-md">
           <div className="mb-10 flex items-center gap-3 lg:hidden">
-            <img src={logo} alt="Prohori logo" className="h-11 w-11 rounded-full object-cover" />
+            <img src={logo} alt={t('common.logoAlt')} className="h-11 w-11 rounded-full object-cover" />
             <div>
               <p className="font-semibold text-on-background">{t('common.appName')}</p>
               <p className="text-xs text-secondary">{t('auth.brandSub')}</p>

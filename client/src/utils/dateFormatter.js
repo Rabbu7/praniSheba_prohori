@@ -85,22 +85,24 @@ export function formatRelativeTime(dateInput, lang = 'en') {
   if (isNaN(time)) return '—';
 
   const diffInSeconds = Math.floor((Date.now() - time) / 1000);
-  if (lang === 'bn') {
-    if (diffInSeconds < 60) return 'এইমাত্র';
-    const mins = Math.floor(diffInSeconds / 60);
-    if (mins < 60) return `${mins} মিনিট আগে`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours} ঘণ্টা আগে`;
-    const days = Math.floor(hours / 24);
-    return `${days} দিন আগে`;
+  if (diffInSeconds < 60) {
+    return lang === 'bn' ? 'এইমাত্র' : 'just now';
   }
 
-  if (diffInSeconds < 60) return 'Just now';
+  const locale = lang === 'bn' ? 'bn-BD-u-nu-latn' : 'en-US';
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+
   const mins = Math.floor(diffInSeconds / 60);
-  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+  if (mins < 60) {
+    return rtf.format(-mins, 'minute');
+  }
+
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
+  if (hours < 24) {
+    return rtf.format(-hours, 'hour');
+  }
+
   const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? '' : 's'} ago`;
+  return rtf.format(-days, 'day');
 }
 

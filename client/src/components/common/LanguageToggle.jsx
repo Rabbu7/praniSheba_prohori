@@ -2,12 +2,12 @@ import React from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function LanguageToggle({ className = '' }) {
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
 
   return (
     <div
       role="group"
-      aria-label="Language selector"
+      aria-label={t('common.languageSelector')}
       className={`inline-flex items-center rounded-full bg-surface-container-low p-0.5 border border-border-subtle text-xs font-medium ${className}`}
     >
       <button

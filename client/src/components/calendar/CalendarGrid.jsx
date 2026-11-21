@@ -103,7 +103,7 @@ export default function CalendarGrid({
               disabled={!hasData}
               className={`min-h-14 rounded-md border p-2 text-left text-sm transition-colors disabled:cursor-not-allowed ${className}`}
               onClick={() => onDayClick(cell.date)}
-              aria-label={`${cell.date}${hasData ? '' : ' (no readings)'}`}
+              aria-label={`${cell.date}${hasData ? '' : ` (${t('calendar.noData')})`}`}
             >
               <span>{cell.day}</span>
               {hasData && <span className="mt-2 block text-[10px] uppercase tracking-wider opacity-60">●</span>}

@@ -166,3 +166,11 @@ The shape language is "Soft-Industrial."
 - **Data Tables:** Clean, alternate-row striping using the background color. Headers use the `label-caps` style for clear categorization.
 - **Charts:** Use a 2px stroke width for primary trend lines. Gridlines should be minimal and low-contrast (`#F0F0EE`).
 - **Navigation Tabs:** Simple text with a 2px primary-colored underline for the active state; hover states should animate the underline from 0% to 100% width.
+
+## Bilingual Typography (Bangla & English)
+- **Primary Font Stack:** `--font-sans` uses `'Inter', 'Noto Sans Bengali', sans-serif`. `Noto Sans Bengali` provides authentic, distortion-free glyph rendering across all devices.
+- **Bangla Overrides (`html[lang='bn']`):**
+  - **Letter-spacing:** Disabled (`letter-spacing: normal !important`). Tracking/letter-spacing breaks Bengali conjuncts (যুক্তাক্ষর).
+  - **Text-transform:** Disabled (`text-transform: none !important`). Uppercase transformations are not applicable in Bengali and introduce layout artifacts.
+  - **Line-height:** Raised to `1.5` to prevent clipping of top and bottom vowel diacritics (কার ও মাত্রা).
+- **Numerals & Metrics:** Sensor reading values, chart axes, calendar min/max cell values, and measurement units (`ppm`, `%`, `°F`) stay in Latin digits across both languages for industrial IoT readability.

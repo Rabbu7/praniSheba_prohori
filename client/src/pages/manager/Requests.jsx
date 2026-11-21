@@ -5,6 +5,7 @@ import { Shell } from './Overview';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import ServerUnreachable from '../../components/common/ServerUnreachable';
 import { formatDate } from '../../utils/dateFormatter';
+import { formatRequestNote } from '../../utils/formatRequestNote';
 import { isServerUnreachable } from '../../utils/isServerUnreachable';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -124,7 +125,7 @@ export default function Requests() {
                   ) : (
                     <span className="text-secondary">
                       {formatDate(request.decidedAt, language)}
-                      {request.note ? ` · ${request.note}` : ''}
+                      {request.note ? ` · ${formatRequestNote(request.note, t)}` : ''}
                     </span>
                   )}
                 </td>

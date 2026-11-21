@@ -167,7 +167,7 @@ export default function ProfileForm({ user, setUser }) {
 
         <div>
           <label className="text-sm font-semibold text-on-background" htmlFor="profile-phone">
-            {t('auth.phone')} {isManager ? `(${t('common.status')})` : ''}
+            {t('auth.phone')} {isManager ? `(${t('common.required')})` : ''}
           </label>
           <input
             className={inputClass}

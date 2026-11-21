@@ -11,6 +11,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { notifyDeviceRequestCreated } from '../hooks/useFarmerSync';
 import { getMyDeviceRequests, updateDeviceNickname } from '../services/api';
 import { formatAbsoluteDate } from '../utils/dateFormatter';
+import { formatRequestNote } from '../utils/formatRequestNote';
 import { isServerUnreachable } from '../utils/isServerUnreachable';
 
 export default function Devices() {
@@ -164,7 +165,7 @@ export default function Devices() {
             <div className="mb-6 rounded-lg border border-status-warning/30 bg-amber-50 p-4 text-amber-900 flex items-center gap-3">
               <span className="material-symbols-outlined text-status-warning">info</span>
               <span className="text-body-sm font-medium">
-                {t('profile.noManagerAssigned')}
+                {t('profile.noManagerDesc')}
               </span>
             </div>
           )}
@@ -239,7 +240,7 @@ export default function Devices() {
                               <button
                                 type="button"
                                 onClick={() => openNicknameModal(item.deviceId)}
-                                aria-label={`Edit nickname for ${item.deviceId}`}
+                                aria-label={t('devices.editNicknameAria', { deviceId: item.deviceId })}
                                 className="rounded p-1 text-secondary hover:bg-surface-container-low hover:text-primary transition-colors"
                               >
                                 <span className="material-symbols-outlined text-[16px]">edit</span>
@@ -254,7 +255,7 @@ export default function Devices() {
                           <RequestStatusBadge status={item.status} />
                         </td>
                         <td className="py-4 px-4 text-secondary text-body-sm">
-                          {item.note || '—'}
+                          {formatRequestNote(item.note, t) || '—'}
                         </td>
                         <td className="py-4 px-4 text-right">
                           {item.status === 'approved' ? (

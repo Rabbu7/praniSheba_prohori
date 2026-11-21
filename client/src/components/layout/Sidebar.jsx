@@ -52,7 +52,7 @@ export default function Sidebar() {
       {/* Desktop Sidebar */}
       <nav className="hidden md:flex fixed left-0 top-0 h-screen w-sidebar-width flex-col py-6 px-0 border-r border-border-subtle bg-sidebar-bg z-10">
         <div className="px-2 mb-8 flex flex-col items-center">
-          <img src={logo} alt="Prohori Logo" className="w-12 h-auto rounded-full" />
+          <img src={logo} alt={t('common.logoAlt')} className="w-12 h-auto rounded-full" />
         </div>
         <div className="flex-1 px-2 space-y-4 flex flex-col items-center">
           {navItems.map((item) => (
