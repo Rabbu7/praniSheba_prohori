@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../../context/LanguageContext';
 
 const zoneColorMap = {
   safe: {
@@ -27,13 +28,15 @@ export default function DayDetailCards({
   loading = false,
   error = null
 }) {
+  const { t } = useLanguage();
+
   if (!date) {
     return (
       <div className="mt-6 bg-surface-white border border-border-subtle rounded-lg p-6 flex flex-col items-center justify-center text-center shadow-sm">
         <span className="material-symbols-outlined text-secondary text-3xl mb-2">
           calendar_today
         </span>
-        <p className="text-secondary text-body-sm">Select a day to view details</p>
+        <p className="text-secondary text-body-sm">{t('calendar.dayDetails')}</p>
       </div>
     );
   }
@@ -43,9 +46,9 @@ export default function DayDetailCards({
       <div className="mt-6 bg-surface-white border border-error/30 rounded-lg p-6 flex flex-col items-center justify-center text-center shadow-sm">
         <span className="material-symbols-outlined text-error text-3xl mb-2">cloud_off</span>
         <h3 className="font-headline-md text-headline-md font-bold text-on-background mb-1">
-          Unable to load day details
+          {t('common.failed')}
         </h3>
-        <p className="text-secondary text-body-sm">Please try again.</p>
+        <p className="text-secondary text-body-sm">{t('common.tryAgain')}</p>
       </div>
     );
   }
@@ -53,7 +56,7 @@ export default function DayDetailCards({
   if (loading) {
     return (
       <div className="mt-6 bg-surface-white border border-border-subtle rounded-lg p-6 shadow-sm">
-        <div className="text-center text-secondary text-body-sm">Loading day details…</div>
+        <div className="text-center text-secondary text-body-sm">{t('common.loading')}</div>
       </div>
     );
   }
@@ -64,7 +67,7 @@ export default function DayDetailCards({
         <span className="material-symbols-outlined text-secondary text-3xl mb-2">
           info
         </span>
-        <p className="text-secondary text-body-sm">No readings for {date}</p>
+        <p className="text-secondary text-body-sm">{t('calendar.noData')} ({date})</p>
       </div>
     );
   }
@@ -72,7 +75,7 @@ export default function DayDetailCards({
   // Render 4 cards: ammonia, methane, humidity, temperature
   const cards = [
     {
-      label: 'Ammonia',
+      metricId: 'ammonia',
       unit: 'ppm',
       icon: 'science',
       minKey: 'ammonia_min',
@@ -81,7 +84,7 @@ export default function DayDetailCards({
       maxZoneKey: 'ammonia_max_zone'
     },
     {
-      label: 'Methane',
+      metricId: 'methane',
       unit: 'ppm',
       icon: 'gas_meter',
       minKey: 'methane_min',
@@ -90,7 +93,7 @@ export default function DayDetailCards({
       maxZoneKey: 'methane_max_zone'
     },
     {
-      label: 'Humidity',
+      metricId: 'humidity',
       unit: '%',
       icon: 'water_drop',
       minKey: 'humidity_min',
@@ -99,7 +102,7 @@ export default function DayDetailCards({
       maxZoneKey: 'humidity_max_zone'
     },
     {
-      label: 'Temperature',
+      metricId: 'temperature',
       unit: '°F',
       icon: 'thermostat',
       minKey: 'temperature_min',
@@ -126,10 +129,11 @@ export default function DayDetailCards({
 
           const displayMin = minVal !== null && minVal !== undefined ? Number(minVal).toFixed(1) : '—';
           const displayMax = maxVal !== null && maxVal !== undefined ? Number(maxVal).toFixed(1) : '—';
+          const label = t(`metrics.${card.metricId}`);
 
           return (
             <div
-              key={card.label}
+              key={card.metricId}
               className="bg-surface-white border border-border-subtle rounded-lg p-4 relative overflow-hidden flex flex-col justify-between shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300"
             >
               {/* Left indicator bar */}
@@ -140,7 +144,7 @@ export default function DayDetailCards({
               {/* Header */}
               <div className="flex justify-between items-start mb-3">
                 <span className="font-label-caps text-label-caps text-secondary uppercase tracking-wider">
-                  {card.label}
+                  {label}
                 </span>
                 <span className="material-symbols-outlined text-secondary">{card.icon}</span>
               </div>
@@ -148,14 +152,14 @@ export default function DayDetailCards({
               {/* Min/Max Values */}
               <div className="space-y-2">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-secondary text-body-sm font-medium">Min:</span>
+                  <span className="text-secondary text-body-sm font-medium">{t('dashboard.min')}:</span>
                   <span className={`font-display-data-mobile text-display-data-mobile md:text-display-data ${minColor.text}`}>
                     {displayMin}
                   </span>
                   <span className="font-unit-label text-unit-label text-secondary">{card.unit}</span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-secondary text-body-sm font-medium">Max:</span>
+                  <span className="text-secondary text-body-sm font-medium">{t('dashboard.max')}:</span>
                   <span className={`font-display-data-mobile text-display-data-mobile md:text-display-data ${maxColor.text}`}>
                     {displayMax}
                   </span>

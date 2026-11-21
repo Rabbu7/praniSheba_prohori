@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createDeviceRequest } from '../../services/api';
+import { useLanguage } from '../../context/LanguageContext';
 
 const inputClass = 'mt-2 w-full rounded-lg border border-outline-variant bg-surface-white px-4 py-3 text-body-lg text-on-background outline-none transition placeholder:text-secondary/60 focus:border-primary focus:ring-4 focus:ring-primary/10';
 
 export default function RequestDeviceModal({ open, onClose, onSuccess }) {
+  const { t, translateError } = useLanguage();
   const [form, setForm] = useState({ deviceId: '', deviceCode: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -53,7 +55,7 @@ export default function RequestDeviceModal({ open, onClose, onSuccess }) {
     const deviceCode = form.deviceCode.trim();
 
     if (!deviceId || !deviceCode) {
-      setError('Invalid device ID or code');
+      setError(t('errors.INVALID_DEVICE_CREDENTIALS'));
       return;
     }
 
@@ -63,7 +65,7 @@ export default function RequestDeviceModal({ open, onClose, onSuccess }) {
     try {
       await createDeviceRequest({ deviceId, deviceCode });
     } catch (err) {
-      setError(err.response?.data?.error?.message || 'Invalid device ID or code');
+      setError(translateError(err, 'errors.INVALID_DEVICE_CREDENTIALS'));
       setSubmitting(false);
       return;
     }
@@ -95,10 +97,10 @@ export default function RequestDeviceModal({ open, onClose, onSuccess }) {
             id="request-device-title"
             className="font-headline-md text-headline-md font-bold text-on-background"
           >
-            Request a Prohori device
+            {t('devices.requestDeviceTitle')}
           </h2>
           <p id="request-device-hint" className="mt-2 text-body-sm text-secondary">
-            Use the device ID and code provided with your Prohori monitor.
+            {t('devices.requestDeviceSubtitle')}
           </p>
 
           <form className="mt-5 space-y-4" onSubmit={handleSubmit} noValidate>
@@ -112,7 +114,7 @@ export default function RequestDeviceModal({ open, onClose, onSuccess }) {
             )}
             <div>
               <label className="text-sm font-semibold text-on-background" htmlFor="request-device-id">
-                Device ID
+                {t('devices.deviceIdLabel')}
               </label>
               <input
                 ref={deviceIdInputRef}
@@ -121,14 +123,14 @@ export default function RequestDeviceModal({ open, onClose, onSuccess }) {
                 name="deviceId"
                 type="text"
                 autoComplete="off"
-                placeholder="e.g. G3036"
+                placeholder={t('devices.deviceIdPlaceholder')}
                 value={form.deviceId}
                 onChange={updateField}
               />
             </div>
             <div>
               <label className="text-sm font-semibold text-on-background" htmlFor="request-device-code">
-                Device code
+                {t('devices.deviceCodeLabel')}
               </label>
               <input
                 className={inputClass}
@@ -136,7 +138,7 @@ export default function RequestDeviceModal({ open, onClose, onSuccess }) {
                 name="deviceCode"
                 type="text"
                 autoComplete="off"
-                placeholder="Enter your device code"
+                placeholder={t('devices.deviceCodePlaceholder')}
                 value={form.deviceCode}
                 onChange={updateField}
               />
@@ -148,14 +150,14 @@ export default function RequestDeviceModal({ open, onClose, onSuccess }) {
                 onClick={onClose}
                 disabled={submitting}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 className="rounded-md bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={submitting}
               >
-                {submitting ? 'Sending request...' : 'Request device'}
+                {submitting ? t('devices.submittingRequest') : t('devices.linkNewDevice')}
               </button>
             </div>
           </form>

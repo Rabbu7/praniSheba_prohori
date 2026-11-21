@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { changePassword } from '../../services/api';
+import { useLanguage } from '../../context/LanguageContext';
 
 const inputClass = 'mt-2 w-full rounded-lg border border-outline-variant bg-surface-white px-4 py-3 text-body-lg text-on-background outline-none transition placeholder:text-secondary/60 focus:border-primary focus:ring-4 focus:ring-primary/10';
 
 export default function PasswordForm({ onSuccess, bare = false }) {
+  const { t, translateError } = useLanguage();
   const [form, setForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -24,22 +26,22 @@ export default function PasswordForm({ onSuccess, bare = false }) {
     event.preventDefault();
 
     if (!form.currentPassword || !form.newPassword || !form.confirmPassword) {
-      setError('All password fields are required.');
+      setError(t('errors.FIELD_REQUIRED'));
       return;
     }
 
     if (form.newPassword.length < 8) {
-      setError('New password must be at least 8 characters.');
+      setError(t('errors.PASSWORD_TOO_SHORT'));
       return;
     }
 
     if (form.newPassword === form.currentPassword) {
-      setError('New password must be different from the current password');
+      setError(t('errors.PASSWORD_UNCHANGED'));
       return;
     }
 
     if (form.newPassword !== form.confirmPassword) {
-      setError('New passwords do not match.');
+      setError(t('auth.passwordMismatch'));
       return;
     }
 
@@ -60,7 +62,7 @@ export default function PasswordForm({ onSuccess, bare = false }) {
       });
       onSuccess?.(updatedUser);
     } catch (err) {
-      setError(err.response?.data?.error?.message || 'Failed to update password.');
+      setError(translateError(err, 'errors.UNKNOWN_ERROR'));
     } finally {
       setSubmitting(false);
     }
@@ -70,7 +72,7 @@ export default function PasswordForm({ onSuccess, bare = false }) {
     <>
       {!bare && (
         <h3 className="font-headline-md text-headline-md font-bold text-on-background mb-4">
-          Change Password
+          {t('profile.changePassword')}
         </h3>
       )}
 
@@ -78,7 +80,7 @@ export default function PasswordForm({ onSuccess, bare = false }) {
         {success && (
           <div className="rounded-lg border border-primary/20 bg-primary-fixed/30 px-4 py-3 text-sm text-on-primary-fixed flex items-center gap-2">
             <span className="material-symbols-outlined text-primary text-[18px]">check</span>
-            <span>Password updated successfully</span>
+            <span>{t('profile.passwordChanged')}</span>
           </div>
         )}
 
@@ -90,7 +92,7 @@ export default function PasswordForm({ onSuccess, bare = false }) {
 
         <div>
           <label className="text-sm font-semibold text-on-background" htmlFor="password-current">
-            Current password
+            {t('auth.currentPassword')}
           </label>
           <input
             className={inputClass}
@@ -98,6 +100,7 @@ export default function PasswordForm({ onSuccess, bare = false }) {
             name="currentPassword"
             type="password"
             autoComplete="current-password"
+            placeholder="••••••••"
             value={form.currentPassword}
             onChange={updateField}
           />
@@ -106,7 +109,7 @@ export default function PasswordForm({ onSuccess, bare = false }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-semibold text-on-background" htmlFor="password-new">
-              New password
+              {t('auth.newPassword')}
             </label>
             <input
               className={inputClass}
@@ -114,7 +117,7 @@ export default function PasswordForm({ onSuccess, bare = false }) {
               name="newPassword"
               type="password"
               autoComplete="new-password"
-              placeholder="Min. 8 characters"
+              placeholder="••••••••"
               value={form.newPassword}
               onChange={updateField}
             />
@@ -122,7 +125,7 @@ export default function PasswordForm({ onSuccess, bare = false }) {
 
           <div>
             <label className="text-sm font-semibold text-on-background" htmlFor="password-confirm">
-              Confirm new password
+              {t('auth.confirmPassword')}
             </label>
             <input
               className={inputClass}
@@ -130,7 +133,7 @@ export default function PasswordForm({ onSuccess, bare = false }) {
               name="confirmPassword"
               type="password"
               autoComplete="new-password"
-              placeholder="Repeat new password"
+              placeholder="••••••••"
               value={form.confirmPassword}
               onChange={updateField}
             />
@@ -143,7 +146,7 @@ export default function PasswordForm({ onSuccess, bare = false }) {
             type="submit"
             disabled={submitting}
           >
-            {submitting ? 'Updating...' : 'Update password'}
+            {submitting ? t('auth.updating') : t('auth.updatePassword')}
           </button>
         </div>
       </form>

@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDevice } from '../../context/DeviceContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function DeviceSwitcher() {
   const { devices, selectedDeviceId, selectDevice } = useDevice();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const buttonRef = useRef(null);
@@ -122,7 +124,7 @@ export default function DeviceSwitcher() {
         <div
           ref={menuRef}
           role="menu"
-          aria-label="Device selector"
+          aria-label={t('common.switchDevice')}
           onKeyDown={handleMenuKeyDown}
           className="absolute left-0 top-[calc(100%+6px)] z-50 min-w-[180px] rounded-lg border border-border-subtle bg-surface-white shadow-md py-1 focus:outline-none"
         >
@@ -186,7 +188,7 @@ export default function DeviceSwitcher() {
               add
             </span>
             <span className="font-label-caps text-label-caps font-semibold text-secondary uppercase tracking-wide">
-              Request device
+              {t('devices.linkNewDevice')}
             </span>
           </button>
         </div>

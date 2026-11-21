@@ -1,7 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
 import SensorCard from './SensorCard';
+import { useLanguage } from '../../context/LanguageContext';
 
-export default function ReadingsPanel({ reading = null, previousReading = null, empty = false }) {
+export default function ReadingsPanel({ reading = null, _previousReading = null, empty = false }) {
+  const { t } = useLanguage();
   const [changedMetrics, setChangedMetrics] = useState({
     ammonia: false,
     methane: false,
@@ -51,7 +53,7 @@ export default function ReadingsPanel({ reading = null, previousReading = null, 
   return (
     <div className="space-y-3 h-full overflow-y-auto">
       <SensorCard
-        label="Ammonia (NH3)"
+        label={`${t('metrics.ammonia')} (NH3)`}
         value={reading?.ammonia ?? null}
         unit="ppm"
         zone={reading?.ammonia_zone ?? 'safe'}
@@ -59,7 +61,7 @@ export default function ReadingsPanel({ reading = null, previousReading = null, 
         changed={changedMetrics.ammonia}
       />
       <SensorCard
-        label="Methane (CH4)"
+        label={`${t('metrics.methane')} (CH4)`}
         value={reading?.methane ?? null}
         unit="ppm"
         zone={reading?.methane_zone ?? 'safe'}
@@ -67,7 +69,7 @@ export default function ReadingsPanel({ reading = null, previousReading = null, 
         changed={changedMetrics.methane}
       />
       <SensorCard
-        label="Humidity"
+        label={t('metrics.humidity')}
         value={reading?.humidity ?? null}
         unit="%"
         zone={reading?.humidity_zone ?? 'safe'}
@@ -75,7 +77,7 @@ export default function ReadingsPanel({ reading = null, previousReading = null, 
         changed={changedMetrics.humidity}
       />
       <SensorCard
-        label="Temperature"
+        label={t('metrics.temperature')}
         value={reading?.temperature ?? null}
         unit="°F"
         zone={reading?.temperature_zone ?? 'safe'}
@@ -84,7 +86,7 @@ export default function ReadingsPanel({ reading = null, previousReading = null, 
       />
       {empty && !reading && (
         <p className="pt-1 text-center text-xs text-secondary">
-          No readings received yet
+          {t('dashboard.emptyReadingsNote')}
         </p>
       )}
     </div>

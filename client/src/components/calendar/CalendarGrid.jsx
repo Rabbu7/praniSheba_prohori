@@ -1,11 +1,14 @@
 import React from 'react';
 import { getDhakaToday } from '../../utils/dateFormatter';
+import { useLanguage } from '../../context/LanguageContext';
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS_BN = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র', 'শনি'];
 
-function formatMonthLabel(month) {
+function formatMonthLabel(month, lang = 'en') {
   const [year, monthNumber] = month.split('-').map(Number);
-  return new Date(year, monthNumber - 1, 1).toLocaleString('en-US', {
+  const locale = lang === 'bn' ? 'bn-BD-u-nu-latn' : 'en-US';
+  return new Date(year, monthNumber - 1, 1).toLocaleString(locale, {
     month: 'long',
     year: 'numeric'
   });
@@ -28,6 +31,8 @@ export default function CalendarGrid({
   onDayClick,
   selectedDate = null
 }) {
+  const { t, language, isBangla } = useLanguage();
+  const weekdays = isBangla ? WEEKDAYS_BN : WEEKDAYS_EN;
   const [year, monthNumber] = month.split('-').map(Number);
   const firstDay = new Date(year, monthNumber - 1, 1).getDay();
   const daysInMonth = new Date(year, monthNumber, 0).getDate();
@@ -43,31 +48,31 @@ export default function CalendarGrid({
   while (cells.length % 7 !== 0) cells.push(null);
 
   return (
-    <section className="bg-surface-white border border-border-subtle rounded-lg p-5 shadow-sm" aria-label="Calendar month view">
+    <section className="bg-surface-white border border-border-subtle rounded-lg p-5 shadow-sm" aria-label={t('calendar.title')}>
       <div className="mb-5 flex items-center justify-between">
         <button
           type="button"
           className="flex h-9 w-9 items-center justify-center rounded-md text-secondary transition-colors hover:bg-surface-container-low hover:text-primary"
           onClick={() => onMonthChange(moveMonth(month, -1))}
-          aria-label="Previous month"
+          aria-label={t('calendar.prevMonth')}
         >
           <span className="material-symbols-outlined">chevron_left</span>
         </button>
         <h2 className="font-headline-md text-headline-md font-bold text-on-background">
-          {formatMonthLabel(month)}
+          {formatMonthLabel(month, language)}
         </h2>
         <button
           type="button"
           className="flex h-9 w-9 items-center justify-center rounded-md text-secondary transition-colors hover:bg-surface-container-low hover:text-primary"
           onClick={() => onMonthChange(moveMonth(month, 1))}
-          aria-label="Next month"
+          aria-label={t('calendar.nextMonth')}
         >
           <span className="material-symbols-outlined">chevron_right</span>
         </button>
       </div>
 
       <div className="mb-2 grid grid-cols-7 gap-2">
-        {WEEKDAYS.map((weekday) => (
+        {weekdays.map((weekday) => (
           <div key={weekday} className="py-2 text-center font-label-caps text-label-caps uppercase tracking-wider text-secondary">
             {weekday}
           </div>
@@ -101,7 +106,7 @@ export default function CalendarGrid({
               aria-label={`${cell.date}${hasData ? '' : ' (no readings)'}`}
             >
               <span>{cell.day}</span>
-              {hasData && <span className="mt-2 block text-[10px] uppercase tracking-wider opacity-60">Readings</span>}
+              {hasData && <span className="mt-2 block text-[10px] uppercase tracking-wider opacity-60">●</span>}
             </button>
           );
         })}

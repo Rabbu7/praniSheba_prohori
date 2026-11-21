@@ -6,7 +6,10 @@ import DayDetailCards from '../calendar/DayDetailCards';
 import ServerUnreachable from '../common/ServerUnreachable';
 import { getDhakaToday } from '../../utils/dateFormatter';
 import { isServerUnreachable } from '../../utils/isServerUnreachable';
+import { useLanguage } from '../../context/LanguageContext';
+
 export default function CalendarView({ deviceId }) {
+  const { translateError } = useLanguage();
   const [month, setMonth] = useState(() => {
     const today = getDhakaToday();
     return `${today.year}-${String(today.month).padStart(2, '0')}`;
@@ -21,7 +24,7 @@ export default function CalendarView({ deviceId }) {
     }
     return (
       <div className="rounded-lg border border-error/30 bg-surface-white p-8 text-center text-error">
-        {error.response?.data?.error?.message || 'Unable to load calendar'}
+        {translateError(error, 'calendar.loadError')}
       </div>
     );
   }

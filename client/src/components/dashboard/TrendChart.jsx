@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { formatChartDate } from '../../utils/dateFormatter';
 import useThresholds from '../../hooks/useThresholds';
+import { useLanguage } from '../../context/LanguageContext';
 
 const METRICS = [
   { id: 'ammonia', label: 'Ammonia', key: 'ammonia_avg', defaultUnit: 'ppm' },
@@ -65,6 +66,7 @@ function computeYDomain(metricKey, data, metricThresholds) {
 export default function TrendChart({ data = [], loading = false, _range = '7d' }) {
   const [selectedMetric, setSelectedMetric] = useState('ammonia');
   const { thresholds } = useThresholds();
+  const { t, language } = useLanguage();
 
   const currentMetric = useMemo(
     () => METRICS.find((m) => m.id === selectedMetric) || METRICS[0],
@@ -83,7 +85,7 @@ export default function TrendChart({ data = [], loading = false, _range = '7d' }
   if (loading) {
     return (
       <div className="w-full h-[420px] flex items-center justify-center text-secondary font-medium">
-        Loading chart…
+        {t('common.loading')}
       </div>
     );
   }
@@ -91,10 +93,12 @@ export default function TrendChart({ data = [], loading = false, _range = '7d' }
   if (!Array.isArray(data) || data.length === 0) {
     return (
       <div className="w-full h-[420px] flex items-center justify-center text-secondary font-medium">
-        No data available for chart
+        {t('dashboard.noReadings')}
       </div>
     );
   }
+
+  const metricLabel = t(`metrics.${selectedMetric}`);
 
   return (
     <div className="w-full flex flex-col">
@@ -115,7 +119,7 @@ export default function TrendChart({ data = [], loading = false, _range = '7d' }
                     : 'font-body-sm text-body-sm text-secondary hover:text-on-background pb-1 border-b-2 border-transparent transition-colors tab-underline cursor-pointer'
                 }
               >
-                {m.label}
+                {t(`metrics.${m.id}`)}
               </button>
             );
           })}
@@ -125,15 +129,15 @@ export default function TrendChart({ data = [], loading = false, _range = '7d' }
         <div className="flex items-center gap-3 text-body-sm text-secondary font-medium">
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-status-online" aria-hidden="true" />
-            Safe
+            {t('zones.safe')}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-status-warning" aria-hidden="true" />
-            Warning
+            {t('zones.warning')}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-status-danger" aria-hidden="true" />
-            Danger
+            {t('zones.danger')}
           </span>
         </div>
       </div>
@@ -145,7 +149,7 @@ export default function TrendChart({ data = [], loading = false, _range = '7d' }
             <CartesianGrid stroke="var(--color-chart-grid)" strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="date"
-              tickFormatter={formatChartDate}
+              tickFormatter={(date) => formatChartDate(date, language)}
               stroke="var(--color-outline)"
               fontSize={12}
               tickLine={false}
@@ -159,10 +163,10 @@ export default function TrendChart({ data = [], loading = false, _range = '7d' }
               axisLine={false}
             />
             <Tooltip
-              labelFormatter={(label) => formatChartDate(label)}
+              labelFormatter={(label) => formatChartDate(label, language)}
               formatter={(value) => [
                 `${typeof value === 'number' ? value : '—'}${unit ? ` ${unit}` : ''}`,
-                currentMetric.label,
+                metricLabel,
               ]}
               contentStyle={{
                 backgroundColor: 'var(--color-surface-white)',
@@ -201,7 +205,7 @@ export default function TrendChart({ data = [], loading = false, _range = '7d' }
             <Line
               type="monotone"
               dataKey={currentMetric.key}
-              name={unit ? `${currentMetric.label} (${unit})` : currentMetric.label}
+              name={unit ? `${metricLabel} (${unit})` : metricLabel}
               stroke="var(--color-primary)"
               strokeWidth={2}
               dot={false}

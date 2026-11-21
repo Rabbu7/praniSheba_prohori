@@ -6,10 +6,12 @@ import PasswordForm from '../components/profile/PasswordForm';
 import ManagerCard from '../components/profile/ManagerCard';
 import DistrictCard from '../components/profile/DistrictCard';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import useManagerOverview from '../hooks/useManagerOverview';
 
 export default function Profile() {
   const { user, setUser } = useAuth();
+  const { t } = useLanguage();
   const role = user?.role || 'farmer';
   const isFarmer = role === 'farmer';
   const isManager = role === 'manager';
@@ -21,15 +23,15 @@ export default function Profile() {
       <Sidebar />
 
       <main className="flex-1 md:ml-sidebar-width mt-[64px] md:mt-0 h-full overflow-y-auto w-full bg-background relative">
-        <Header title="Profile" showDevice={isFarmer && hasApprovedDevices} />
+        <Header title={t('nav.profile')} showDevice={isFarmer && hasApprovedDevices} />
 
         <div className="p-container-padding md:p-8 max-w-[1200px] mx-auto pb-24 md:pb-8">
           <div className="mb-6">
             <h2 className="font-headline-md text-headline-md font-bold text-on-background">
-              Account Settings
+              {t('profile.title')}
             </h2>
             <p className="text-secondary text-body-sm mt-1">
-              Manage your personal information and account credentials.
+              {t('profile.subtitle')}
             </p>
           </div>
 

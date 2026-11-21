@@ -1,6 +1,10 @@
 import React from 'react';
+import { useLanguage } from '../../context/LanguageContext';
 
-export default function ServerUnreachable({ onRetry, message = 'Unable to reach Prohori server' }) {
+export default function ServerUnreachable({ onRetry, message }) {
+  const { t } = useLanguage();
+  const displayMessage = message || t('common.serverUnreachableTitle');
+
   return (
     <div
       role="alert"
@@ -9,7 +13,7 @@ export default function ServerUnreachable({ onRetry, message = 'Unable to reach 
       <span className="material-symbols-outlined mb-2 text-3xl text-error" aria-hidden="true">
         cloud_off
       </span>
-      <p className="text-sm font-medium text-error">{message}</p>
+      <p className="text-sm font-medium text-error">{displayMessage}</p>
       {onRetry && (
         <button
           type="button"
@@ -19,7 +23,7 @@ export default function ServerUnreachable({ onRetry, message = 'Unable to reach 
           <span className="material-symbols-outlined text-base" aria-hidden="true">
             refresh
           </span>
-          Try again
+          {t('common.tryAgain')}
         </button>
       )}
     </div>

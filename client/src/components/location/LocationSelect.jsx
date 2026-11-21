@@ -1,5 +1,6 @@
 import React from 'react';
 import useLocations from '../../hooks/useLocations';
+import { useLanguage } from '../../context/LanguageContext';
 
 const selectClass = 'mt-2 w-full rounded-lg border border-outline-variant bg-surface-white px-4 py-3 text-body-lg text-on-background outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10 disabled:cursor-not-allowed disabled:bg-surface-container-low disabled:text-secondary/60';
 
@@ -13,6 +14,7 @@ export default function LocationSelect({
   spacingClass = 'space-y-4',
 }) {
   const { locations, loading } = useLocations();
+  const { t, translateLocation } = useLanguage();
 
   const divisions = locations ? Object.keys(locations) : [];
   const districts = (locations && division && locations[division]) || [];
@@ -37,7 +39,7 @@ export default function LocationSelect({
     <div className={spacingClass}>
       <div>
         <label className="text-sm font-semibold text-on-background" htmlFor={`${idPrefix}-division`}>
-          Division
+          {t('auth.division')}
         </label>
         <select
           id={`${idPrefix}-division`}
@@ -48,10 +50,10 @@ export default function LocationSelect({
           className={selectClass}
           required={required}
         >
-          <option value="">{loading ? 'Loading divisions...' : 'Select Division'}</option>
+          <option value="">{loading ? t('common.loading') : t('auth.selectDivision')}</option>
           {divisions.map((div) => (
             <option key={div} value={div}>
-              {div}
+              {translateLocation(div, 'division')}
             </option>
           ))}
         </select>
@@ -59,7 +61,7 @@ export default function LocationSelect({
 
       <div>
         <label className="text-sm font-semibold text-on-background" htmlFor={`${idPrefix}-district`}>
-          District
+          {t('auth.district')}
         </label>
         <select
           id={`${idPrefix}-district`}
@@ -70,10 +72,10 @@ export default function LocationSelect({
           className={selectClass}
           required={required}
         >
-          <option value="">{division ? 'Select District' : 'Select a division first'}</option>
+          <option value="">{division ? t('auth.selectDistrict') : t('auth.selectDivision')}</option>
           {districts.map((dist) => (
             <option key={dist} value={dist}>
-              {dist}
+              {translateLocation(dist, 'district')}
             </option>
           ))}
         </select>

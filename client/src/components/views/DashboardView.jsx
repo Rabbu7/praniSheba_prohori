@@ -7,9 +7,11 @@ import ReadingsPanel from '../dashboard/ReadingsPanel';
 import HistoryTabs from '../dashboard/HistoryTabs';
 import TrendChart from '../dashboard/TrendChart';
 import { isServerUnreachable } from '../../utils/isServerUnreachable';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function DashboardView({ deviceId }) {
   const { reading, status, lastUpdated, error } = useDeviceStatus(deviceId);
+  const { t, translateError } = useLanguage();
   const [range, setRange] = useState('7d');
   const { data, loading } = useDailyAverages(range, deviceId);
   const isNoReadings = error?.response?.status === 404
@@ -21,7 +23,7 @@ export default function DashboardView({ deviceId }) {
     }
     return (
       <div className="rounded-lg border border-error/30 bg-surface-white p-8 text-center text-error">
-        {error.response?.data?.error?.message || 'Unable to load dashboard'}
+        {translateError(error, 'dashboard.noReadings')}
       </div>
     );
   }
@@ -31,7 +33,7 @@ export default function DashboardView({ deviceId }) {
       <div className="lg:col-span-3"><ReadingsPanel reading={reading} empty={isNoReadings} /></div>
       <section className="flex flex-col rounded-lg border border-border-subtle bg-surface-white p-6 lg:col-span-9">
         <div className="mb-6 flex items-center justify-between">
-          <h3 className="flex items-center gap-2 font-headline-md text-headline-md font-bold text-on-background"><span className="material-symbols-outlined text-primary">monitoring</span>Environmental Trends Analysis</h3>
+          <h3 className="flex items-center gap-2 font-headline-md text-headline-md font-bold text-on-background"><span className="material-symbols-outlined text-primary">monitoring</span>{t('dashboard.historicalTrends')}</h3>
           <div className="flex items-center gap-3"><StatusBadge status={status} /><HistoryTabs range={range} onChange={setRange} /></div>
         </div>
         <TrendChart data={data} loading={loading} range={range} />

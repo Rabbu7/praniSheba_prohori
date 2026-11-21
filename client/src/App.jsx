@@ -166,14 +166,14 @@ export default function App() {
         <Route path="/profile" element={<ProfileGuard><Profile /></ProfileGuard>} />
 
         {/* Manager routes */}
-        <Route path="/manager" element={<ManagerGuard><ManagerOverview title="Overview" /></ManagerGuard>} />
+        <Route path="/manager" element={<ManagerGuard><ManagerOverview /></ManagerGuard>} />
         <Route path="/manager/farmers" element={<ManagerGuard><ManagerFarmers /></ManagerGuard>} />
         <Route path="/manager/farmers/:farmerId" element={<ManagerGuard><ManagerFarmerDetail /></ManagerGuard>} />
         <Route path="/manager/farmers/:farmerId/devices/:deviceId" element={<ManagerGuard><ManagerFarmerDevice /></ManagerGuard>} />
         <Route path="/manager/requests" element={<ManagerGuard><ManagerRequests /></ManagerGuard>} />
 
         {/* Admin routes */}
-        <Route path="/admin" element={<AdminGuard><AdminOverview title="Overview" /></AdminGuard>} />
+        <Route path="/admin" element={<AdminGuard><AdminOverview /></AdminGuard>} />
         <Route path="/admin/managers" element={<AdminGuard><AdminManagers /></AdminGuard>} />
 
         {/* Fallback to role home */}

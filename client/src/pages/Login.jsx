@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthShell from '../components/auth/AuthShell';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { roleHome } from '../utils/roleHome';
 
 const inputClass = 'mt-2 w-full rounded-lg border border-outline-variant bg-surface-white px-4 py-3 text-body-lg text-on-background outline-none transition placeholder:text-secondary/60 focus:border-primary focus:ring-4 focus:ring-primary/10';
@@ -9,6 +10,7 @@ const inputClass = 'mt-2 w-full rounded-lg border border-outline-variant bg-surf
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { t, translateError } = useLanguage();
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -21,7 +23,7 @@ export default function Login() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!form.email.trim() || !form.password) {
-      setError('Email and password are required.');
+      setError(t('errors.INVALID_CREDENTIALS'));
       return;
     }
 
@@ -30,8 +32,8 @@ export default function Login() {
     try {
       const user = await login(form.email, form.password);
       navigate(roleHome(user));
-    } catch {
-      setError('Invalid email or password');
+    } catch (err) {
+      setError(translateError(err, 'errors.INVALID_CREDENTIALS'));
     } finally {
       setSubmitting(false);
     }
@@ -39,13 +41,12 @@ export default function Login() {
 
   return (
     <AuthShell
-      eyebrow="Welcome back"
-      title="Sign in to Prohori"
+      eyebrow={t('auth.loginTitle')}
+      title={`${t('auth.signIn')} - ${t('common.appName')}`}
       footer={(
         <>
-          Don&apos;t have an account?{' '}
           <Link className="font-semibold text-primary hover:underline" to="/register">
-            Register
+            {t('auth.dontHaveAccount')}
           </Link>
         </>
       )}
@@ -58,7 +59,7 @@ export default function Login() {
         )}
         <div>
           <label className="text-sm font-semibold text-on-background" htmlFor="login-email">
-            Email address
+            {t('auth.email')}
           </label>
           <input
             className={inputClass}
@@ -74,7 +75,7 @@ export default function Login() {
         <div>
           <div className="flex items-center justify-between gap-4">
             <label className="text-sm font-semibold text-on-background" htmlFor="login-password">
-              Password
+              {t('auth.password')}
             </label>
           </div>
           <input
@@ -83,7 +84,7 @@ export default function Login() {
             name="password"
             type="password"
             autoComplete="current-password"
-            placeholder="Enter your password"
+            placeholder="••••••••"
             value={form.password}
             onChange={updateField}
           />
@@ -93,7 +94,7 @@ export default function Login() {
           type="submit"
           disabled={submitting}
         >
-          {submitting ? 'Signing in...' : 'Sign in'}
+          {submitting ? t('auth.loggingIn') : t('auth.signIn')}
         </button>
       </form>
     </AuthShell>

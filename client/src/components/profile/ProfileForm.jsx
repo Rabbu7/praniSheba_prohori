@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import LocationSelect from '../location/LocationSelect';
 import { updateProfile } from '../../services/api';
+import { useLanguage } from '../../context/LanguageContext';
 
 const inputClass = 'mt-2 w-full rounded-lg border border-outline-variant bg-surface-white px-4 py-3 text-body-lg text-on-background outline-none transition placeholder:text-secondary/60 focus:border-primary focus:ring-4 focus:ring-primary/10';
 const readonlyInputClass = 'mt-2 w-full rounded-lg border border-border-subtle bg-surface-container-low px-4 py-3 text-body-lg text-secondary outline-none cursor-not-allowed';
@@ -9,6 +10,7 @@ export default function ProfileForm({ user, setUser }) {
   const role = user?.role || 'farmer';
   const isFarmer = role === 'farmer';
   const isManager = role === 'manager';
+  const { t, translateLocation, translateError } = useLanguage();
 
   const [form, setForm] = useState({
     firstName: user?.firstName || '',
@@ -52,12 +54,12 @@ export default function ProfileForm({ user, setUser }) {
     event.preventDefault();
 
     if (!form.firstName.trim() || !form.lastName.trim()) {
-      setError('First name and last name are required.');
+      setError(t('errors.FIELD_REQUIRED'));
       return;
     }
 
     if (isFarmer && (!form.division.trim() || !form.district.trim())) {
-      setError('Division and district are required.');
+      setError(t('errors.FIELD_REQUIRED'));
       return;
     }
 
@@ -65,11 +67,11 @@ export default function ProfileForm({ user, setUser }) {
     if (trimmedPhone) {
       const sanitizedPhone = trimmedPhone.replace(/[\s-]/g, '');
       if (!/^\+?[0-9]{10,15}$/.test(sanitizedPhone)) {
-        setError('Invalid phone number format.');
+        setError(t('errors.PHONE_INVALID'));
         return;
       }
     } else if (isManager) {
-      setError('Phone number is required for managers.');
+      setError(t('errors.FIELD_REQUIRED'));
       return;
     }
 
@@ -93,7 +95,7 @@ export default function ProfileForm({ user, setUser }) {
       setUser(updated);
       setSuccess(true);
     } catch (err) {
-      setError(err.response?.data?.error?.message || 'Failed to update profile.');
+      setError(translateError(err, 'common.failed'));
     } finally {
       setSubmitting(false);
     }
@@ -102,14 +104,14 @@ export default function ProfileForm({ user, setUser }) {
   return (
     <div className="bg-surface-white border border-border-subtle rounded-lg p-6 shadow-xs">
       <h3 className="font-headline-md text-headline-md font-bold text-on-background mb-4">
-        Personal Information
+        {t('profile.personalInfo')}
       </h3>
 
       <form className="space-y-4" onSubmit={handleSubmit} noValidate>
         {success && (
           <div className="rounded-lg border border-primary/20 bg-primary-fixed/30 px-4 py-3 text-sm text-on-primary-fixed flex items-center gap-2">
             <span className="material-symbols-outlined text-primary text-[18px]">check</span>
-            <span>Profile updated</span>
+            <span>{t('profile.profileUpdated')}</span>
           </div>
         )}
 
@@ -122,7 +124,7 @@ export default function ProfileForm({ user, setUser }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-semibold text-on-background" htmlFor="profile-first-name">
-              First name
+              {t('auth.firstName')}
             </label>
             <input
               className={inputClass}
@@ -136,7 +138,7 @@ export default function ProfileForm({ user, setUser }) {
 
           <div>
             <label className="text-sm font-semibold text-on-background" htmlFor="profile-last-name">
-              Last name
+              {t('auth.lastName')}
             </label>
             <input
               className={inputClass}
@@ -151,7 +153,7 @@ export default function ProfileForm({ user, setUser }) {
 
         <div>
           <label className="text-sm font-semibold text-on-background" htmlFor="profile-email">
-            Email address (read-only)
+            {t('auth.email')}
           </label>
           <input
             className={readonlyInputClass}
@@ -165,7 +167,7 @@ export default function ProfileForm({ user, setUser }) {
 
         <div>
           <label className="text-sm font-semibold text-on-background" htmlFor="profile-phone">
-            Phone number {isManager ? '(required)' : '(optional)'}
+            {t('auth.phone')} {isManager ? `(${t('common.status')})` : ''}
           </label>
           <input
             className={inputClass}
@@ -191,23 +193,23 @@ export default function ProfileForm({ user, setUser }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-semibold text-on-background" htmlFor="profile-division-ro">
-                Division (assigned by admin)
+                {t('auth.division')}
               </label>
               <input
                 className={readonlyInputClass}
                 id="profile-division-ro"
-                value={form.division || '—'}
+                value={translateLocation(form.division, 'division') || '—'}
                 disabled
               />
             </div>
             <div>
               <label className="text-sm font-semibold text-on-background" htmlFor="profile-district-ro">
-                District (assigned by admin)
+                {t('auth.district')}
               </label>
               <input
                 className={readonlyInputClass}
                 id="profile-district-ro"
-                value={form.district || '—'}
+                value={translateLocation(form.district, 'district') || '—'}
                 disabled
               />
             </div>
@@ -220,7 +222,7 @@ export default function ProfileForm({ user, setUser }) {
             type="submit"
             disabled={submitting}
           >
-            {submitting ? 'Saving...' : 'Save changes'}
+            {submitting ? t('common.saving') : t('profile.saveChanges')}
           </button>
         </div>
       </form>

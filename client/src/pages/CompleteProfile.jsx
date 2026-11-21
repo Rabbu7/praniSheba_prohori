@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AuthShell from '../components/auth/AuthShell';
 import LocationSelect from '../components/location/LocationSelect';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { updateProfile } from '../services/api';
 
 const inputClass = 'mt-2 w-full rounded-lg border border-outline-variant bg-surface-white px-4 py-3 text-body-lg text-on-background outline-none transition placeholder:text-secondary/60 focus:border-primary focus:ring-4 focus:ring-primary/10';
@@ -10,6 +11,7 @@ const inputClass = 'mt-2 w-full rounded-lg border border-outline-variant bg-surf
 export default function CompleteProfile() {
   const navigate = useNavigate();
   const { user, setUser } = useAuth();
+  const { t, translateError } = useLanguage();
   const [form, setForm] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
@@ -35,12 +37,12 @@ export default function CompleteProfile() {
     event.preventDefault();
 
     if (!form.firstName.trim() || !form.lastName.trim()) {
-      setError('First name and last name are required.');
+      setError(t('errors.FIELD_REQUIRED'));
       return;
     }
 
     if (!form.division.trim() || !form.district.trim()) {
-      setError('Division and district are required.');
+      setError(t('errors.INVALID_LOCATION'));
       return;
     }
 
@@ -48,7 +50,7 @@ export default function CompleteProfile() {
     if (trimmedPhone) {
       const sanitizedPhone = trimmedPhone.replace(/[\s-]/g, '');
       if (!/^\+?[0-9]{10,15}$/.test(sanitizedPhone)) {
-        setError('Invalid phone number format.');
+        setError(t('errors.PHONE_INVALID'));
         return;
       }
     }
@@ -76,7 +78,7 @@ export default function CompleteProfile() {
         navigate('/devices');
       }
     } catch (requestError) {
-      setError(requestError.response?.data?.error?.message || 'Unable to update profile.');
+      setError(translateError(requestError, 'errors.UNKNOWN_ERROR'));
     } finally {
       setSubmitting(false);
     }
@@ -84,9 +86,9 @@ export default function CompleteProfile() {
 
   return (
     <AuthShell
-      eyebrow="One more step"
-      title="Complete your profile"
-      footer={<span>Please provide your details to continue using Prohori.</span>}
+      eyebrow={t('auth.completeProfileTitle')}
+      title={t('auth.completeProfileTitle')}
+      footer={<span>{t('auth.completeProfileSubtitle')}</span>}
     >
       <form className="space-y-4" onSubmit={handleSubmit} noValidate>
         {error && (
@@ -98,7 +100,7 @@ export default function CompleteProfile() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-semibold text-on-background" htmlFor="complete-first-name">
-              First name
+              {t('auth.firstName')}
             </label>
             <input
               className={inputClass}
@@ -106,7 +108,7 @@ export default function CompleteProfile() {
               name="firstName"
               type="text"
               autoComplete="given-name"
-              placeholder="First name"
+              placeholder={t('auth.firstName')}
               value={form.firstName}
               onChange={updateField}
             />
@@ -114,7 +116,7 @@ export default function CompleteProfile() {
 
           <div>
             <label className="text-sm font-semibold text-on-background" htmlFor="complete-last-name">
-              Last name
+              {t('auth.lastName')}
             </label>
             <input
               className={inputClass}
@@ -122,7 +124,7 @@ export default function CompleteProfile() {
               name="lastName"
               type="text"
               autoComplete="family-name"
-              placeholder="Last name"
+              placeholder={t('auth.lastName')}
               value={form.lastName}
               onChange={updateField}
             />
@@ -131,7 +133,7 @@ export default function CompleteProfile() {
 
         <div>
           <label className="text-sm font-semibold text-on-background" htmlFor="complete-phone">
-            Phone number (optional)
+            {t('auth.phone')}
           </label>
           <input
             className={inputClass}
@@ -157,7 +159,7 @@ export default function CompleteProfile() {
           type="submit"
           disabled={submitting}
         >
-          {submitting ? 'Saving profile...' : 'Save and continue'}
+          {submitting ? t('auth.updating') : t('auth.saveAndContinue')}
         </button>
       </form>
     </AuthShell>

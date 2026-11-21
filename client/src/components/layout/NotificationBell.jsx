@@ -2,12 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useDevice } from '../../context/DeviceContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { formatRelativeTime } from '../../utils/dateFormatter';
-
-function capitalize(val) {
-  if (!val || typeof val !== 'string') return '';
-  return val.charAt(0).toUpperCase() + val.slice(1);
-}
 
 function getMetricUnit(metric) {
   if (metric === 'ammonia' || metric === 'methane') return 'ppm';
@@ -33,6 +29,7 @@ export default function NotificationBell({
 }) {
   const { user } = useAuth();
   const { selectDevice } = useDevice();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
 
   const [open, setOpen] = useState(false);
@@ -114,7 +111,7 @@ export default function NotificationBell({
   };
 
   const badgeText = unreadCount > 9 ? '9+' : unreadCount;
-  const ariaLabel = unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications';
+  const ariaLabel = unreadCount > 0 ? `${t('alerts.title')}, ${unreadCount} ${t('alerts.unread')}` : t('alerts.title');
 
   return (
     <div className="relative inline-flex items-center">
@@ -140,7 +137,7 @@ export default function NotificationBell({
           ref={menuRef}
           role="menu"
           tabIndex={-1}
-          aria-label="Notifications"
+          aria-label={t('alerts.title')}
           onKeyDown={handleMenuKeyDown}
           className={`absolute top-full mt-2 z-50 bg-surface-white rounded-lg shadow-lg border border-border-subtle overflow-hidden flex flex-col ${
             variant === 'mobile'
@@ -151,11 +148,11 @@ export default function NotificationBell({
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle bg-surface">
             <span className="font-headline-md text-body-sm font-semibold text-on-background">
-              Notifications
+              {t('alerts.title')}
             </span>
             {unreadCount > 0 && (
               <span className="text-xs text-secondary font-medium">
-                {unreadCount} unread
+                {unreadCount} {t('alerts.unread')}
               </span>
             )}
           </div>
@@ -163,19 +160,21 @@ export default function NotificationBell({
           {/* List area */}
           <div className="max-h-96 overflow-y-auto divide-y divide-border-subtle">
             {loading && alerts.length === 0 && (
-              <div className="p-4 text-center text-body-sm text-secondary">Loading...</div>
+              <div className="p-4 text-center text-body-sm text-secondary">{t('common.loading')}</div>
             )}
             {error && alerts.length === 0 && (
-              <div className="p-4 text-center text-body-sm text-error">Unable to load alerts</div>
+              <div className="p-4 text-center text-body-sm text-error">{t('alerts.unableToLoad')}</div>
             )}
             {!loading && !error && alerts.length === 0 && (
-              <div className="p-4 text-center text-body-sm text-secondary">No alerts yet.</div>
+              <div className="p-4 text-center text-body-sm text-secondary">{t('alerts.noAlerts')}</div>
             )}
 
             {alerts.slice(0, 10).map((alert) => {
               const dotClass = getZoneDotClass(alert.zone);
               const unit = getMetricUnit(alert.metric);
               const isUnread = !alert.read;
+              const metricLabel = t(`metrics.${alert.metric}`);
+              const zoneLabel = t(`zones.${alert.zone}`);
 
               return (
                 <button
@@ -199,14 +198,14 @@ export default function NotificationBell({
                           isUnread ? 'font-semibold' : 'font-medium'
                         }`}
                       >
-                        {capitalize(alert.metric)} {capitalize(alert.zone)}
+                        {metricLabel} {zoneLabel}
                       </span>
                       <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant">
                         {alert.deviceId}
                       </span>
                       {alert.resolvedAt && (
                         <span className="text-[11px] font-medium text-status-online bg-status-online/10 px-1.5 py-0.5 rounded">
-                          Resolved
+                          {t('alerts.resolved')}
                         </span>
                       )}
                     </div>
@@ -215,7 +214,7 @@ export default function NotificationBell({
                         {alert.value} {unit}
                       </span>
                       <span className="text-xs text-on-surface-variant">
-                        {formatRelativeTime(alert.createdAt)}
+                        {formatRelativeTime(alert.createdAt, language)}
                       </span>
                     </div>
                   </div>
@@ -232,7 +231,7 @@ export default function NotificationBell({
               disabled={unreadCount === 0}
               className="text-body-sm font-medium text-primary hover:underline disabled:text-outline disabled:no-underline disabled:cursor-not-allowed px-3 py-1.5 focus:outline-none"
             >
-              Mark all as read
+              {t('alerts.markAllRead')}
             </button>
           </div>
         </div>

@@ -3,12 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import AuthShell from '../components/auth/AuthShell';
 import LocationSelect from '../components/location/LocationSelect';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const inputClass = 'mt-2 w-full rounded-lg border border-outline-variant bg-surface-white px-4 py-3 text-body-lg text-on-background outline-none transition placeholder:text-secondary/60 focus:border-primary focus:ring-4 focus:ring-primary/10';
 
 export default function Register() {
   const navigate = useNavigate();
   const { register } = useAuth();
+  const { t, translateError } = useLanguage();
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -44,17 +46,17 @@ export default function Register() {
       || !form.password
       || !form.confirmPassword
     ) {
-      setError('All fields are required.');
+      setError(t('errors.FIELD_REQUIRED'));
       return;
     }
 
     if (form.password.length < 8) {
-      setError('Password must be at least 8 characters.');
+      setError(t('auth.passwordMinLength'));
       return;
     }
 
     if (form.password !== form.confirmPassword) {
-      setError('Passwords do not match.');
+      setError(t('auth.passwordMismatch'));
       return;
     }
 
@@ -72,7 +74,7 @@ export default function Register() {
       );
       navigate('/devices');
     } catch (requestError) {
-      setError(requestError.response?.data?.error?.message || 'Unable to create your account. Please try again.');
+      setError(translateError(requestError, 'errors.UNKNOWN_ERROR'));
     } finally {
       setSubmitting(false);
     }
@@ -80,13 +82,12 @@ export default function Register() {
 
   return (
     <AuthShell
-      eyebrow="Get started"
-      title="Create your Prohori account"
+      eyebrow={t('auth.registerTitle')}
+      title={`${t('auth.signUp')} - ${t('common.appName')}`}
       footer={(
         <>
-          Already have an account?{' '}
           <Link className="font-semibold text-primary hover:underline" to="/login">
-            Log in
+            {t('auth.alreadyHaveAccount')}
           </Link>
         </>
       )}
@@ -101,7 +102,7 @@ export default function Register() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-semibold text-on-background" htmlFor="register-first-name">
-              First name
+              {t('auth.firstName')}
             </label>
             <input
               className={inputClass}
@@ -109,7 +110,7 @@ export default function Register() {
               name="firstName"
               type="text"
               autoComplete="given-name"
-              placeholder="First name"
+              placeholder={t('auth.firstName')}
               value={form.firstName}
               onChange={updateField}
             />
@@ -117,7 +118,7 @@ export default function Register() {
 
           <div>
             <label className="text-sm font-semibold text-on-background" htmlFor="register-last-name">
-              Last name
+              {t('auth.lastName')}
             </label>
             <input
               className={inputClass}
@@ -125,7 +126,7 @@ export default function Register() {
               name="lastName"
               type="text"
               autoComplete="family-name"
-              placeholder="Last name"
+              placeholder={t('auth.lastName')}
               value={form.lastName}
               onChange={updateField}
             />
@@ -134,7 +135,7 @@ export default function Register() {
 
         <div>
           <label className="text-sm font-semibold text-on-background" htmlFor="register-email">
-            Email address
+            {t('auth.email')}
           </label>
           <input
             className={inputClass}
@@ -157,7 +158,7 @@ export default function Register() {
 
         <div>
           <label className="text-sm font-semibold text-on-background" htmlFor="register-password">
-            Password
+            {t('auth.password')}
           </label>
           <input
             className={inputClass}
@@ -165,7 +166,7 @@ export default function Register() {
             name="password"
             type="password"
             autoComplete="new-password"
-            placeholder="At least 8 characters"
+            placeholder="••••••••"
             value={form.password}
             onChange={updateField}
           />
@@ -173,7 +174,7 @@ export default function Register() {
 
         <div>
           <label className="text-sm font-semibold text-on-background" htmlFor="register-confirm-password">
-            Confirm password
+            {t('auth.confirmPassword')}
           </label>
           <input
             className={inputClass}
@@ -181,7 +182,7 @@ export default function Register() {
             name="confirmPassword"
             type="password"
             autoComplete="new-password"
-            placeholder="Repeat your password"
+            placeholder="••••••••"
             value={form.confirmPassword}
             onChange={updateField}
           />
@@ -192,7 +193,7 @@ export default function Register() {
           type="submit"
           disabled={submitting}
         >
-          {submitting ? 'Creating account...' : 'Create account'}
+          {submitting ? t('auth.registering') : t('auth.signUp')}
         </button>
       </form>
     </AuthShell>

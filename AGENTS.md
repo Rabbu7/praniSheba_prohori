@@ -10,13 +10,36 @@
 Reference product: https://iot.pranisheba.com.bd/#/home
 Company site: https://www.pranisheba.com.bd/-eng
 
-## Current Phase: Phase 9 — Hardening, Cleanup, Reliability and Account Management (COMPLETE)
+## Current Phase: Phase 10 — Localization (English and Bangla) (COMPLETE)
 
-Phase 9 hardens security and reliability, removes leftover cleanup candidates, adds `error.code` for Phase 10 localization, and adds account/device management features. **No deployment. No new roles.** Automated tests are deferred to Phase 11, so every new endpoint in Phase 9 ships with scripted acceptance checks recorded in `PAGES.md`.
+Phase 10 adds full bilingual support (English and Bangla) across the entire application interface, including authentication, farmer dashboard and views, manager views, admin views, profile views, dialogs, error messages, and location selectors.
 
-### Phase 9 stages
+### Phase 10 stages
 
-- **9a** Docs (DONE) · **9b** Security hardening (DONE) · **9c** Cleanup (DONE) · **9d** Reliability and robustness (DONE) · **9e** Account and device management (DONE) · **9f** Verification (DONE) · **9g** Follow-up fixes (DONE)
+- **10a** Docs (DONE) · **10b** Infrastructure (DONE) · **10c** Translate pages by group (DONE) · **10d** Server messages and locations (DONE) · **10e** Verification (DONE)
+
+### Phase 10 decisions (authoritative)
+
+1. **Languages supported:** English (`en`, default) and Bangla (`bn`).
+2. **Storage:** Client-side only in `localStorage` under key `prohori_lang`. Persists across reloads and authentication transitions. No backend schema change, no session cookies.
+3. **Numerals & units:** Sensor reading numbers, chart axis tick numbers, calendar min/max cell numbers, and physical units (`ppm`, `%`, `°F`) stay in Latin digits across both languages for readability and IoT consistency.
+4. **Core domain terminology:**
+   - Metrics: Ammonia (`অ্যামোনিয়া`), Methane (`মিথেন`), Humidity (`আর্দ্রতা`), Temperature (`তাপমাত্রা`).
+   - Zones / Alert levels: Safe (`নিরাপদ`), Warning (`সতর্কতা`), Danger (`বিপদ`).
+   - Devices / Requests: Approved (`অনুমোদিত`), Pending (`অপেক্ষমান`), Rejected (`প্রত্যাখ্যাত`), Unlinked (`সংযোগ বিচ্ছিন্ন`).
+5. **Typography & fonts:** Google Font `Noto Sans Bengali` imported in `client/index.css` and added to the font-sans stack to ensure clean Bangla rendering on all devices without layout distortion.
+6. **Date and time formatting:** `dateFormatter.js` accepts active locale (`en-US` vs `bn-BD`) while preserving UTC+6 `Asia/Dhaka` calculations and day boundaries. Relative time (alerts, reading cards) localized.
+7. **Canonical location storage:** Division and district values sent to and stored in the database remain canonical English strings (`server/src/utils/locations.js`). Display names in dropdowns and profile tables are translated through localized mappings.
+8. **Error translation:** Server errors formatted as `{ error: { code, message, status } }` are translated via `translateError(err)` matching `error.code` to dictionary keys in `locales/{lang}.json`, falling back to `error.message`.
+9. **No external i18n bloat:** Pure React context (`LanguageContext`) with nested dictionary lookup, parameterized strings (`t('key', { var })`), and pluralization support. No external i18next runtime dependencies.
+
+## Previous Phase: Phase 9 — Hardening, Cleanup, Reliability and Account Management (COMPLETE)
+
+Phase 9 hardened security and reliability, removed leftover cleanup candidates, added `error.code` for Phase 10 localization, and added account/device management features.
+
+### Phase 9 stages (all done)
+
+- **9a** Docs · **9b** Security hardening · **9c** Cleanup · **9d** Reliability and robustness · **9e** Account and device management · **9f** Verification · **9g** Follow-up fixes
 
 ### Phase 9 decisions (authoritative)
 
@@ -479,10 +502,9 @@ prohori-dashboard/
 
 *(None — cleared in Phase 9c.)*
 
-## Out of Scope (Deferred beyond Phase 9)
+## Out of Scope (Deferred beyond Phase 10)
 
 - Deployment (deferred to Final phase)
-- Localization (English & Bangla — planned for Phase 10)
 - Automated unit/API test suite (planned for Phase 11)
 - Offline-device alerts (planned for Phase 11+)
 - Messaging between farmer and manager
@@ -507,3 +529,4 @@ prohori-dashboard/
 - **Phase 7 (COMPLETE)**: RBAC — roles (admin / manager / farmer), district-based single manager, farmer registration with name + division/district, device-request approval (dialog-based request flow), manager panel, admin panel (manager add/delete), profile pages for all roles, phone + call link.
 - **Phase 8 (COMPLETE)**: Real Asia/Dhaka time windows and indexes, persisted debounced alerts (engine, `/api/alerts`, per-user read state, live socket events), notification bell for farmers and managers, trend chart metric selector with threshold bands and `GET /api/meta/thresholds`.
 - **Phase 9 (COMPLETE)**: Security hardening (rate limiting, `helmet`, body limit, Mongo operator sanitization, forced first-login password change, timing-safe login, socket revalidation, startup env validation, secrets hygiene), cleanup, reliability (stable `error.code`, graceful shutdown, structured redacting logger, `/health` DB check, React `ErrorBoundary` + `ServerUnreachable`, `farmerId` on alerts), and account/device management (device nicknames, device unlink, removed-manager restore, admin manager password reset, Reading Log CSV export).
+- **Phase 10 (COMPLETE)**: Localization (English and Bangla) — zero-dependency `LanguageContext` + `prohori_lang` persistence, `Noto Sans Bengali` font integration, identical English and Bangla JSON dictionaries (351 keys each), `LanguageToggle` header/shell integration, locale-aware date/relative time formatting with Latin numerals, complete translations across all authentication, farmer, manager, admin, and profile views, localized divisions/districts, and localized server error codes.

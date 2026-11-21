@@ -3,27 +3,11 @@ import { Link } from 'react-router-dom';
 import StatusBadge from '../common/StatusBadge';
 import DeviceSwitcher from './DeviceSwitcher';
 import NotificationBell from './NotificationBell';
+import LanguageToggle from '../common/LanguageToggle';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import useAlerts from '../../hooks/useAlerts';
-
-function formatRelativeTime(date) {
-  if (!date) return '—';
-  if (typeof date === 'string' && !date.includes('T') && !date.includes('-')) {
-    return date;
-  }
-  const now = new Date();
-  const updated = new Date(date);
-  const diffInSeconds = Math.floor((now - updated) / 1000);
-
-  if (Number.isNaN(diffInSeconds) || diffInSeconds < 0) return 'Just now';
-  if (diffInSeconds < 60) return 'Just now';
-  const mins = Math.floor(diffInSeconds / 60);
-  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? '' : 's'} ago`;
-}
+import { formatRelativeTime } from '../../utils/dateFormatter';
 
 export default function Header({
   title = 'Dashboard',
@@ -33,23 +17,25 @@ export default function Header({
   showDevice = true,
 }) {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const isAlertsRole = user?.role === 'farmer' || user?.role === 'manager';
   const alertsState = useAlerts(isAlertsRole);
-  const formattedTime = formatRelativeTime(lastUpdated);
+  const formattedTime = formatRelativeTime(lastUpdated, language);
 
   return (
     <>
       {/* Top App Bar (Mobile Only) */}
       <header className="md:hidden flex justify-between items-center px-container-padding py-4 w-full border-b border-border-subtle bg-surface-white absolute top-0 z-20 h-[64px]">
         <div className="flex items-center gap-2">
-          <span className="font-headline-md text-headline-md font-bold text-on-background">Prohori</span>
+          <span className="font-headline-md text-headline-md font-bold text-on-background">{t('common.appName')}</span>
           {showDevice && mobileSwitcher && (
             <div className="ml-2">
               <DeviceSwitcher />
             </div>
           )}
         </div>
-        <div className="flex items-center gap-4 text-on-surface-variant">
+        <div className="flex items-center gap-3 text-on-surface-variant">
+          <LanguageToggle />
           {isAlertsRole ? (
             <NotificationBell
               alerts={alertsState.alerts}
@@ -65,8 +51,8 @@ export default function Header({
           )}
           <Link
             to="/profile"
-            title="Profile"
-            aria-label="Profile"
+            title={t('nav.profile')}
+            aria-label={t('nav.profile')}
             className="flex items-center text-on-surface-variant hover:text-primary transition-colors"
           >
             <span className="material-symbols-outlined">account_circle</span>
@@ -83,7 +69,7 @@ export default function Header({
               <div className="h-6 w-px bg-border-subtle" />
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <span className="font-body-sm text-body-sm text-secondary">Device:</span>
+                  <span className="font-body-sm text-body-sm text-secondary">{t('dashboard.deviceId')}:</span>
                   <DeviceSwitcher />
                   <StatusBadge status={status} />
                 </div>
@@ -91,7 +77,7 @@ export default function Header({
                 <div className="flex items-center gap-2 bg-surface-container-low px-3 py-1 rounded-md border border-border-subtle">
                   <span className="material-symbols-outlined text-[16px] text-secondary">update</span>
                   <span className="font-body-sm text-body-sm font-medium text-on-background">
-                    Last updated: {formattedTime}
+                    {t('dashboard.lastUpdated')}: {formattedTime}
                   </span>
                 </div>
               </div>
@@ -99,7 +85,8 @@ export default function Header({
           )}
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-4 ml-4 text-on-surface-variant">
+          <LanguageToggle />
+          <div className="flex items-center gap-4 text-on-surface-variant">
             {isAlertsRole ? (
               <NotificationBell
                 alerts={alertsState.alerts}
@@ -115,8 +102,8 @@ export default function Header({
             )}
             <Link
               to="/profile"
-              title="Profile"
-              aria-label="Profile"
+              title={t('nav.profile')}
+              aria-label={t('nav.profile')}
               className="flex items-center text-on-surface-variant hover:text-primary transition-colors"
             >
               <span className="material-symbols-outlined">account_circle</span>

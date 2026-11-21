@@ -5,6 +5,7 @@ import ServerUnreachable from '../common/ServerUnreachable';
 import { exportReadingsCsv } from '../../services/api';
 import { getDhakaToday } from '../../utils/dateFormatter';
 import { isServerUnreachable } from '../../utils/isServerUnreachable';
+import { useLanguage } from '../../context/LanguageContext';
 
 function formatDhakaDateInput(today, offsetDays = 0) {
   const date = new Date(Date.UTC(today.year, today.month - 1, today.day + offsetDays));
@@ -12,6 +13,7 @@ function formatDhakaDateInput(today, offsetDays = 0) {
 }
 
 export default function HistoryView({ deviceId }) {
+  const { t, translateError } = useLanguage();
   const [page, setPage] = useState(1);
   const [exportOpen, setExportOpen] = useState(false);
   const [fromDate, setFromDate] = useState(() => formatDhakaDateInput(getDhakaToday(), -6));
@@ -28,11 +30,11 @@ export default function HistoryView({ deviceId }) {
     setExportError('');
     setExportNotice('');
     if (!fromDate || !toDate) {
-      setExportError('Both start and end dates are required.');
+      setExportError(t('log.selectDates'));
       return;
     }
     if (fromDate > toDate) {
-      setExportError('Start date must be on or before end date.');
+      setExportError(t('log.selectDates'));
       return;
     }
 
@@ -54,23 +56,23 @@ export default function HistoryView({ deviceId }) {
 
       if (headers && headers['x-export-truncated'] === 'true') {
         const cap = headers['x-export-row-cap'] || '5000';
-        setExportNotice(`Export capped at the most recent ${cap} rows.`);
+        setExportNotice(t('log.truncatedNotice', { count: cap }));
       }
       setExportOpen(false);
     } catch (err) {
-      let message = 'Unable to export CSV';
+      let message = t('common.failed');
       if (err.response?.data instanceof Blob) {
         try {
           const text = await err.response.data.text();
           const parsed = JSON.parse(text);
-          if (parsed?.error?.message) {
-            message = parsed.error.message;
+          if (parsed?.error) {
+            message = translateError({ response: { data: parsed } });
           }
         } catch {
           // Keep fallback message
         }
-      } else if (err.response?.data?.error?.message) {
-        message = err.response.data.error.message;
+      } else if (err.response?.data?.error) {
+        message = translateError(err);
       }
       setExportError(message);
     } finally {
@@ -84,7 +86,7 @@ export default function HistoryView({ deviceId }) {
     }
     return (
       <div className="rounded-lg border border-error/30 bg-surface-white p-8 text-center text-error">
-        {error.response?.data?.error?.message || 'Unable to load Reading Log'}
+        {translateError(error, 'log.noReadingsFound')}
       </div>
     );
   }
@@ -108,7 +110,7 @@ export default function HistoryView({ deviceId }) {
           <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
             download
           </span>
-          Export CSV
+          {t('log.exportCsv')}
         </button>
       </div>
 
@@ -128,11 +130,11 @@ export default function HistoryView({ deviceId }) {
           >
             <div className="mb-4 flex items-center justify-between">
               <h3 className="font-headline-md text-headline-md font-bold text-on-background">
-                Export reading log
+                {t('log.exportCsv')}
               </h3>
               <button
                 type="button"
-                aria-label="Close"
+                aria-label={t('common.close')}
                 disabled={exportBusy}
                 onClick={() => setExportOpen(false)}
               >
@@ -140,11 +142,11 @@ export default function HistoryView({ deviceId }) {
               </button>
             </div>
             <p className="mb-4 text-body-sm text-secondary">
-              Select a date range (Asia/Dhaka). Up to 5,000 most recent rows will be exported.
+              {t('log.rowCapNotice')}
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-body-sm font-semibold text-on-background">
-                From
+                {t('log.startDate')}
                 <input
                   type="date"
                   required
@@ -154,7 +156,7 @@ export default function HistoryView({ deviceId }) {
                 />
               </label>
               <label className="text-body-sm font-semibold text-on-background">
-                To
+                {t('log.endDate')}
                 <input
                   type="date"
                   required
@@ -172,14 +174,14 @@ export default function HistoryView({ deviceId }) {
                 onClick={() => setExportOpen(false)}
                 className="rounded-md border border-border-subtle px-4 py-2 text-body-sm font-semibold text-on-background"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={exportBusy}
                 className="rounded-md bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary disabled:opacity-50"
               >
-                {exportBusy ? 'Exporting...' : 'Download CSV'}
+                {exportBusy ? t('log.exporting') : t('log.exportCsv')}
               </button>
             </div>
           </form>

@@ -3,6 +3,57 @@
 > Defines the screens/pages/sections that exist in the app for the current phase.
 > Updated at the start of every new phase — sections marked "future" are NOT to be built yet.
 
+## Phase 10 — Localization (English & Bangla) — STATUS: COMPLETE
+
+Phase 10 implements bilingual support across the entire interface without adding external i18n libraries, new colors, or schema changes.
+
+### Language Toggle (`LanguageToggle`)
+
+- Pill toggle button with options: `EN | বাং`.
+- Visible in:
+  - Desktop `Header`: placed next to the Notification Bell and User Profile button.
+  - Mobile `Header`: inside the header bar alongside mobile actions.
+  - `AuthShell`: top-right corner of unauthenticated and forced-change screens (`/login`, `/register`, `/complete-profile`, `/change-password`).
+- Clicking toggles between English (`en`) and Bangla (`bn`).
+- Preference stored in `localStorage` under `prohori_lang`. Instant re-render via `LanguageContext`.
+
+### Typography & Numerals
+
+- Font family: `Noto Sans Bengali` fallback added in `index.css` via Google Fonts.
+- Sensor reading numbers, chart axis tick numbers, calendar min/max cell values, and measurement units (`ppm`, `%`, `°F`) stay in Latin digits across both languages for readability and IoT consistency.
+- Metric labels, zone badges, navigation tabs, button text, table headers, status pills, and notifications are translated.
+
+### Domain Terminology
+
+- **Metrics:** Ammonia (`অ্যামোনিয়া`), Methane (`মিথেন`), Humidity (`আর্দ্রতা`), Temperature (`তাপমাত্রা`).
+- **Zones / Alerts:** Safe (`নিরাপদ`), Warning (`সতর্কতা`), Danger (`বিপদ`).
+- **Device Status:** Approved (`অনুমোদিত`), Pending (`অপেক্ষমান`), Rejected (`প্রত্যাখ্যাত`), Unlinked (`সংযোগ বিচ্ছিন্ন`).
+
+### Localized Date & Relative Time
+
+- Dates formatted according to active language (`en-US` vs `bn-BD-u-nu-latn`) while preserving UTC+6 `Asia/Dhaka` timezone.
+- Relative times (e.g., "5 minutes ago" → "5 মিনিট আগে", "just now" → "এইমাত্র") translated with Latin numerals.
+
+### Localized Error Handling & Locations
+
+- Server errors matching `error.code` are mapped to localized strings via `translateError(err)`.
+- Location dropdowns and displays show Bangla division/district names while submitting canonical English strings to the backend.
+
+### Phase 10 Acceptance Checks (all passed)
+
+1. **Language toggle:** Toggle is accessible in Header (desktop/mobile) and AuthShell; toggling switches all visible text instantly. (PASS)
+2. **Persistence:** Selected language persists in `localStorage` key `prohori_lang` across reloads and auth states (default `'en'`). (PASS)
+3. **Typography & layout:** `Noto Sans Bengali` renders cleanly without layout shifts or text overflow. (PASS)
+4. **Auth flows:** Login, Register, Complete Profile, and Change Password are fully bilingual with zero hardcoded English text. (PASS)
+5. **Farmer dashboard & views:** Dashboard metrics, chart tabs/tooltips, Reading Log table/modal, Calendar grid/cards, and My Devices dialog/actions are completely translated. (PASS)
+6. **Manager panel:** Overview cards, Farmers table, Farmer detail, Device view tabs, and Requests table/actions are completely translated. (PASS)
+7. **Admin panel:** Overview statistics, Managers table, Add Manager modal, Reset Password modal, and status filters are completely translated. (PASS)
+8. **Locations & Errors:** Location selects display Bangla options and submit canonical English values; 19 server error codes mapped to localized copy via `translateError`. (PASS)
+9. **Numerals & units:** Readings, min/max values, chart ticks, and physical units (`ppm`, `%`, `°F`) remain in Latin digits across both languages. (PASS)
+10. **Build & lint:** `oxlint` reports 0 errors and `vite build` succeeds cleanly in under 1 second. (PASS)
+
+---
+
 ## Phase 9 — Pages & Sections — STATUS: COMPLETE
 
 Phase 9 adds security hardening, reliability states, and account/device management controls using existing `DESIGN.md` tokens and **no new colors**. No deployment or Phase 10 localization work yet.
@@ -298,3 +349,4 @@ Metric cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged dis
 - **Phase 7 (COMPLETE)**: RBAC — farmer / manager / admin, district-based manager, device-request approval via a request dialog, manager and admin panels, profile pages for all roles.
 - **Phase 8 (COMPLETE)**: Notification bell with persisted debounced alerts, Asia/Dhaka time windows, trend chart metric selector with threshold bands.
 - **Phase 9 (COMPLETE)**: Security hardening (rate limiting with `skipSuccessfulRequests` on login, `helmet`, 100 KB body limit, `req.body` sanitization + `rejectOperatorKeys` query validation, forced first-login password change, `PASSWORD_UNCHANGED` check, socket revalidation), cleanup, reliability (`error.code`, graceful shutdown, structured redacting logger, `/health` DB check, React `ErrorBoundary` + `ServerUnreachable`, `NO_READINGS_FOUND` empty state, `farmerId` on alerts), and account/device management (device nicknames, device unlink + `unlinked` status + alert engine reset, removed-manager restore, admin manager password reset, Reading Log CSV export).
+- **Phase 10 (COMPLETE)**: Localization (English and Bangla) — zero-dependency `LanguageContext` + `prohori_lang` persistence, `Noto Sans Bengali` font integration, identical English and Bangla JSON dictionaries (351 keys each), `LanguageToggle` header/shell integration, locale-aware date/relative time formatting with Latin numerals, complete translations across all authentication, farmer, manager, admin, and profile views, localized divisions/districts, and localized server error codes.

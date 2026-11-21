@@ -12,10 +12,12 @@ import ConfirmDialog from '../../components/common/ConfirmDialog';
 import ServerUnreachable from '../../components/common/ServerUnreachable';
 import { formatDate } from '../../utils/dateFormatter';
 import { isServerUnreachable } from '../../utils/isServerUnreachable';
+import { useLanguage } from '../../context/LanguageContext';
 
 const initial = { firstName: '', lastName: '', email: '', phone: '', division: '', district: '', password: '' };
 
 export default function Managers() {
+  const { t, language, translateLocation, translateError } = useLanguage();
   const [statusFilter, setStatusFilter] = useState('active');
   const { data, loading, error, reload } = useAdminManagers(statusFilter);
   const [form, setForm] = useState(initial);
@@ -33,7 +35,7 @@ export default function Managers() {
     setFormError('');
     setBanner('');
     if (Object.values(form).some((value) => !value.trim()) || form.password.length < 8) {
-      setFormError('All fields are required and the password must be at least 8 characters.');
+      setFormError(t('errors.FIELD_REQUIRED'));
       return;
     }
     setBusy(true);
@@ -43,7 +45,7 @@ export default function Managers() {
       setForm(initial);
       await reload();
     } catch (err) {
-      setFormError(err.response?.data?.error?.message || 'Unable to create manager');
+      setFormError(translateError(err, 'common.failed'));
     } finally {
       setBusy(false);
     }
@@ -58,7 +60,7 @@ export default function Managers() {
       setSelected(null);
       await reload();
     } catch (err) {
-      setFormError(err.response?.data?.error?.message || 'Unable to delete manager');
+      setFormError(translateError(err, 'common.failed'));
     } finally {
       setBusy(false);
     }
@@ -71,11 +73,11 @@ export default function Managers() {
     setBanner('');
     try {
       await restoreManager(restoring.id);
-      setBanner(`Restored ${restoring.firstName} ${restoring.lastName} to ${restoring.district}.`);
+      setBanner(t('common.success'));
       setRestoring(null);
       await reload();
     } catch (err) {
-      setFormError(err.response?.data?.error?.message || 'Unable to restore manager');
+      setFormError(translateError(err, 'common.failed'));
       setRestoring(null);
     } finally {
       setBusy(false);
@@ -88,17 +90,17 @@ export default function Managers() {
     setFormError('');
     setBanner('');
     if (tempPassword.length < 8) {
-      setFormError('Temporary password must be at least 8 characters.');
+      setFormError(t('auth.passwordMinLength'));
       return;
     }
     setBusy(true);
     try {
       await resetManagerPassword(resetTarget.id, tempPassword);
-      setBanner(`Temporary password set for ${resetTarget.firstName} ${resetTarget.lastName}. They must change it on next login.`);
+      setBanner(t('common.success'));
       setResetTarget(null);
       setTempPassword('');
     } catch (err) {
-      setFormError(err.response?.data?.error?.message || 'Unable to reset password');
+      setFormError(translateError(err, 'common.failed'));
     } finally {
       setBusy(false);
     }
@@ -106,29 +108,40 @@ export default function Managers() {
 
   if (error) {
     return (
-      <Shell title="Managers">
+      <Shell title={t('nav.managers')}>
         {isServerUnreachable(error) ? (
           <ServerUnreachable onRetry={reload} />
         ) : (
           <p className="rounded-lg border border-error/30 bg-surface-white p-8 text-center text-error">
-            {error.response?.data?.error?.message || 'Unable to load managers'}
+            {translateError(error, 'admin.noManagersFound')}
           </p>
         )}
       </Shell>
     );
   }
 
+  const tableHeaders = [
+    t('manager.farmerName'),
+    t('manager.farmerEmail'),
+    t('manager.farmerPhone'),
+    t('auth.division'),
+    t('auth.district'),
+    t('manager.farmersTab'),
+    t('devices.linkedAt'),
+    t('common.actions'),
+  ];
+
   return (
-    <Shell title="Managers">
-      <div className="mb-5 flex items-center justify-between">
-        <h1 className="font-headline-lg text-headline-lg font-bold">Managers</h1>
+    <Shell title={t('nav.managers')}>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+        <h1 className="font-headline-lg text-headline-lg font-bold">{t('nav.managers')}</h1>
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 font-semibold text-on-primary"
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 font-semibold text-on-primary hover:bg-primary-container transition-colors cursor-pointer"
           onClick={() => { setFormError(''); setOpen(true); }}
         >
           <span className="material-symbols-outlined">add</span>
-          Add manager
+          {t('admin.addManager')}
         </button>
       </div>
 
@@ -137,8 +150,8 @@ export default function Managers() {
           <button
             key={value}
             type="button"
-            className={`border-b-2 px-1 pb-3 text-body-sm font-semibold capitalize ${
-              statusFilter === value ? 'border-primary text-primary' : 'border-transparent text-secondary'
+            className={`border-b-2 px-1 pb-3 text-body-sm font-semibold cursor-pointer ${
+              statusFilter === value ? 'border-primary text-primary' : 'border-transparent text-secondary hover:text-on-background'
             }`}
             onClick={() => {
               setFormError('');
@@ -146,7 +159,7 @@ export default function Managers() {
               setStatusFilter(value);
             }}
           >
-            {value}
+            {value === 'active' ? t('common.active') : t('common.removed')}
           </button>
         ))}
       </div>
@@ -162,24 +175,29 @@ export default function Managers() {
         <table className="w-full min-w-[900px] text-left text-body-sm">
           <thead className="bg-surface-container-low text-label-caps uppercase text-secondary">
             <tr>
-              {['Name', 'Email', 'Phone', 'Division', 'District', 'Farmers', 'Created on', ''].map((head) => (
-                <th className="p-4" key={head}>{head}</th>
+              {tableHeaders.map((head, idx) => (
+                <th className={`p-4 ${idx === tableHeaders.length - 1 ? 'text-right' : ''}`} key={head || idx}>{head}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {data.map((manager) => (
-              <tr key={manager.id} className="border-t border-border-subtle">
-                <td className="p-4 font-semibold">{manager.firstName} {manager.lastName}</td>
-                <td className="p-4">{manager.email}</td>
+              <tr key={manager.id} className="border-t border-border-subtle hover:bg-surface-container-low/50 transition-colors">
+                <td className="p-4 font-semibold text-on-background">{manager.firstName} {manager.lastName}</td>
+                <td className="p-4 text-secondary">{manager.email}</td>
                 <td className="p-4">
-                  {manager.phone ? <a href={`tel:${manager.phone}`} className="text-primary">{manager.phone}</a> : '—'}
+                  {manager.phone ? (
+                    <a href={`tel:${manager.phone}`} className="inline-flex items-center gap-1 text-primary hover:underline">
+                      <span className="material-symbols-outlined text-[16px]">call</span>
+                      {manager.phone}
+                    </a>
+                  ) : '—'}
                 </td>
-                <td className="p-4">{manager.division}</td>
-                <td className="p-4">{manager.district}</td>
-                <td className="p-4">{manager.farmerCount}</td>
-                <td className="p-4">{formatDate(manager.createdAt)}</td>
-                <td className="p-4">
+                <td className="p-4">{translateLocation(manager.division, 'division')}</td>
+                <td className="p-4">{translateLocation(manager.district, 'district')}</td>
+                <td className="p-4 font-medium">{manager.farmerCount}</td>
+                <td className="p-4 text-secondary">{formatDate(manager.createdAt, language)}</td>
+                <td className="p-4 text-right">
                   {statusFilter === 'active' ? (
                     <div className="flex items-center justify-end gap-2">
                       <button
@@ -190,19 +208,19 @@ export default function Managers() {
                           setTempPassword('');
                           setResetTarget(manager);
                         }}
-                        aria-label={`Reset password for ${manager.firstName} ${manager.lastName}`}
-                        title="Reset password"
-                        className="rounded p-1 text-secondary hover:bg-surface-container-low hover:text-primary disabled:opacity-50"
+                        aria-label={`${t('admin.resetPassword')} - ${manager.firstName} ${manager.lastName}`}
+                        title={t('admin.resetPassword')}
+                        className="rounded p-1 text-secondary hover:bg-surface-container-low hover:text-primary disabled:opacity-50 cursor-pointer"
                       >
                         <span className="material-symbols-outlined">lock_reset</span>
                       </button>
                       <button
                         type="button"
                         disabled={busy}
-                        className="rounded p-1 text-error hover:bg-error/10 disabled:opacity-50"
+                        className="rounded p-1 text-error hover:bg-error/10 disabled:opacity-50 cursor-pointer"
                         onClick={() => setSelected(manager)}
-                        aria-label={`Delete ${manager.firstName} ${manager.lastName}`}
-                        title="Remove manager"
+                        aria-label={`${t('common.delete')} ${manager.firstName} ${manager.lastName}`}
+                        title={t('admin.removeManager')}
                       >
                         <span className="material-symbols-outlined">delete</span>
                       </button>
@@ -213,10 +231,10 @@ export default function Managers() {
                         type="button"
                         disabled={busy}
                         onClick={() => setRestoring(manager)}
-                        className="inline-flex items-center gap-1 rounded-md border border-primary px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 disabled:opacity-50"
+                        className="inline-flex items-center gap-1 rounded-md border border-primary px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 disabled:opacity-50 cursor-pointer"
                       >
                         <span className="material-symbols-outlined text-[16px]">restore</span>
-                        Restore
+                        {t('admin.restore')}
                       </button>
                     </div>
                   )}
@@ -226,9 +244,7 @@ export default function Managers() {
           </tbody>
         </table>
         {!loading && data.length === 0 && (
-          <p className="p-8 text-center text-secondary">
-            {statusFilter === 'active' ? 'No managers yet.' : 'No removed managers.'}
-          </p>
+          <p className="p-8 text-center text-secondary">{t('admin.noManagersFound')}</p>
         )}
       </div>
 
@@ -236,31 +252,80 @@ export default function Managers() {
         <div className="fixed inset-0 z-40 overflow-y-auto bg-sidebar-bg/40 p-4">
           <form onSubmit={submit} className="mx-auto mt-8 max-w-xl rounded-lg border border-border-subtle bg-surface-white p-6 shadow-lg">
             <div className="mb-5 flex items-center justify-between">
-              <h2 className="font-headline-md text-headline-md font-bold">Add manager</h2>
-              <button type="button" aria-label="Close" onClick={() => setOpen(false)}>
+              <h2 className="font-headline-md text-headline-md font-bold">{t('admin.addManagerTitle')}</h2>
+              <button type="button" aria-label={t('common.close')} onClick={() => setOpen(false)}>
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              {['firstName', 'lastName', 'email', 'phone', 'password'].map((field) => (
-                <label key={field} className="text-body-sm font-semibold capitalize">
-                  {field.replace('Name', ' name')}
+              <div>
+                <label className="text-body-sm font-semibold">
+                  {t('auth.firstName')}
                   <input
-                    type={field === 'password' ? 'password' : field === 'email' ? 'email' : 'text'}
+                    type="text"
                     required
-                    value={form[field]}
-                    onChange={(e) => setForm({ ...form, [field]: e.target.value })}
+                    value={form.firstName}
+                    onChange={(e) => setForm({ ...form, firstName: e.target.value })}
                     className="mt-2 w-full rounded-md border border-outline-variant px-3 py-2 font-normal outline-none focus:border-primary"
                   />
                 </label>
-              ))}
+              </div>
+              <div>
+                <label className="text-body-sm font-semibold">
+                  {t('auth.lastName')}
+                  <input
+                    type="text"
+                    required
+                    value={form.lastName}
+                    onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                    className="mt-2 w-full rounded-md border border-outline-variant px-3 py-2 font-normal outline-none focus:border-primary"
+                  />
+                </label>
+              </div>
+              <div>
+                <label className="text-body-sm font-semibold">
+                  {t('auth.email')}
+                  <input
+                    type="email"
+                    required
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    className="mt-2 w-full rounded-md border border-outline-variant px-3 py-2 font-normal outline-none focus:border-primary"
+                  />
+                </label>
+              </div>
+              <div>
+                <label className="text-body-sm font-semibold">
+                  {t('auth.phone')}
+                  <input
+                    type="tel"
+                    required
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    className="mt-2 w-full rounded-md border border-outline-variant px-3 py-2 font-normal outline-none focus:border-primary"
+                  />
+                </label>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-body-sm font-semibold">
+                  {t('auth.password')}
+                  <input
+                    type="password"
+                    minLength={8}
+                    required
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    className="mt-2 w-full rounded-md border border-outline-variant px-3 py-2 font-normal outline-none focus:border-primary"
+                  />
+                </label>
+              </div>
             </div>
             <div className="mt-4">
               <LocationSelect division={form.division} district={form.district} onChange={(value) => setForm({ ...form, ...value })} required idPrefix="manager" />
             </div>
             {formError && <p className="mt-4 text-error">{formError}</p>}
-            <button disabled={busy} className="mt-6 w-full rounded-md bg-primary px-4 py-3 font-semibold text-on-primary disabled:opacity-50">
-              {busy ? 'Saving...' : 'Create manager'}
+            <button disabled={busy} className="mt-6 w-full rounded-md bg-primary px-4 py-3 font-semibold text-on-primary hover:bg-primary-container transition-colors disabled:opacity-50 cursor-pointer">
+              {busy ? t('common.saving') : t('admin.addManager')}
             </button>
           </form>
         </div>
@@ -271,23 +336,24 @@ export default function Managers() {
           <form onSubmit={submitResetPassword} className="w-full max-w-md rounded-lg border border-border-subtle bg-surface-white p-6 shadow-lg">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-headline-md text-headline-md font-bold">
-                Reset password
+                {t('admin.resetPasswordTitle')}
               </h2>
-              <button type="button" aria-label="Close" disabled={busy} onClick={() => setResetTarget(null)}>
+              <button type="button" aria-label={t('common.close')} disabled={busy} onClick={() => setResetTarget(null)}>
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
             <p className="mb-4 text-body-sm text-secondary">
-              Set a temporary password for {resetTarget.firstName} {resetTarget.lastName}. They will be forced to change it on next login.
+              {t('auth.changePasswordSubtitle')}
             </p>
             <label className="block text-body-sm font-semibold">
-              Temporary password
+              {t('admin.tempPasswordLabel')}
               <input
                 type="password"
                 minLength={8}
                 required
                 value={tempPassword}
                 onChange={(e) => setTempPassword(e.target.value)}
+                placeholder={t('admin.tempPasswordPlaceholder')}
                 className="mt-2 w-full rounded-md border border-outline-variant px-3 py-2 font-normal outline-none focus:border-primary"
               />
             </label>
@@ -297,16 +363,16 @@ export default function Managers() {
                 type="button"
                 disabled={busy}
                 onClick={() => setResetTarget(null)}
-                className="rounded-md border border-border-subtle px-4 py-2 text-body-sm font-semibold"
+                className="rounded-md border border-border-subtle px-4 py-2 text-body-sm font-semibold hover:bg-surface-container-low transition-colors cursor-pointer"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={busy}
-                className="rounded-md bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary disabled:opacity-50"
+                className="rounded-md bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary hover:bg-primary-container transition-colors disabled:opacity-50 cursor-pointer"
               >
-                {busy ? 'Saving...' : 'Reset password'}
+                {busy ? t('common.saving') : t('admin.resetPassword')}
               </button>
             </div>
           </form>
@@ -315,9 +381,9 @@ export default function Managers() {
 
       {selected && (
         <ConfirmDialog
-          title={`Delete ${selected.firstName} ${selected.lastName}?`}
-          message="Their district will have no manager until a new one is added. Farmers and devices are not affected."
-          confirmLabel="Delete"
+          title={`${t('common.delete')} ${selected.firstName} ${selected.lastName}?`}
+          message={t('admin.removeConfirm', { name: `${selected.firstName} ${selected.lastName}` })}
+          confirmLabel={t('common.delete')}
           onCancel={() => setSelected(null)}
           onConfirm={remove}
           busy={busy}
@@ -326,9 +392,12 @@ export default function Managers() {
 
       {restoring && (
         <ConfirmDialog
-          title={`Restore ${restoring.firstName} ${restoring.lastName}?`}
-          message={`This will reactivate them as the manager for ${restoring.district} if the district has no active manager.`}
-          confirmLabel="Restore"
+          title={`${t('admin.restore')} ${restoring.firstName} ${restoring.lastName}?`}
+          message={t('admin.restoreConfirm', {
+            name: `${restoring.firstName} ${restoring.lastName}`,
+            district: translateLocation(restoring.district, 'district'),
+          })}
+          confirmLabel={t('admin.restore')}
           onCancel={() => setRestoring(null)}
           onConfirm={restore}
           busy={busy}

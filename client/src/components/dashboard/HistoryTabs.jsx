@@ -1,6 +1,8 @@
 import React from 'react';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function HistoryTabs({ range = '7d', onChange }) {
+  const { t } = useLanguage();
   const is7d = range === '7d';
 
   return (
@@ -8,6 +10,7 @@ export default function HistoryTabs({ range = '7d', onChange }) {
       <button
         type="button"
         onClick={() => onChange && onChange('7d')}
+        aria-label={t('dashboard.range7dLabel')}
         className={
           is7d
             ? 'font-body-sm text-body-sm font-medium text-primary border-b-2 border-primary pb-1 relative cursor-pointer'
@@ -19,6 +22,7 @@ export default function HistoryTabs({ range = '7d', onChange }) {
       <button
         type="button"
         onClick={() => onChange && onChange('30d')}
+        aria-label={t('dashboard.range30dLabel')}
         className={
           !is7d
             ? 'font-body-sm text-body-sm font-medium text-primary border-b-2 border-primary pb-1 relative cursor-pointer'

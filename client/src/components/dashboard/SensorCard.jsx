@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../../context/LanguageContext';
 
 const zoneColorMap = {
   safe: {
@@ -24,6 +25,7 @@ export default function SensorCard({
   trend = null,
   changed = false
 }) {
+  const { t } = useLanguage();
   const zoneConfig = zoneColorMap[zone] || zoneColorMap.safe;
   const isWarning = zone === 'warning';
   const displayValue = value !== null && value !== undefined ? value : '—';
@@ -77,10 +79,10 @@ export default function SensorCard({
             {typeof trend === 'string'
               ? trend
               : zone === 'safe'
-              ? 'Within normal threshold'
+              ? t('zones.safeDesc')
               : zone === 'warning'
-              ? 'Elevated level detected'
-              : 'Critical threshold exceeded'}
+              ? t('zones.warningDesc')
+              : t('zones.dangerDesc')}
           </span>
         )}
       </div>

@@ -3,14 +3,16 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import logo from '../../assets/logo.jpeg';
 import { useAuth } from '../../context/AuthContext';
 import { useDevice } from '../../context/DeviceContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { selectedDeviceId } = useDevice();
+  const { t } = useLanguage();
   const role = user?.role || 'farmer';
   const isFarmer = role === 'farmer';
-  const deviceLabel = selectedDeviceId ? `Device: ${selectedDeviceId}` : 'Device: —';
+  const deviceLabel = `${t('dashboard.deviceId')}: ${selectedDeviceId || '—'}`;
 
   const handleLogout = () => {
     logout();
@@ -20,26 +22,26 @@ export default function Sidebar() {
   const getNavItems = () => {
     if (role === 'admin') {
       return [
-        { to: '/admin', icon: 'dashboard', label: 'Overview', mobileLabel: 'Overview', end: true },
-        { to: '/admin/managers', icon: 'group', label: 'Managers', mobileLabel: 'Managers' },
-        { to: '/profile', icon: 'account_circle', label: 'Profile', mobileLabel: 'Profile' },
+        { to: '/admin', icon: 'dashboard', label: t('nav.overview'), mobileLabel: t('nav.overview'), end: true },
+        { to: '/admin/managers', icon: 'group', label: t('nav.managers'), mobileLabel: t('nav.managers') },
+        { to: '/profile', icon: 'account_circle', label: t('nav.profile'), mobileLabel: t('nav.profile') },
       ];
     }
     if (role === 'manager') {
       return [
-        { to: '/manager', icon: 'dashboard', label: 'Overview', mobileLabel: 'Overview', end: true },
-        { to: '/manager/farmers', icon: 'group', label: 'Farmers', mobileLabel: 'Farmers' },
-        { to: '/manager/requests', icon: 'pending_actions', label: 'Requests', mobileLabel: 'Requests' },
-        { to: '/profile', icon: 'account_circle', label: 'Profile', mobileLabel: 'Profile' },
+        { to: '/manager', icon: 'dashboard', label: t('nav.overview'), mobileLabel: t('nav.overview'), end: true },
+        { to: '/manager/farmers', icon: 'group', label: t('nav.farmers'), mobileLabel: t('nav.farmers') },
+        { to: '/manager/requests', icon: 'pending_actions', label: t('nav.requests'), mobileLabel: t('nav.requests') },
+        { to: '/profile', icon: 'account_circle', label: t('nav.profile'), mobileLabel: t('nav.profile') },
       ];
     }
     // Farmer
     return [
-      { to: '/', icon: 'dashboard', label: 'Dashboard', mobileLabel: 'Dashboard', end: true },
-      { to: '/history', icon: 'history', label: 'History', mobileLabel: 'History' },
-      { to: '/calendar', icon: 'calendar_month', label: 'Calendar', mobileLabel: 'Calendar' },
-      { to: '/devices', icon: 'devices', label: 'My Devices', mobileLabel: 'Devices' },
-      { to: '/profile', icon: 'account_circle', label: 'Profile', mobileLabel: 'Profile' },
+      { to: '/', icon: 'dashboard', label: t('nav.dashboard'), mobileLabel: t('nav.dashboard'), end: true },
+      { to: '/history', icon: 'history', label: t('nav.readingLog'), mobileLabel: t('nav.readingLog'), end: true },
+      { to: '/calendar', icon: 'calendar_month', label: t('nav.calendar'), mobileLabel: t('nav.calendar') },
+      { to: '/devices', icon: 'devices', label: t('nav.myDevices'), mobileLabel: t('nav.myDevices') },
+      { to: '/profile', icon: 'account_circle', label: t('nav.profile'), mobileLabel: t('nav.profile') },
     ];
   };
 
@@ -73,8 +75,8 @@ export default function Sidebar() {
             <a
               className="flex items-center justify-center w-12 h-12 text-gray-600 cursor-not-allowed rounded-lg transition-all duration-300 ease-in-out"
               href="#"
-              title="Settings"
-              aria-label="Settings"
+              title={t('nav.settings')}
+              aria-label={t('nav.settings')}
               onClick={(e) => e.preventDefault()}
             >
               <span className="material-symbols-outlined">settings</span>
@@ -85,8 +87,8 @@ export default function Sidebar() {
           <button
             className="flex h-12 w-12 items-center justify-center rounded-lg text-gray-400 transition-all duration-300 ease-in-out hover:bg-white/10 hover:text-white"
             type="button"
-            title="Log out"
-            aria-label="Log out"
+            title={t('nav.logout')}
+            aria-label={t('nav.logout')}
             onClick={handleLogout}
           >
             <span className="material-symbols-outlined">logout</span>
@@ -120,22 +122,22 @@ export default function Sidebar() {
           <a
             className="flex flex-col items-center text-gray-600 cursor-not-allowed"
             href="#"
-            title="Settings"
+            title={t('nav.settings')}
             onClick={(e) => e.preventDefault()}
           >
             <span className="material-symbols-outlined text-[20px]">settings</span>
-            <span className="text-[10px] mt-0.5">Settings</span>
+            <span className="text-[10px] mt-0.5">{t('nav.settings')}</span>
           </a>
         )}
         <button
           className="flex flex-col items-center text-gray-400 hover:text-white"
           type="button"
-          title="Log out"
-          aria-label="Log out"
+          title={t('nav.logout')}
+          aria-label={t('nav.logout')}
           onClick={handleLogout}
         >
           <span className="material-symbols-outlined text-[20px]">logout</span>
-          <span className="text-[10px] mt-0.5">Logout</span>
+          <span className="text-[10px] mt-0.5">{t('nav.logout')}</span>
         </button>
         {isFarmer && (
           <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/5 border border-white/10" title={deviceLabel}>
