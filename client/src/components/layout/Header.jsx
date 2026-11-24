@@ -20,12 +20,12 @@ export default function Header({
   const { t, language } = useLanguage();
   const isAlertsRole = user?.role === 'farmer' || user?.role === 'manager';
   const alertsState = useAlerts(isAlertsRole);
-  const formattedTime = formatRelativeTime(lastUpdated, language);
+  const formattedTime = formatRelativeTime(lastUpdated, language, t('common.justNow'));
 
   return (
     <>
       {/* Top App Bar (Mobile Only) */}
-      <header className="md:hidden flex justify-between items-center px-container-padding py-4 w-full border-b border-border-subtle bg-surface-white absolute top-0 z-20 h-[64px]">
+      <header className="md:hidden flex justify-between items-center px-container-padding py-4 w-full border-b border-border-subtle bg-surface-white sticky top-0 z-20 h-[64px] shrink-0">
         <div className="flex items-center gap-2">
           <span className="font-headline-md text-headline-md font-bold text-on-background">{t('common.appName')}</span>
           {showDevice && mobileSwitcher && (

@@ -34,14 +34,14 @@ function DeviceRow({ device, farmerId, onUnlink, busy }) {
               : 'bg-status-offline/10 text-secondary'
           }`}
         >
-          {t(`common.${status}`)} · {lastUpdated ? formatRelativeTime(lastUpdated, language) : '—'}
+          {t(`common.${status}`)} · {lastUpdated ? formatRelativeTime(lastUpdated, language, t('common.justNow')) : '—'}
         </span>
       </Link>
       <button
         type="button"
         disabled={busy}
         onClick={() => onUnlink(device)}
-        aria-label={`${t('devices.unlink')} ${id}`}
+        aria-label={t('manager.unlinkDeviceAria', { deviceId: id })}
         title={t('devices.unlink')}
         className="rounded-md p-1.5 text-error hover:bg-error/10 disabled:opacity-50"
       >
@@ -142,7 +142,9 @@ export default function FarmerDetail() {
       )}
       {unlinking && (
         <ConfirmDialog
-          title={`${t('devices.unlink')} ${unlinking.nickname ? `${unlinking.nickname} (${unlinking.deviceId})` : unlinking.deviceId}?`}
+          title={t('manager.unlinkDeviceTitle', {
+            deviceId: unlinking.nickname ? `${unlinking.nickname} (${unlinking.deviceId})` : unlinking.deviceId,
+          })}
           message={t('manager.unlinkFarmerDeviceConfirm', {
             deviceId: unlinking.deviceId,
             farmerName,

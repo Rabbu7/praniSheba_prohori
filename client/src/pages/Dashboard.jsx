@@ -17,7 +17,7 @@ export default function Dashboard() {
       <Sidebar />
 
       {/* Main Content Canvas */}
-      <main className="flex-1 md:ml-sidebar-width mt-[64px] md:mt-0 h-full overflow-y-auto w-full bg-background relative">
+      <main className="flex-1 md:ml-sidebar-width h-full overflow-y-auto w-full bg-background relative">
         {/* Sticky Header */}
         <Header title={t('nav.dashboard')} status={status} lastUpdated={lastUpdated} />
 

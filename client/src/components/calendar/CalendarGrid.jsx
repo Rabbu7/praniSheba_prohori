@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { getDhakaToday } from '../../utils/dateFormatter';
 import { useLanguage } from '../../context/LanguageContext';
 
-const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const WEEKDAYS_BN = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র', 'শনি'];
+function getWeekdays(lang = 'en') {
+  const locale = lang === 'bn' ? 'bn-BD-u-nu-latn' : 'en-US';
+  const formatter = new Intl.DateTimeFormat(locale, { weekday: 'short' });
+  // 2021-08-01 was Sunday
+  return Array.from({ length: 7 }, (_, i) => formatter.format(new Date(2021, 7, 1 + i)));
+}
 
 function formatMonthLabel(month, lang = 'en') {
   const [year, monthNumber] = month.split('-').map(Number);
@@ -31,8 +35,8 @@ export default function CalendarGrid({
   onDayClick,
   selectedDate = null
 }) {
-  const { t, language, isBangla } = useLanguage();
-  const weekdays = isBangla ? WEEKDAYS_BN : WEEKDAYS_EN;
+  const { t, language } = useLanguage();
+  const weekdays = useMemo(() => getWeekdays(language), [language]);
   const [year, monthNumber] = month.split('-').map(Number);
   const firstDay = new Date(year, monthNumber - 1, 1).getDay();
   const daysInMonth = new Date(year, monthNumber, 0).getDate();

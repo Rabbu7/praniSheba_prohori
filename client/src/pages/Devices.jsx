@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDevice } from '../context/DeviceContext';
 import { useLanguage } from '../context/LanguageContext';
 import { notifyDeviceRequestCreated } from '../hooks/useFarmerSync';
+import useDeviceStatus from '../hooks/useDeviceStatus';
 import { getMyDeviceRequests, updateDeviceNickname } from '../services/api';
 import { formatAbsoluteDate } from '../utils/dateFormatter';
 import { formatRequestNote } from '../utils/formatRequestNote';
@@ -19,6 +20,7 @@ export default function Devices() {
   const navigate = useNavigate();
   const { user, setUser } = useAuth();
   const { selectDevice } = useDevice();
+  const { status, lastUpdated } = useDeviceStatus();
   const { t, language, translateError } = useLanguage();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -126,8 +128,8 @@ export default function Devices() {
     <div className="bg-background text-on-background font-body-sm antialiased h-screen flex overflow-hidden">
       <Sidebar />
 
-      <main className="flex-1 md:ml-sidebar-width mt-[64px] md:mt-0 h-full overflow-y-auto w-full bg-background relative">
-        <Header title={t('devices.title')} showDevice={hasApprovedDevices} />
+      <main className="flex-1 md:ml-sidebar-width h-full overflow-y-auto w-full bg-background relative">
+        <Header title={t('devices.title')} status={status} lastUpdated={lastUpdated} showDevice={hasApprovedDevices} />
 
         <div className="p-container-padding md:p-8 max-w-[1200px] mx-auto pb-24 md:pb-8">
           {/* Header Action row */}

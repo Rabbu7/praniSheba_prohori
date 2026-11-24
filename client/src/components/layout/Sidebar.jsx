@@ -105,7 +105,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-sidebar-bg border-t border-white/10 flex items-center justify-around z-20 px-2">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-sidebar-bg border-t border-white/10 flex items-center justify-around z-20 px-1">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
@@ -115,20 +115,9 @@ export default function Sidebar() {
             title={item.label}
           >
             <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-            <span className="text-[10px] mt-0.5">{item.mobileLabel}</span>
+            <span className="text-[10px] mt-0.5 text-center leading-tight">{item.mobileLabel}</span>
           </NavLink>
         ))}
-        {isFarmer && (
-          <a
-            className="flex flex-col items-center text-gray-600 cursor-not-allowed"
-            href="#"
-            title={t('nav.settings')}
-            onClick={(e) => e.preventDefault()}
-          >
-            <span className="material-symbols-outlined text-[20px]">settings</span>
-            <span className="text-[10px] mt-0.5">{t('nav.settings')}</span>
-          </a>
-        )}
         <button
           className="flex flex-col items-center text-gray-400 hover:text-white"
           type="button"
@@ -137,13 +126,8 @@ export default function Sidebar() {
           onClick={handleLogout}
         >
           <span className="material-symbols-outlined text-[20px]">logout</span>
-          <span className="text-[10px] mt-0.5">{t('nav.logout')}</span>
+          <span className="text-[10px] mt-0.5 text-center leading-tight">{t('nav.logout')}</span>
         </button>
-        {isFarmer && (
-          <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/5 border border-white/10" title={deviceLabel}>
-            <div className="w-2 h-2 rounded-full bg-status-online animate-glow-pulse" />
-          </div>
-        )}
       </nav>
     </>
   );

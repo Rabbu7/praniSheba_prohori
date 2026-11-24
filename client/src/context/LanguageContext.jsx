@@ -78,8 +78,10 @@ export function LanguageProvider({ children }) {
     if (isAxios && !err.response) {
       return t('errors.SERVER_UNREACHABLE');
     }
-    // Stable error code lookup
-    const code = err?.response?.data?.error?.code || err?.code;
+    // Stable error code lookup (only look up response.data.error.code for axios errors)
+    const code = isAxios
+      ? err.response?.data?.error?.code
+      : (err.code || err.response?.data?.error?.code);
     if (code) {
       const key = `errors.${code}`;
       const translated = t(key);

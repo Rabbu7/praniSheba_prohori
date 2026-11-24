@@ -53,6 +53,33 @@ Phase 10 implements bilingual support across the entire interface without adding
 8. **Locations & Errors:** Location selects display Bangla options and submit canonical English values; complete server error code dictionary coverage with network fallback. (PASS)
 9. **Numerals & units:** Readings, min/max values, chart ticks, and physical units (`ppm`, `%`, `°F`) remain in Latin digits across both languages. (PASS)
 10. **Build & Automated Guard:** `oxlint` reports 0 errors, `vite build` succeeds, and `npm run i18n:check` passes with 0 missing keys. (PASS)
+11. **Phase 10k Localization & 360px Mobile QA Matrix:** Full verification across all 17 routes in desktop and 360px mobile viewports for both English and Bangla. (PASS)
+12. **Phase 10l Final Localization Fixes:** `check-i18n.mjs` enhanced with robust last-argument regex covering `createError`, `respondError`, and `createAuthError` (44 server codes audited), `LOCATIONS` coverage check (8 divisions, 64 districts), dynamic key sets validation, and identical-value guard. Mobile bottom bar streamlined (disabled Settings and device dot removed, full labels restored) and verified at 360px; Bangla dialog titles verified in short question form. (PASS)
+13. **Phase 10m Dead-Key Cleanup:** Removed 62 dead keys from both dictionaries. `common.justNow` wired into `dateFormatter.js` and all callers; `admin.managerCreatedSuccess` displayed as success banner on manager creation. Dictionaries now contain exactly 341 keys each with 0 errors and 0 unused key warnings. (PASS)
+
+### Phase 10k — Mobile 360px & Localization QA Matrix
+
+Comprehensive responsive verification matrix conducted across all pages, viewports (Desktop & 360px mobile), and language locales (`en` and `bn`). Special emphasis placed on Bangla 360px mobile rendering: bottom-nav label overflow prevention, table-header letter-spacing and line-height normalization, truncation safety, and Latin digit rule enforcement.
+
+| Section | Route | Desktop (EN) | Desktop (BN) | Mobile 360px (EN) | Mobile 360px (BN) | Notes / Verified Behaviors |
+|---|---|:---:|:---:|:---:|:---:|---|
+| **Auth** | `/login` | PASS | PASS | PASS | PASS | Full translation, clean inputs, no overflow |
+| **Auth** | `/register` | PASS | PASS | PASS | PASS | Cascading location selects in BN, localized validation |
+| **Auth** | `/complete-profile` | PASS | PASS | PASS | PASS | Responsive form layout, localized error banner |
+| **Auth** | `/change-password` | PASS | PASS | PASS | PASS | Responsive card, client-side same-password rejection |
+| **Farmer** | `/` (Dashboard) | PASS | PASS | PASS | PASS | Sensor cards, 7d/30d tabs, chart tooltip, Latin units |
+| **Farmer** | `/log` (Reading Log) | PASS | PASS | PASS | PASS | Responsive table, CSV export, table header line-height |
+| **Farmer** | `/calendar` | PASS | PASS | PASS | PASS | Intl weekdays, localized day detail cards, Latin min/max |
+| **Farmer** | `/devices` | PASS | PASS | PASS | PASS | Device card grid, Request dialog, format hint placeholder |
+| **Farmer** | `/profile` | PASS | PASS | PASS | PASS | Manager info block, telephone action, password change |
+| **Manager** | `/manager` (Overview) | PASS | PASS | PASS | PASS | Metric summary cards, direct quick links |
+| **Manager** | `/manager/farmers` | PASS | PASS | PASS | PASS | District farmer list, table headers normalized in BN |
+| **Manager** | `/manager/farmers/:id` | PASS | PASS | PASS | PASS | Full-sentence parameterized unlink dialog, device table |
+| **Manager** | `/manager/farmers/:id/devices/:devId` | PASS | PASS | PASS | PASS | Farmer device inspection, tabbed history/calendar |
+| **Manager** | `/manager/requests` | PASS | PASS | PASS | PASS | Status filter tabs, approval/rejection full dialogs |
+| **Admin** | `/admin` (Overview) | PASS | PASS | PASS | PASS | Platform metrics, unmanaged district counter |
+| **Admin** | `/admin/managers` | PASS | PASS | PASS | PASS | Full-sentence delete/restore dialogs, responsive table |
+| **Admin** | `/profile` | PASS | PASS | PASS | PASS | Responsive profile view, password update |
 
 ---
 
@@ -176,7 +203,7 @@ Mobile uses the bottom navigation with the same items per role (short labels). T
 Farmers only.
 - Fields: **First name**, **Last name**, **Email address**, **Division** (dropdown), **District** (dropdown, filtered by the division and disabled until a division is chosen; changing the division clears the district), **Password**, **Confirm password**.
 - Division/District options come from `GET /api/meta/locations`.
-- Inline validation (all fields required; passwords must match; password at least 8 characters). Server errors (e.g. "Email already in use") are read from `err.response.data.error.message`.
+- Inline validation (all fields required; passwords must match; password at least 8 characters). Server errors (e.g. "Email already in use") are translated via `translateError(err, 'errors.REQUEST_ERROR')` using `error.code` against the active locale.
 - On success: a new farmer lands on `/devices`.
 - Footer link to Login. Layout: `AuthShell`.
 
@@ -351,4 +378,4 @@ Metric cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged dis
 - **Phase 7 (COMPLETE)**: RBAC — farmer / manager / admin, district-based manager, device-request approval via a request dialog, manager and admin panels, profile pages for all roles.
 - **Phase 8 (COMPLETE)**: Notification bell with persisted debounced alerts, Asia/Dhaka time windows, trend chart metric selector with threshold bands.
 - **Phase 9 (COMPLETE)**: Security hardening (rate limiting with `skipSuccessfulRequests` on login, `helmet`, 100 KB body limit, `req.body` sanitization + `rejectOperatorKeys` query validation, forced first-login password change, `PASSWORD_UNCHANGED` check, socket revalidation), cleanup, reliability (`error.code`, graceful shutdown, structured redacting logger, `/health` DB check, React `ErrorBoundary` + `ServerUnreachable`, `NO_READINGS_FOUND` empty state, `farmerId` on alerts), and account/device management (device nicknames, device unlink + `unlinked` status + alert engine reset, removed-manager restore, admin manager password reset, Reading Log CSV export).
-- **Phase 10 (COMPLETE)**: Localization (English and Bangla) — zero-dependency `LanguageContext` + `prohori_lang` persistence (browser auto-detect fallback), `Noto Sans Bengali` font integration, identical English and Bangla JSON dictionaries (393 keys each) verified via `npm run i18n:check`, `LanguageToggle` header/shell integration, `Intl.RelativeTimeFormat` date formatting with Latin numerals, complete translations across all authentication, farmer, manager, admin, and profile views, localized divisions/districts, and complete server error code translation with network fallback.
+- **Phase 10 (COMPLETE)**: Localization (English and Bangla) — zero-dependency `LanguageContext` + `prohori_lang` persistence (browser auto-detect fallback), `Noto Sans Bengali` font integration, identical English and Bangla JSON dictionaries (341 keys each, 0 unused keys) verified via `npm run i18n:check`, `LanguageToggle` header/shell integration, `Intl.RelativeTimeFormat` date formatting with Latin numerals, complete translations across all authentication, farmer, manager, admin, and profile views, localized divisions/districts, complete server error code translation with network fallback, and dead-key cleanup.

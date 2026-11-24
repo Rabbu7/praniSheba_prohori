@@ -41,6 +41,7 @@ export default function Managers() {
     setBusy(true);
     try {
       await createManager(form);
+      setBanner(t('admin.managerCreatedSuccess'));
       setOpen(false);
       setForm(initial);
       await reload();
@@ -208,7 +209,7 @@ export default function Managers() {
                           setTempPassword('');
                           setResetTarget(manager);
                         }}
-                        aria-label={`${t('admin.resetPassword')} - ${manager.firstName} ${manager.lastName}`}
+                        aria-label={t('admin.resetPasswordAria', { name: `${manager.firstName} ${manager.lastName}` })}
                         title={t('admin.resetPassword')}
                         className="rounded p-1 text-secondary hover:bg-surface-container-low hover:text-primary disabled:opacity-50 cursor-pointer"
                       >
@@ -219,7 +220,7 @@ export default function Managers() {
                         disabled={busy}
                         className="rounded p-1 text-error hover:bg-error/10 disabled:opacity-50 cursor-pointer"
                         onClick={() => setSelected(manager)}
-                        aria-label={`${t('common.delete')} ${manager.firstName} ${manager.lastName}`}
+                        aria-label={t('admin.removeManagerAria', { name: `${manager.firstName} ${manager.lastName}` })}
                         title={t('admin.removeManager')}
                       >
                         <span className="material-symbols-outlined">delete</span>
@@ -381,7 +382,7 @@ export default function Managers() {
 
       {selected && (
         <ConfirmDialog
-          title={`${t('common.delete')} ${selected.firstName} ${selected.lastName}?`}
+          title={t('admin.removeManagerTitle', { name: `${selected.firstName} ${selected.lastName}` })}
           message={t('admin.removeConfirm', { name: `${selected.firstName} ${selected.lastName}` })}
           confirmLabel={t('common.delete')}
           onCancel={() => setSelected(null)}
@@ -392,7 +393,7 @@ export default function Managers() {
 
       {restoring && (
         <ConfirmDialog
-          title={`${t('admin.restore')} ${restoring.firstName} ${restoring.lastName}?`}
+          title={t('admin.restoreManagerTitle', { name: `${restoring.firstName} ${restoring.lastName}` })}
           message={t('admin.restoreConfirm', {
             name: `${restoring.firstName} ${restoring.lastName}`,
             district: translateLocation(restoring.district, 'district'),

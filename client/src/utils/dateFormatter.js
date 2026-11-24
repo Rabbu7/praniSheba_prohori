@@ -78,7 +78,7 @@ export function formatDate(dateInput, lang = 'en') {
   return date.toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric', timeZone: DHAKA_TZ });
 }
 
-export function formatRelativeTime(dateInput, lang = 'en') {
+export function formatRelativeTime(dateInput, lang = 'en', justNowText) {
   if (!dateInput) return '—';
   const date = new Date(dateInput);
   const time = date.getTime();
@@ -86,7 +86,7 @@ export function formatRelativeTime(dateInput, lang = 'en') {
 
   const diffInSeconds = Math.floor((Date.now() - time) / 1000);
   if (diffInSeconds < 60) {
-    return lang === 'bn' ? 'এইমাত্র' : 'just now';
+    return justNowText || (lang === 'bn' ? 'এইমাত্র' : 'just now');
   }
 
   const locale = lang === 'bn' ? 'bn-BD-u-nu-latn' : 'en-US';

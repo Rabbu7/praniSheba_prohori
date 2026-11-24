@@ -214,7 +214,7 @@ export default function NotificationBell({
                         {alert.value} {unit}
                       </span>
                       <span className="text-xs text-on-surface-variant">
-                        {formatRelativeTime(alert.createdAt, language)}
+                        {formatRelativeTime(alert.createdAt, language, t('common.justNow'))}
                       </span>
                     </div>
                   </div>

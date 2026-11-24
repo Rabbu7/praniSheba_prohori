@@ -17,7 +17,7 @@ export default function HistoryTabs({ range = '7d', onChange }) {
             : 'font-body-sm text-body-sm text-secondary hover:text-on-background pb-1 border-b-2 border-transparent transition-colors tab-underline cursor-pointer'
         }
       >
-        7d
+        {t('dashboard.range7d')}
       </button>
       <button
         type="button"
@@ -29,7 +29,7 @@ export default function HistoryTabs({ range = '7d', onChange }) {
             : 'font-body-sm text-body-sm text-secondary hover:text-on-background pb-1 border-b-2 border-transparent transition-colors tab-underline cursor-pointer'
         }
       >
-        30d
+        {t('dashboard.range30d')}
       </button>
     </div>
   );

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { formatDate } from '../../utils/dateFormatter';
 
 const zoneColorMap = {
   safe: {
@@ -28,7 +29,7 @@ export default function DayDetailCards({
   loading = false,
   error = null
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   if (!date) {
     return (
@@ -67,7 +68,7 @@ export default function DayDetailCards({
         <span className="material-symbols-outlined text-secondary text-3xl mb-2">
           info
         </span>
-        <p className="text-secondary text-body-sm">{t('calendar.noData')} ({date})</p>
+        <p className="text-secondary text-body-sm">{t('calendar.noData')} ({formatDate(date, language)})</p>
       </div>
     );
   }
@@ -115,7 +116,7 @@ export default function DayDetailCards({
   return (
     <div className="mt-6">
       <h3 className="font-headline-md text-headline-md font-bold text-on-background mb-4">
-        {date}
+        {formatDate(date, language)}
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map((card) => {

@@ -14,7 +14,7 @@ export default function AdminOverview() {
   return (
     <div className="flex h-screen overflow-hidden bg-background font-body-sm text-on-background">
       <Sidebar />
-      <main className="relative mt-[64px] h-full w-full flex-1 overflow-y-auto md:ml-sidebar-width md:mt-0">
+      <main className="relative h-full w-full flex-1 overflow-y-auto md:ml-sidebar-width">
         <Header title={t('nav.overview')} showDevice={false} />
         <div className="mx-auto max-w-[1200px] p-container-padding pb-24 md:p-8">
           {error ? (
