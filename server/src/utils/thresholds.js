@@ -5,7 +5,7 @@
  * 
  * Table from AGENTS.md:
  * - Ammonia (ppm): 0–10 safe, 10–25 warning, above 25 danger
- * - Methane (ppm): 10–1,000 safe, 1,000–5,000 warning, above 50,000 danger (5,000 to 50,000 is still warning)
+ * - Methane (ppm): 10–1,000 safe, 1,000–12,500 warning, above 12,500 danger
  * - Humidity (%): 50–70 safe, 40–50 or 70–80 warning, below 40 or above 80 danger
  * - Temperature (°F): 40–68 safe, 25–40 or 68–79 warning, below 25 or above 79 danger
  */
@@ -23,8 +23,8 @@ const THRESHOLDS = {
     unit: 'ppm',
     bands: [
       { zone: 'safe', min: 10, max: 1000 },
-      { zone: 'warning', min: 1000, max: 5000 },
-      { zone: 'danger', min: 50000, max: null }
+      { zone: 'warning', min: 1000, max: 12500 },
+      { zone: 'danger', min: 12500, max: null }
     ]
   },
   humidity: {
@@ -60,7 +60,7 @@ function getAmmoniaZone(val) {
 
 function getMethaneZone(val) {
   if (val === undefined || val === null) return 'safe';
-  if (val > 50000) return 'danger';
+  if (val > 12500) return 'danger';
   if (val > 1000) return 'warning';
   return 'safe';
 }

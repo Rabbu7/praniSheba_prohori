@@ -61,9 +61,9 @@ def generate_reading(state: ReadingState) -> ReadingState:
                 warning_boundary=3.5, danger_boundary=18.5, bidirectional=False,
         ),
         "methane": _walk(
-            state["methane"], baseline=125.0, step=30.0, minimum=0.0, maximum=10000.0,
+            state["methane"], baseline=125.0, step=80.0, minimum=0.0, maximum=20000.0,
                 excursion_chance=0.06, danger_chance=0.008, preferred_direction=1,
-                warning_boundary=875.0, danger_boundary=4875.0, bidirectional=False,
+                warning_boundary=875.0, danger_boundary=12375.0, bidirectional=False,
         ),
         "humidity": _walk(
             state["humidity"], baseline=60.0, step=2.8, minimum=0.0, maximum=100.0,

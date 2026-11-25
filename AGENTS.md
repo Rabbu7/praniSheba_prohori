@@ -10,7 +10,45 @@
 Reference product: https://iot.pranisheba.com.bd/#/home
 Company site: https://www.pranisheba.com.bd/-eng
 
-## Current Phase: Phase 10 — Localization (English and Bangla) (COMPLETE)
+## Current Phase: Phase 11 — Farmer ↔ Manager Messaging (COMPLETE)
+
+Phase 11 adds direct, real-time messaging between farmers and their assigned district manager, built with strict adherence to `DESIGN.md`.
+
+### Phase 11 stages
+
+- **11a** Docs + methane (DONE) · **11b** Backend (DONE) · **11c** Realtime (DONE) · **11d** Client foundation (DONE) · **11e** Farmer UI (DONE) · **11f** Manager UI (DONE) · **11g** Verification (DONE)
+
+### Phase 11 decisions (authoritative)
+
+1. **One thread per farmer:** The manager is derived from the farmer's district (`User.findOne({ role: 'manager', status: 'active', district })`). No `managerId` stored on messages or farmers. A newly appointed manager automatically sees the full conversation history.
+2. **Two parties only:** Direct 1-on-1 between farmer and active manager. Admins have no access (403).
+3. **Plain text only:** 1–1,000 characters after trim. Always rendered as escaped text, never HTML.
+4. **District manager requirement:** A farmer cannot send if their district has no active manager (409 `NO_MANAGER_ASSIGNED`). A manager can only message active farmers within their assigned district.
+5. **Text only:** No attachments, edit/delete, typing indicators, search, group chats, push notifications, email, or SMS.
+6. **Isolated realtime rooms:** Realtime delivery uses per-user socket rooms `user:<userId>`. Message data is never broadcast through `device:` rooms or `io.emit`.
+7. **Header entry point:** Messages icon with an unread badge in the Header for both farmer and manager (not a bottom navigation / sidebar item).
+8. **Roadmap adjustments:** Offline-device alerts are cancelled. Automated test suite is scheduled for Phase 12; production deployment for Phase 13.
+9. **Strict adherence to DESIGN.md:** All Phase 11 UI uses existing tokens only (no inline hex values, no new colors/fonts/radii/shadows). Under `html[lang='bn']`, letter-spacing is normal, text-transform is none, line-height is 1.5, and numerals stay Latin.
+
+### `Message` model (`models/Message.js`)
+
+Collection `messages`:
+```js
+{
+  farmerId: ObjectId,                     // ref User, required (the thread key)
+  senderId: ObjectId,                     // ref User, required
+  senderRole: 'farmer' | 'manager',       // required
+  body: String,                           // trim, 1–1000, required
+  createdAt: Date,                        // default now
+  readAt: Date | null                     // set when the OTHER party reads it
+}
+```
+
+- **Indexes:** `{ farmerId: 1, _id: -1 }` and `{ farmerId: 1, senderRole: 1, readAt: 1 }`, declared in the schema and synced via `seedDevices.js`.
+- **Serializer (`utils/serializeMessage.js`):** `{ id, farmerId, senderId, senderRole, body, createdAt, readAt }`. Never return `_id` or `__v`.
+- **Privacy hygiene:** Never log message bodies.
+
+## Previous Phase: Phase 10 — Localization (English and Bangla) (COMPLETE)
 
 Phase 10 adds full bilingual support (English and Bangla) across the entire application interface, including authentication, farmer dashboard and views, manager views, admin views, profile views, dialogs, error messages, and location selectors.
 
@@ -87,7 +125,7 @@ Phase 8 turned the visual zones into recorded, notified alerts and replaced the 
 3. Debounce: a zone change counts only after **2 consecutive readings** in the new zone.
 4. `/api/alerts` does **not** use `resolveDevice`; it scopes through `getReadableDeviceIds(user)`.
 5. Timezone is `Asia/Dhaka` (UTC+6, no DST) for averages, calendar and day bounds.
-6. Zones live only in `thresholds.js`. If Pranisheba corrects the methane gap, only that file and the table below change.
+6. Zones live only in `thresholds.js`. (Methane gap resolved: confirmed by Pranisheba: danger above 12,500 ppm).
 7. In-app delivery only. No push, email or SMS.
 
 ## Previous Phase: Phase 7 — Role-Based Access Control (COMPLETE)
@@ -227,6 +265,8 @@ userSchema.index(
 | `NO_READINGS_FOUND` | 404 | No readings received yet |
 | `NO_READINGS_FOR_DATE` | 404 | No readings recorded for this date |
 | `INVALID_DATE` / `INVALID_DATE_RANGE` | 400 | Invalid date specified / range |
+| `INVALID_MESSAGE` | 400 | Message must be between 1 and 1000 characters |
+| `NO_MANAGER_ASSIGNED` | 409 | No active manager assigned to this district |
 
 ### Device requests (farmer → manager approval)
 
@@ -358,7 +398,7 @@ Endpoints (`requireAuth` + `requireRole('farmer', 'manager')`; admin gets 403 "F
 
 ### Thresholds endpoint (Phase 8)
 
-- `thresholds.js` exports `THRESHOLDS` next to the zone functions: per metric `{ unit, bands: [{ zone, min, max }] }`, `null` meaning unbounded. The methane span between 5,000 and 50,000 ppm has **no band**, exactly as the table below says.
+- `thresholds.js` exports `THRESHOLDS` next to the zone functions: per metric `{ unit, bands: [{ zone, min, max }] }`, `null` meaning unbounded.
 - `GET /api/meta/thresholds` (no auth) returns `THRESHOLDS`. The client reads it through `useThresholds` (module-level cache). Never copy threshold numbers into the client.
 - `THRESHOLDS` and the zone functions must change together. Zone parity was verified at every band boundary.
 
@@ -423,12 +463,12 @@ prohori-dashboard/
 ├── server/
 │   ├── src/
 │   │   ├── config/            # db.js, env.js
-│   │   ├── models/            # Reading (factory), User, Device, DeviceRequest, Alert
-│   │   ├── controllers/       # auth, profile, deviceRequest, manager, admin, readings, alerts
+│   │   ├── models/            # Reading (factory), User, Device, DeviceRequest, Alert, Message
+│   │   ├── controllers/       # auth, profile, deviceRequest, manager, admin, readings, alerts, messages
 │   │   ├── utils/             # thresholds, locations, validators, publicUser, managerScope,
-│   │   │                      #   readableDevices, alertEngine, serializeAlert, dhakaTime,
+│   │   │                      #   readableDevices, alertEngine, serializeAlert, serializeMessage, dhakaTime,
 │   │   │                      #   logger, errors, unlinkDevice
-│   │   ├── routes/            # auth, profile, meta, deviceRequests, manager, admin, readings, alerts
+│   │   ├── routes/            # auth, profile, meta, deviceRequests, manager, admin, readings, alerts, messages
 │   │   ├── middleware/        # errorHandler, requireAuth, requireRole, resolveDevice, sanitizeInput
 │   │   ├── seed/              # seedDevices (+syncIndexes), migrateDevices (Phase 6, done),
 │   │   │                      #   migrateRoles (done), seedAdmin
@@ -450,15 +490,16 @@ prohori-dashboard/
 │   │   │   ├── calendar/  # CalendarGrid, DayDetailCards
 │   │   │   ├── views/     # DashboardView, HistoryView, CalendarView (take deviceId)
 │   │   │   ├── profile/   # ProfileForm, PasswordForm, ManagerCard, DistrictCard
+│   │   │   ├── messages/  # ChatThread
 │   │   │   ├── location/  # LocationSelect
 │   │   │   └── common/    # StatusBadge, RequestStatusBadge, MetricCard, ConfirmDialog,
 │   │   │   │              #   ErrorBoundary, ServerUnreachable, LanguageToggle
 │   │   ├── context/       # AuthContext, DeviceContext, LanguageContext
 │   │   ├── locales/       # en.json, bn.json (341 keys each)
 │   │   ├── pages/         # Login, Register, CompleteProfile, ChangePassword, Dashboard,
-│   │   │                  #   History, Calendar, Devices, Profile, manager/*, admin/*
+│   │   │                  #   History, Calendar, Devices, Profile, Messages, manager/*, admin/*
 │   │   ├── hooks/         # reading hooks, useLocations, useThresholds, useAlerts, useFarmerSync,
-│   │   │                      #   manager/admin data hooks
+│   │   │                      #   useUnreadMessages, useMessageThread, manager/admin data hooks
 │   │   ├── services/      # api.js, socket.js
 │   │   ├── utils/         # dateFormatter, roleHome, isServerUnreachable, formatRequestNote
 │   │   ├── App.jsx        # role-aware route guards
@@ -499,9 +540,11 @@ prohori-dashboard/
 - `GET /api/readings/latest | daily-averages | log | calendar | day/:date | export` — `?deviceId=` rules per role via `resolveDevice` (CORS exposes `X-Export-Truncated`, `X-Export-Row-Cap`, `Content-Disposition`)
 - `GET /api/meta/thresholds` → `THRESHOLDS` (no auth)
 - `GET /api/alerts`, `POST /api/alerts/:id/read`, `POST /api/alerts/read-all` (farmer, manager; admin 403)
+- `GET /api/messages?limit=&before=`, `POST /api/messages`, `POST /api/messages/read`, `GET /api/messages/unread-count` (farmer only; admin 403)
+- `GET /api/manager/conversations`, `GET /api/manager/farmers/:farmerId/messages`, `POST /api/manager/farmers/:farmerId/messages`, `POST /api/manager/farmers/:farmerId/messages/read`, `GET /api/manager/messages/unread-count` (manager only; admin 403)
 - `GET /health` — no auth; checks MongoDB connection state (`200 { status: 'ok', db: 'connected' }` / `503 { status: 'degraded', db: 'disconnected' }`)
 - **Removed:** `POST /api/auth/link-device` (replaced by `POST /api/device-requests`; now 404).
-- **Socket.IO:** JWT in `auth.token`; rooms per role; `new-reading` payload matches `/api/readings/latest` (includes `device_id`); `new-alert` (serialized alert) and `alert-resolved` `{ id, deviceId, metric, resolvedAt }` go to the same `device:<id>` rooms.
+- **Socket.IO:** JWT in `auth.token`; rooms per role; `new-reading` payload matches `/api/readings/latest` (includes `device_id`); `new-alert` (serialized alert) and `alert-resolved` `{ id, deviceId, metric, resolvedAt }` go to `device:<id>` rooms; realtime messaging uses per-user `user:<userId>` rooms (`new-message` event); admins cannot connect.
 
 ## Conventions
 
@@ -512,7 +555,7 @@ prohori-dashboard/
 - Never hardcode a device ID; never read `user.device` (removed Phase 6) or `user.username` (removed Phase 7).
 - Never trust a role, district or device ID from the request body/params without the server-side check.
 - Uniqueness and integrity rules live in database indexes and atomic updates, not just controllers.
-- Never use `io.emit` for reading or alert data; always target a `device:<deviceId>` room.
+- Never use `io.emit` for reading or alert data; always target a `device:<deviceId>` room; message data goes only to `user:<userId>` rooms.
 - Alert test fixtures are inserted already **resolved** with a recognizable marker (`value: -999`) so they cannot collide with the unique open-alert index; delete only what you created.
 - Same 404/403 message whether a resource does not exist or is out of scope (no information leak).
 - Test fixtures: use an isolated email prefix (e.g. `e2e-`) and clean up only those users and their requests. Never `deleteMany({})` on a real collection.
@@ -527,14 +570,13 @@ prohori-dashboard/
 | Metric | Safe Zone | Warning Zone | Danger Zone |
 |---|---|---|---|
 | Ammonia (NH₃, ppm) | 0–10 | 10–25 | Above 25 |
-| Methane (CH₄, ppm) | 10–1,000 | 1,000–5,000 | Above 50,000 (5% air, explosion risk) |
+| Methane (CH₄, ppm) | 10–1,000 | 1,000–12,500 | Above 12,500 |
 | Humidity (%) | 50–70% | 40–50% or 70–80% | Below 40% or above 80% |
 | Temperature (°F) | 40–68°F | 25–40°F or 68–79°F | Below 25°F or above 79°F |
 
-- Humidity and temperature are two-sided. Methane has a gap between 5,000 and 50,000 — implemented exactly as given.
+- Humidity and temperature are two-sided. Methane threshold confirmed by Pranisheba (danger above 12,500 ppm).
 - Zones are computed **server-side** (`thresholds.js`); the frontend renders a `zone` field. Daily averages classify the averaged value; calendar min/max classify independently.
 - Zones drive recorded in-app alerts (see "Alerts (Phase 8)"). No push/email/SMS/sound. Managers see the same zones and alerts as farmers for their district's devices.
-- **Open question for Pranisheba:** the methane table jumps from a 5,000 ppm warning ceiling to a 50,000 ppm danger floor. It is implemented exactly as given; confirm before release.
 - If the company revises thresholds, update this table first.
 
 ## Known Temporary Workarounds / Limitations (Still Open)
@@ -544,21 +586,20 @@ prohori-dashboard/
 - `app.set('trust proxy', ...)` must be configured in the deployment phase so `express-rate-limit` identifies client IPs behind a reverse proxy.
 - Existing JWTs are not revoked on a normal password change (they expire after 7 days; removed managers are rejected via `requireAuth` and periodic `revalidateSocket`).
 - A removed manager's email stays taken (email index covers all users).
-- Managers/admins with no device IDs cannot open a socket.
+- Admins cannot open a socket (farmers and managers with zero devices can connect to receive `user:<userId>` messaging events).
 - The alert engine keeps its confirmed zones in memory; a server restart re-seeds from each device's latest reading and resolves stale open alerts (no phantom alerts).
-- On `/devices` and `/profile` a farmer has no live socket, so the bell updates through the 60 s poll and tab-focus refetch.
+- On `/devices` and `/profile` a farmer has no live reading socket, so the bell updates through the 60 s poll and tab-focus refetch.
 - Mongoose may print a deprecation warning on some update options; harmless.
 
 ## Cleanup Candidates
 
 *(None — cleared in Phase 9c.)*
 
-## Out of Scope (Deferred beyond Phase 10)
+## Out of Scope (Deferred beyond Phase 11)
 
-- Deployment (deferred to Final phase)
-- Automated unit/API test suite (planned for Phase 11)
-- Offline-device alerts (planned for Phase 11+)
-- Messaging between farmer and manager
+- Deployment (deferred to Phase 13)
+- Automated unit/API test suite (planned for Phase 12)
+- Offline-device alerts (cancelled)
 - Multiple managers per district and automatic manager selection
 - Farms / cow rooms hierarchy
 - Audit-log module and activity history pages
@@ -581,3 +622,4 @@ prohori-dashboard/
 - **Phase 8 (COMPLETE)**: Real Asia/Dhaka time windows and indexes, persisted debounced alerts (engine, `/api/alerts`, per-user read state, live socket events), notification bell for farmers and managers, trend chart metric selector with threshold bands and `GET /api/meta/thresholds`.
 - **Phase 9 (COMPLETE)**: Security hardening (rate limiting, `helmet`, body limit, Mongo operator sanitization, forced first-login password change, timing-safe login, socket revalidation, startup env validation, secrets hygiene), cleanup, reliability (stable `error.code`, graceful shutdown, structured redacting logger, `/health` DB check, React `ErrorBoundary` + `ServerUnreachable`, `farmerId` on alerts), and account/device management (device nicknames, device unlink, removed-manager restore, admin manager password reset, Reading Log CSV export).
 - **Phase 10 (COMPLETE)**: Localization (English and Bangla) — zero-dependency `LanguageContext` + `prohori_lang` persistence (browser auto-detect fallback), `Noto Sans Bengali` font integration, identical English and Bangla JSON dictionaries (341 keys each, 0 unused keys) verified via `npm run i18n:check`, `LanguageToggle` header/shell integration, `Intl.RelativeTimeFormat` date formatting with Latin numerals, complete translations across all authentication, farmer, manager, admin, and profile views, localized divisions/districts, complete server error code translation with network fallback, and dead-key cleanup.
+- **Phase 11 (COMPLETE)**: Farmer ↔ Manager Messaging — 1-on-1 thread per farmer scoped to district manager, `user:<userId>` socket rooms, unread badges in Header, chat thread UI conforming strictly to DESIGN.md, dictionary expanded to 362 keys each in EN and BN (0 errors, 0 unused keys), and methane threshold update (1,000–12,500 warning, >12,500 danger).

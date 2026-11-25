@@ -13,11 +13,13 @@ import Devices from './pages/Devices';
 import CompleteProfile from './pages/CompleteProfile';
 import ChangePassword from './pages/ChangePassword';
 import Profile from './pages/Profile';
+import Messages from './pages/Messages';
 import ManagerOverview from './pages/manager/Overview';
 import ManagerFarmers from './pages/manager/Farmers';
 import ManagerFarmerDetail from './pages/manager/FarmerDetail';
 import ManagerFarmerDevice from './pages/manager/FarmerDevice';
 import ManagerRequests from './pages/manager/Requests';
+import ManagerMessages from './pages/manager/Messages';
 import AdminOverview from './pages/admin/Overview';
 import AdminManagers from './pages/admin/Managers';
 import { useLanguage } from './context/LanguageContext';
@@ -104,6 +106,24 @@ function FarmerDeviceGuard({ children }) {
   );
 }
 
+function FarmerMessagesGuard({ children }) {
+  const { user, token, loading } = useAuth();
+  if (loading) return <AuthLoading />;
+  if (!token || !user) return <Navigate to="/login" replace />;
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
+  if (user.role === 'admin') return <Navigate to="/admin" replace />;
+  if (user.role === 'manager') return <Navigate to="/manager/messages" replace />;
+  if (user.role === 'farmer' && !user.profileComplete) {
+    return <Navigate to="/complete-profile" replace />;
+  }
+  return (
+    <>
+      <FarmerSyncWatcher />
+      {children}
+    </>
+  );
+}
+
 function ProfileGuard({ children }) {
   const { user, token, loading } = useAuth();
   if (loading) return <AuthLoading />;
@@ -164,6 +184,9 @@ export default function App() {
         <Route path="/devices" element={<FarmerDeviceGuard><Devices /></FarmerDeviceGuard>} />
         <Route path="/link-device" element={<Navigate to="/devices" replace />} />
 
+        {/* Messages */}
+        <Route path="/messages" element={<FarmerMessagesGuard><Messages /></FarmerMessagesGuard>} />
+
         {/* Profile (all roles) */}
         <Route path="/profile" element={<ProfileGuard><Profile /></ProfileGuard>} />
 
@@ -173,6 +196,8 @@ export default function App() {
         <Route path="/manager/farmers/:farmerId" element={<ManagerGuard><ManagerFarmerDetail /></ManagerGuard>} />
         <Route path="/manager/farmers/:farmerId/devices/:deviceId" element={<ManagerGuard><ManagerFarmerDevice /></ManagerGuard>} />
         <Route path="/manager/requests" element={<ManagerGuard><ManagerRequests /></ManagerGuard>} />
+        <Route path="/manager/messages" element={<ManagerGuard><ManagerMessages /></ManagerGuard>} />
+        <Route path="/manager/messages/:farmerId" element={<ManagerGuard><ManagerMessages /></ManagerGuard>} />
 
         {/* Admin routes */}
         <Route path="/admin" element={<AdminGuard><AdminOverview /></AdminGuard>} />

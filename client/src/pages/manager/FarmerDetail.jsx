@@ -122,6 +122,15 @@ export default function FarmerDetail() {
                 <dt className="text-secondary">{t('auth.district')}, {t('auth.division')}</dt>
                 <dd className="text-on-background">{translateLocation(data.district, 'district')}, {translateLocation(data.division, 'division')}</dd>
               </div>
+              <div className="pt-2 sm:col-span-2">
+                <Link
+                  to={`/manager/messages/${farmerId}`}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-body-sm font-semibold text-on-primary hover:bg-primary-container transition-colors shadow-2xs"
+                >
+                  <span className="material-symbols-outlined text-[18px]">chat</span>
+                  <span>{t('messages.messageFarmer')}</span>
+                </Link>
+              </div>
             </dl>
           </section>
           <section className="rounded-lg border border-border-subtle bg-surface-white p-6">

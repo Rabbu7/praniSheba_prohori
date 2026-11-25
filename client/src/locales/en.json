@@ -292,7 +292,9 @@
     "UNKNOWN_ERROR": "An unexpected error occurred. Please try again.",
     "FIELD_REQUIRED": "This field is required",
     "INVALID_EMAIL": "Please enter a valid email address",
-    "REQUEST_ERROR": "Request failed. Please try again."
+    "REQUEST_ERROR": "Request failed. Please try again.",
+    "INVALID_MESSAGE": "Message must be between 1 and 1000 characters",
+    "NO_MANAGER_ASSIGNED": "Your district does not have an active manager assigned yet"
   },
   "locations": {
     "divisions": {
@@ -375,5 +377,26 @@
   "requests": {
     "noteAlreadyAdded": "Already added",
     "noteAlreadyLinked": "Already linked to another account"
+  },
+  "messages": {
+    "title": "Messages",
+    "subtitle": "Direct communication with your local district manager",
+    "managerSubtitle": "Communicate directly with farmers in your district",
+    "noManagerTitle": "No manager assigned yet",
+    "noManagerDesc": "Your district does not have an active manager assigned yet. You will be able to send messages once a manager is appointed.",
+    "typePlaceholder": "Write a message...",
+    "send": "Send",
+    "loadOlder": "Load older messages",
+    "loading": "Loading messages...",
+    "noMessages": "No messages yet. Start the conversation!",
+    "noConversations": "No farmer conversations yet",
+    "selectConversation": "Select a conversation to view messages",
+    "searchFarmers": "Search farmers...",
+    "messageManager": "Message manager",
+    "messageFarmer": "Message farmer",
+    "conversations": "Conversations",
+    "unreadBadge": "{{count}} unread",
+    "backToConversations": "Back to conversations",
+    "sending": "Sending..."
   }
 }

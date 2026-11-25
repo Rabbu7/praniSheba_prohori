@@ -7,6 +7,7 @@ import LanguageToggle from '../common/LanguageToggle';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import useAlerts from '../../hooks/useAlerts';
+import useUnreadMessages from '../../hooks/useUnreadMessages';
 import { formatRelativeTime } from '../../utils/dateFormatter';
 
 export default function Header({
@@ -20,6 +21,9 @@ export default function Header({
   const { t, language } = useLanguage();
   const isAlertsRole = user?.role === 'farmer' || user?.role === 'manager';
   const alertsState = useAlerts(isAlertsRole);
+  const isMessagesRole = isAlertsRole;
+  const messagesLink = user?.role === 'manager' ? '/manager/messages' : '/messages';
+  const { unreadCount: messageUnreadCount } = useUnreadMessages(isMessagesRole);
   const formattedTime = formatRelativeTime(lastUpdated, language, t('common.justNow'));
 
   return (
@@ -36,6 +40,21 @@ export default function Header({
         </div>
         <div className="flex items-center gap-3 text-on-surface-variant">
           <LanguageToggle />
+          {isMessagesRole && (
+            <Link
+              to={messagesLink}
+              title={t('messages.title')}
+              aria-label={t('messages.title')}
+              className="relative flex items-center text-on-surface-variant hover:text-primary transition-colors"
+            >
+              <span className="material-symbols-outlined text-[24px]">chat</span>
+              {messageUnreadCount > 0 && (
+                <span className="absolute -top-1 -right-1.5 bg-status-danger text-on-primary font-bold text-[10px] leading-none px-1.5 py-0.5 rounded-full flex items-center justify-center min-w-[16px] min-h-[16px]">
+                  {messageUnreadCount > 9 ? '9+' : messageUnreadCount}
+                </span>
+              )}
+            </Link>
+          )}
           {isAlertsRole ? (
             <NotificationBell
               alerts={alertsState.alerts}
@@ -87,6 +106,21 @@ export default function Header({
         <div className="flex items-center gap-4">
           <LanguageToggle />
           <div className="flex items-center gap-4 text-on-surface-variant">
+            {isMessagesRole && (
+              <Link
+                to={messagesLink}
+                title={t('messages.title')}
+                aria-label={t('messages.title')}
+                className="relative flex items-center text-on-surface-variant hover:text-primary transition-colors"
+              >
+                <span className="material-symbols-outlined text-[24px]">chat</span>
+                {messageUnreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1.5 bg-status-danger text-on-primary font-bold text-[10px] leading-none px-1.5 py-0.5 rounded-full flex items-center justify-center min-w-[16px] min-h-[16px]">
+                    {messageUnreadCount > 9 ? '9+' : messageUnreadCount}
+                  </span>
+                )}
+              </Link>
+            )}
             {isAlertsRole ? (
               <NotificationBell
                 alerts={alertsState.alerts}

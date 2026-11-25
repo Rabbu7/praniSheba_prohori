@@ -157,7 +157,7 @@ Phase 8 added no new routes. Existing pages gained the items below, using the sa
 ### Dashboard trend chart (farmer Dashboard and manager device view)
 
 - Metric selector above the chart: Ammonia (default), Methane, Humidity, Temperature. One metric is plotted at a time.
-- Threshold bands (safe / warning / danger) are drawn behind the line from `GET /api/meta/thresholds`. Humidity and temperature show two-sided bands. Methane leaves the 5,000–50,000 ppm span unshaded, as the threshold table specifies.
+- Threshold bands (safe / warning / danger) are drawn behind the line from `GET /api/meta/thresholds`. Humidity and temperature show two-sided bands. Methane shows safe, warning (1,000–12,500) and danger (above 12,500) bands.
 - A small zone key (Safe / Warning / Danger) replaces the old legend. If thresholds fail to load, the chart renders without bands.
 - Dates on the X axis are Asia/Dhaka days.
 
@@ -320,14 +320,14 @@ Metric cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged dis
 
 ## Route Guard Summary (single source of truth for `App.jsx`)
 
-| State | Farmer pages `/`, `/history`, `/calendar` | `/devices`, `/profile` | `/complete-profile` | `/change-password` | `/manager/*` | `/admin/*` | `/login`, `/register` |
+| State | Farmer pages `/`, `/history`, `/calendar` | `/devices`, `/profile`, `/messages` | `/complete-profile` | `/change-password` | `/manager/*` | `/admin/*` | `/login`, `/register` |
 |---|---|---|---|---|---|---|---|
 | Not authenticated | → `/login` | → `/login` | → `/login` | → `/login` | → `/login` | → `/login` | shown |
 | Authenticated, `mustChangePassword` | → `/change-password` | → `/change-password` | → `/change-password` | shown | → `/change-password` | → `/change-password` | → `/change-password` |
 | Farmer, profile incomplete | → `/complete-profile` | → `/complete-profile` | shown | → `/` | → `/` | → `/` | → `/` |
 | Farmer, complete, no approved device | → `/devices` | shown | → `/` | → `/` | → `/` | → `/` | → `/` |
 | Farmer, complete, ≥1 approved device | shown | shown | → `/` | → `/` | → `/` | → `/` | → `/` |
-| Manager | → `/manager` | `/profile` shown; others → `/manager` | → `/manager` | → `/manager` | shown | → `/manager` | → `/manager` |
+| Manager | → `/manager` | `/profile` shown; `/messages` → `/manager/messages`; others → `/manager` | → `/manager` | → `/manager` | shown | → `/manager` | → `/manager` |
 | Admin | → `/admin` | `/profile` shown; others → `/admin` | → `/admin` | → `/admin` | → `/admin` | shown | → `/admin` |
 
 `/link-device` redirects to `/devices`. A minimal loading state renders while the initial `/api/auth/me` check is in flight.
@@ -350,18 +350,42 @@ Metric cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged dis
 
 ---
 
+## Phase 11 — Farmer ↔ Manager Messaging — STATUS: COMPLETE
+
+Phase 11 adds direct, text-only messaging between farmers and their district managers.
+
+### Entry points
+- **Header:** A `chat` icon button with unread count badge (using `bg-status-danger text-white rounded-full`) sits next to the notification bell in `Header.jsx` for both farmers and managers.
+- **Profile & Detail shortcuts:**
+  - Farmers see a "Message manager" button in `ManagerCard.jsx` on `/profile`.
+  - Managers see a "Message farmer" button on `/manager/farmers/:farmerId`.
+
+### Farmer view: `/messages`
+- Direct thread with the district's active manager.
+- If no manager is currently active in the district, the input composer is disabled with a helpful banner ("Your district does not have an active manager assigned yet").
+- Messages render with own messages on the right (`bg-primary text-on-primary`) and manager messages on the left (`bg-surface-container-low border border-border-subtle text-on-background`).
+- Auto-scrolls to newest message; supports loading older messages via "Load older messages".
+- Real-time updates delivered over the user's private socket room (`user:<userId>`).
+
+### Manager view: `/manager/messages` & `/manager/messages/:farmerId`
+- Responsive 2-column layout (list on left, thread on right on desktop; full view toggle on mobile).
+- Conversation list shows every active farmer in the manager's district with their latest message preview, timestamp, and unread count badge.
+- Clicking a conversation opens `/manager/messages/:farmerId` with the active thread.
+- Thread header shows the farmer's name, phone, and district.
+- Mark as read occurs automatically upon opening the thread or receiving messages while open.
+
+---
+
 ## Explicitly NOT built (future phases)
 
-- Messaging between farmer and manager
 - Multiple managers per district / automatic manager selection
 - Farms and cow rooms
 - Audit-log and activity-history pages
 - Per-manager thresholds, acknowledge/escalate workflows, per-user alert rules
-- Email/SMS/push delivery of alerts
+- Email/SMS/push delivery of alerts and messages
 - Deployment and `trust proxy` configuration
 - MQTT admin / health pages; managers registering new devices
 - Email-based password reset, email verification, email invites
-- Push/email/SMS notifications
 - Settings page
 - OAuth / third-party login
 
@@ -376,6 +400,7 @@ Metric cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged dis
 - **Phase 5 (COMPLETE)**: Six devices, one account per device, per-device socket rooms.
 - **Phase 6 (COMPLETE)**: Multiple devices per user, header device switcher, "Add device" flow.
 - **Phase 7 (COMPLETE)**: RBAC — farmer / manager / admin, district-based manager, device-request approval via a request dialog, manager and admin panels, profile pages for all roles.
-- **Phase 8 (COMPLETE)**: Notification bell with persisted debounced alerts, Asia/Dhaka time windows, trend chart metric selector with threshold bands.
+- **Phase 8 (COMPLETE)**: Notification bell with persisted debounced alerts, Asia/Dhaka time windows, trend chart metric selector with threshold bands (safe/warning/danger for all four metrics, methane danger confirmed above 12,500 ppm).
 - **Phase 9 (COMPLETE)**: Security hardening (rate limiting with `skipSuccessfulRequests` on login, `helmet`, 100 KB body limit, `req.body` sanitization + `rejectOperatorKeys` query validation, forced first-login password change, `PASSWORD_UNCHANGED` check, socket revalidation), cleanup, reliability (`error.code`, graceful shutdown, structured redacting logger, `/health` DB check, React `ErrorBoundary` + `ServerUnreachable`, `NO_READINGS_FOUND` empty state, `farmerId` on alerts), and account/device management (device nicknames, device unlink + `unlinked` status + alert engine reset, removed-manager restore, admin manager password reset, Reading Log CSV export).
 - **Phase 10 (COMPLETE)**: Localization (English and Bangla) — zero-dependency `LanguageContext` + `prohori_lang` persistence (browser auto-detect fallback), `Noto Sans Bengali` font integration, identical English and Bangla JSON dictionaries (341 keys each, 0 unused keys) verified via `npm run i18n:check`, `LanguageToggle` header/shell integration, `Intl.RelativeTimeFormat` date formatting with Latin numerals, complete translations across all authentication, farmer, manager, admin, and profile views, localized divisions/districts, complete server error code translation with network fallback, and dead-key cleanup.
+- **Phase 11 (COMPLETE)**: Farmer ↔ Manager direct messaging, per-user socket rooms (`user:<userId>`), methane threshold bands parity update (warning 1,000–12,500, danger >12,500), 0-device socket connection support for farmers and managers, unread badge in header, responsive mobile chat UX strictly adhering to `DESIGN.md`.

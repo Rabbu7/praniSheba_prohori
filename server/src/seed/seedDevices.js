@@ -5,6 +5,7 @@ const Device = require('../models/Device');
 const User = require('../models/User');
 const DeviceRequest = require('../models/DeviceRequest');
 const Alert = require('../models/Alert');
+const Message = require('../models/Message');
 
 const SEEDED_DEVICES = [
   { deviceId: 'G3036', deviceCode: 'PROHORI-G3036-7X4K2' },
@@ -28,6 +29,7 @@ const seedDevices = async () => {
     await User.syncIndexes();
     await DeviceRequest.syncIndexes();
     await Alert.syncIndexes();
+    await Message.syncIndexes();
 
     const devices = await Device.find({}).sort({ deviceId: 1 }).lean();
     console.log('Seeded devices:', devices);

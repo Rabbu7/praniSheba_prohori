@@ -147,4 +147,47 @@ export const markAllAlertsRead = async () => {
 
 export const getThresholds = async () => (await api.get('/api/meta/thresholds')).data;
 
+export const getFarmerMessages = async ({ limit, before } = {}) => {
+  const params = {};
+  if (limit !== undefined) params.limit = limit;
+  if (before !== undefined) params.before = before;
+  return (await api.get('/api/messages', { params })).data;
+};
+
+export const sendFarmerMessage = async (body) => (
+  await api.post('/api/messages', { body })
+).data;
+
+export const markFarmerMessagesRead = async () => (
+  await api.post('/api/messages/read')
+).data;
+
+export const getFarmerUnreadMessageCount = async () => (
+  await api.get('/api/messages/unread-count')
+).data;
+
+export const getManagerConversations = async () => (
+  await api.get('/api/manager/conversations')
+).data;
+
+export const getManagerFarmerMessages = async (farmerId, { limit, before } = {}) => {
+  const params = {};
+  if (limit !== undefined) params.limit = limit;
+  if (before !== undefined) params.before = before;
+  return (await api.get(`/api/manager/farmers/${farmerId}/messages`, { params })).data;
+};
+
+export const sendManagerFarmerMessage = async (farmerId, body) => (
+  await api.post(`/api/manager/farmers/${farmerId}/messages`, { body })
+).data;
+
+export const markManagerFarmerMessagesRead = async (farmerId) => (
+  await api.post(`/api/manager/farmers/${farmerId}/messages/read`)
+).data;
+
+export const getManagerUnreadMessageCount = async () => (
+  await api.get('/api/manager/messages/unread-count')
+).data;
+
+
 

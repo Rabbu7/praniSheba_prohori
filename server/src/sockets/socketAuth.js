@@ -24,9 +24,6 @@ async function resolveSocketUser(token) {
   }
 
   const deviceIds = await getReadableDeviceIds(user);
-  if (deviceIds.length === 0) {
-    return null;
-  }
 
   return { user, deviceIds };
 }

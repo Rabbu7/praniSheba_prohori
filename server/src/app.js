@@ -19,6 +19,7 @@ const managerRouter = require('./routes/manager');
 const metaRouter = require('./routes/meta');
 const profileRouter = require('./routes/profile');
 const readingsRouter = require('./routes/readings');
+const messagesRouter = require('./routes/messages');
 const errorHandler = require('./middleware/errorHandler');
 const { sanitizeInput } = require('./middleware/sanitizeInput');
 const watchReadingChanges = require('./sockets/changeStream');
@@ -41,6 +42,9 @@ app.set('io', io);
 io.use(socketAuth);
 
 io.on('connection', (socket) => {
+  if (socket.data && socket.data.userId) {
+    socket.join(`user:${socket.data.userId}`);
+  }
   if (socket.data && Array.isArray(socket.data.deviceIds)) {
     for (const deviceId of socket.data.deviceIds) {
       socket.join(`device:${deviceId}`);
@@ -81,6 +85,7 @@ app.use('/api/manager', managerRouter);
 app.use('/api/meta', metaRouter);
 app.use('/api/profile', profileRouter);
 app.use('/api/readings', readingsRouter);
+app.use('/api/messages', messagesRouter);
 
 // Centralized error handler
 app.use(errorHandler);

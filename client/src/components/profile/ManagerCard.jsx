@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function ManagerCard({ manager, district }) {
@@ -96,6 +97,15 @@ export default function ManagerCard({ manager, district }) {
                 <span>{manager.phone}</span>
                 <span className="text-xs font-normal opacity-80">· {t('profile.callManager')}</span>
               </a>
+              <div className="pt-2">
+                <Link
+                  to="/messages"
+                  className="flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-md bg-primary hover:bg-primary-container text-on-primary font-semibold text-body-sm transition-colors cursor-pointer group shadow-2xs"
+                >
+                  <span className="material-symbols-outlined text-[18px]">chat</span>
+                  <span>{t('messages.messageManager')}</span>
+                </Link>
+              </div>
             </div>
           </div>
 
