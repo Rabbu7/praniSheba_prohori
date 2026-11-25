@@ -3,7 +3,70 @@
 > Defines the screens/pages/sections that exist in the app for the current phase.
 > Updated at the start of every new phase — sections marked "future" are NOT to be built yet.
 
-## Phase 10 — Localization (English & Bangla) — STATUS: COMPLETE
+## Current Phase: Phase 11 — Farmer ↔ Manager Messaging — STATUS: COMPLETE
+
+Phase 11 introduces direct, real-time 1-on-1 messaging between farmers and their assigned district manager, strictly adhering to `DESIGN.md` design tokens, responsive typography, and bilingual rules.
+
+### Entry Points & Header Badge
+- **Header Chat Action:** A `chat` icon button with unread count badge (using `bg-status-danger text-on-primary rounded-full`) sits adjacent to the notification bell in `Header.jsx` for both farmers and managers (across both desktop and mobile viewports).
+  - Unread badge shows count up to `9+`, matching the notification bell pattern.
+  - Clicking navigates to `/messages` for farmers, and `/manager/messages` for managers.
+  - Live count updates in real time via socket `new-message` events and periodic re-validation.
+- **Profile & Detail Shortcuts:**
+  - Farmers see a prominent **"Message manager"** (`messages.messageManager`) action button in `ManagerCard.jsx` on `/profile`.
+  - Managers see a **"Message farmer"** (`messages.messageFarmer`) action button in `FarmerDetail.jsx` on `/manager/farmers/:farmerId`.
+
+### Farmer Messaging View (`/messages`)
+- Direct 1-on-1 thread with the active district manager (derived dynamically from `farmer.district`).
+- **Layout & Shell:** Hybrid Sidebar-Canvas layout with standard `Sidebar` and `Header` shell (`title={t('messages.title')}`, `showDevice={false}`).
+- **Active Thread State:**
+  - Thread header displays the assigned manager's name, role subtitle, and a working direct `tel:` call link.
+  - Message bubble stream rendered in chronological order. Own messages display on the right (`bg-primary text-on-primary rounded-lg shadow-xs`), while manager messages display on the left (`bg-surface-container-low border border-border-subtle text-on-background rounded-lg shadow-xs`).
+  - Text is strictly escaped plain text (1–1,000 characters). Timestamps formatted in Asia/Dhaka time with Latin numerals.
+  - Auto-scrolls smoothly to the newest message on initial load and upon incoming messages; preserves scroll position when loading older messages.
+  - Older messages loaded in batches of 30 via cursor pagination (`before=<oldestId>`).
+- **Unassigned District State:**
+  - When the farmer's district has no active manager appointed, the message composer is replaced by an informational card (`messages.noManagerTitle` & `messages.noManagerDesc`) with an `info` icon. Sending is prevented (and backed by server 409 `NO_MANAGER_ASSIGNED`).
+- **Mobile Viewport (360px):**
+  - Page container has `pb-24` padding so the message composer sits comfortably above the sticky bottom navigation bar without overlapping.
+
+### Manager Messaging View (`/manager/messages` & `/manager/messages/:farmerId`)
+- Responsive master-detail layout allowing district managers to oversee conversations with all active farmers in their district.
+- **Desktop (2-Column Master-Detail):**
+  - **Left Pane (Conversation List):**
+    - Search input (`messages.searchFarmers`) filtering farmers by first name, last name, or phone number.
+    - Each conversation item displays farmer initials avatar, full name, relative timestamp of latest message, message body preview, and an unread badge if there are unread messages.
+    - Active conversation highlighted with `bg-primary/5 border-l-4 border-l-primary`.
+    - Real-time updates bump the latest message to the top and increment unread count for unselected conversations.
+  - **Right Pane (Active Thread):**
+    - If a farmer is selected (`/manager/messages/:farmerId`), renders `ChatThread` with farmer's name, phone, and district in header.
+    - If no farmer is selected (`/manager/messages`), renders an empty state illustration with `messages.conversations` and `messages.selectConversation`.
+- **Mobile Viewport (360px):**
+  - Responsive single-pane toggle:
+    - At `/manager/messages`: Displays the conversation list.
+    - At `/manager/messages/:farmerId`: Automatically hides the conversation list and shows the active chat thread with a back button (`arrow_back` with `aria-label={t('messages.backToConversations')}`) returning to `/manager/messages`.
+
+### Realtime Delivery & Security
+- Isolated rooms: Socket room `user:<userId>` delivers `new-message` events only to the sender and recipient.
+- Message data is never broadcast through IoT device rooms or `io.emit`.
+- Zero-device socket connections: Farmers and managers with 0 devices can establish socket connections to receive messaging events, while admins remain rejected (401).
+- Unread auto-clearing: Opening a thread or receiving a message while in the open thread automatically issues a mark-read call and dispatches `prohori:messages-read` to synchronize header badges across open tabs.
+
+### Phase 11 Acceptance Checks (all passed)
+1. **Thread isolation:** Each farmer has exactly one conversation thread with the active manager of their district. No cross-district visibility.
+2. **Dynamic manager derivation:** No `managerId` stored on messages. A newly appointed manager automatically accesses the existing message history of their district's farmers.
+3. **RBAC & Admin prohibition:** Admins cannot access messaging endpoints (403 `FORBIDDEN`) and cannot open socket connections.
+4. **Validation & Sanitation:** Messages must be 1–1,000 characters after trim. Escaped plain text only; never rendered as HTML.
+5. **No manager handling:** A farmer in an unmanaged district cannot send messages (server returns 409 `NO_MANAGER_ASSIGNED`, client shows informative disabled composer banner).
+6. **Realtime delivery:** Live messages sent over socket reach only the intended `user:<userId>` rooms and instantly appear in open threads without page reload.
+7. **Read states:** Reading messages marks `readAt` timestamp. Unread badges in header and conversation list update in real time.
+8. **Rate limiting:** `messageLimiter` limits message creation to 30 requests/minute per user (429 `RATE_LIMITED`).
+9. **Responsive 360px UI:** Chat composer and thread are fully usable at 360px mobile width with `pb-24` clearance above the bottom navigation bar.
+10. **Design System & Localization:** Strictly adheres to `DESIGN.md` tokens (no inline hex, `Noto Sans Bengali` overrides, Latin numerals for timestamps, 362 keys each in EN/BN with 0 errors).
+
+---
+
+## Previous Phase: Phase 10 — Localization (English & Bangla) — STATUS: COMPLETE
 
 Phase 10 implements bilingual support across the entire interface without adding external i18n libraries, new colors, or schema changes.
 
@@ -347,32 +410,6 @@ Metric cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged dis
 9. **Profiles:** every role can open `/profile` from the header icon, edit permitted fields, and change the password (wrong current password rejected).
 10. **Guards:** each role is redirected to its own home from other roles' routes; a farmer with only pending requests lands on `/devices` (no loop); switching roles in one tab shows the correct panel and clears the saved selected device.
 11. **Request dialog:** opens from My Devices and the DeviceSwitcher, closes on Escape/backdrop/Cancel, keeps typed values on error, and does not reopen on refresh; `/link-device` redirects to `/devices`.
-
----
-
-## Phase 11 — Farmer ↔ Manager Messaging — STATUS: COMPLETE
-
-Phase 11 adds direct, text-only messaging between farmers and their district managers.
-
-### Entry points
-- **Header:** A `chat` icon button with unread count badge (using `bg-status-danger text-white rounded-full`) sits next to the notification bell in `Header.jsx` for both farmers and managers.
-- **Profile & Detail shortcuts:**
-  - Farmers see a "Message manager" button in `ManagerCard.jsx` on `/profile`.
-  - Managers see a "Message farmer" button on `/manager/farmers/:farmerId`.
-
-### Farmer view: `/messages`
-- Direct thread with the district's active manager.
-- If no manager is currently active in the district, the input composer is disabled with a helpful banner ("Your district does not have an active manager assigned yet").
-- Messages render with own messages on the right (`bg-primary text-on-primary`) and manager messages on the left (`bg-surface-container-low border border-border-subtle text-on-background`).
-- Auto-scrolls to newest message; supports loading older messages via "Load older messages".
-- Real-time updates delivered over the user's private socket room (`user:<userId>`).
-
-### Manager view: `/manager/messages` & `/manager/messages/:farmerId`
-- Responsive 2-column layout (list on left, thread on right on desktop; full view toggle on mobile).
-- Conversation list shows every active farmer in the manager's district with their latest message preview, timestamp, and unread count badge.
-- Clicking a conversation opens `/manager/messages/:farmerId` with the active thread.
-- Thread header shows the farmer's name, phone, and district.
-- Mark as read occurs automatically upon opening the thread or receiving messages while open.
 
 ---
 
