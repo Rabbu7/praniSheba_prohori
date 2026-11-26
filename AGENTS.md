@@ -346,17 +346,19 @@ Topic `prohori/<deviceId>/reading`. `mimic-device/` publishes for all six device
 
 ### Socket.IO rooms
 
-- `socketAuth.js` verifies the JWT, loads the user fresh, and rejects (generic "Authentication required") if the token is missing/invalid/expired, the user does not exist, `status !== 'active'`, or there are no readable devices. It sets `socket.data.userId`, `socket.data.role`, `socket.data.deviceIds`:
+- `socketAuth.js` verifies the JWT, loads the user fresh, and rejects (generic "Authentication required") if the token is missing/invalid/expired, the user does not exist, or `status !== 'active'`. It sets `socket.data.userId`, `socket.data.role`, `socket.data.deviceIds`:
   - **farmer:** their approved `devices`.
   - **manager:** every device of every active farmer in the manager's district (loaded at handshake, via `getReadableDeviceIds`).
   - **admin:** rejected.
+  Every connected socket also joins `user:<userId>` (from the verified token only) for messaging.
 - `app.js` joins one room `device:<id>` per ID in `socket.data.deviceIds`. IDs come only from the server-loaded list. No client-triggered join.
 - `changeStream.js` emits `new-reading`, `new-alert` and `alert-resolved` only to `io.to('device:' + deviceId)`. No global `io.emit` anywhere in `server/`.
 - The client filters live events by `payload.device_id` (unchanged).
 - **Handshake data is a snapshot.** A client must reconnect (`disconnectSocket()` then `connectSocket(token)`) when its device list changes:
   - farmer: `useFarmerSync` polls `/api/auth/me` every 30 s and on tab focus while a request is pending (started on mount if any request is pending, and right after a successful new request), and reconnects the socket when the approved device IDs change.
-  - manager: the socket is opened only on the farmer device view (once on entry) and closed on leaving. Managers and admins never open a socket elsewhere. The REST fetch must work even if the socket fails (`connect_error` is tolerated).
-- Known limitations (accepted): JWT, role and device list are verified only at handshake; a manager or admin with no device IDs cannot connect; an already-open socket of a removed manager stays connected until it disconnects.
+  - Farmer and manager sockets are opened from the Header (`useUnreadMessages`) on every authenticated page. Admins never connect.
+  - A zero-device farmer on `/devices` and `/profile` loses the reading socket (`useLatestReading`), so the message badge updates via the 60 s poll there.
+- Known limitations (accepted): JWT, role and device list are verified only at handshake; admins cannot connect; managers now receive live new-alert and new-reading events for all district devices on every page; an already-open socket of a removed manager stays connected until it disconnects.
 
 ### Alerts (Phase 8)
 
@@ -418,6 +420,7 @@ Endpoints (`requireAuth` + `requireRole('farmer', 'manager')`; admin gets 403 "F
 - Call links use `<a href={"tel:" + phone}>` with the Material Symbols `call` icon.
 - **Notification bell** (`components/layout/NotificationBell.jsx`, fed by one `useAlerts(enabled)` call in `Header`, shared by the mobile and desktop headers). Enabled for farmer and manager; admin keeps the inert icon and makes no `/api/alerts` request. `useAlerts` fetches `getAlerts({ limit: 10 })` on mount, every 60 s and on tab focus, listens on the shared socket for `new-alert` and `alert-resolved` (deduped by id, list capped at 10), and never calls `connectSocket`/`disconnectSocket`. Mark-read is optimistic with `reload()` on failure. Row click: farmer → `selectDevice(deviceId)` then `/`; manager → `/manager/farmers/:farmerId/devices/:deviceId` (falling back to `/manager/farmers` if `farmerId`/`deviceId` is absent).
 - **Trend chart** (`TrendChart.jsx`): metric selector (Ammonia, Methane, Humidity, Temperature, default Ammonia), one line at a time from `ammonia_avg`, `methane_avg`, `humidity_avg`, `temperature_avg`, with `ReferenceArea` threshold bands from `useThresholds` drawn behind the line using the status color tokens. The chart still renders without bands if the thresholds request fails.
+- **Header chat icon & messaging:** Header chat icon with an unread badge (`useUnreadMessages`), `/messages` (farmer) and `/manager/messages` and `/manager/messages/:farmerId` (manager). Live delivery over `user:<userId>` socket rooms; unread badge counts up to `9+`.
 
 ## Stack
 
@@ -495,7 +498,7 @@ prohori-dashboard/
 │   │   │   └── common/    # StatusBadge, RequestStatusBadge, MetricCard, ConfirmDialog,
 │   │   │   │              #   ErrorBoundary, ServerUnreachable, LanguageToggle
 │   │   ├── context/       # AuthContext, DeviceContext, LanguageContext
-│   │   ├── locales/       # en.json, bn.json (341 keys each)
+│   │   ├── locales/       # en.json, bn.json (362 keys each)
 │   │   ├── pages/         # Login, Register, CompleteProfile, ChangePassword, Dashboard,
 │   │   │                  #   History, Calendar, Devices, Profile, Messages, manager/*, admin/*
 │   │   ├── hooks/         # reading hooks, useLocations, useThresholds, useAlerts, useFarmerSync,
@@ -515,14 +518,14 @@ prohori-dashboard/
 
 ## Route Guard Summary (single source for `App.jsx`)
 
-| State | Farmer pages `/`, `/history`, `/calendar` | `/devices`, `/profile` | `/complete-profile` | `/change-password` | `/manager/*` | `/admin/*` | `/login`, `/register` |
+| State | Farmer pages `/`, `/history`, `/calendar` | `/devices`, `/profile`, `/messages` | `/complete-profile` | `/change-password` | `/manager/*` | `/admin/*` | `/login`, `/register` |
 |---|---|---|---|---|---|---|---|
 | Not authenticated | → `/login` | → `/login` | → `/login` | → `/login` | → `/login` | → `/login` | shown |
 | Authenticated, `mustChangePassword` | → `/change-password` | → `/change-password` | → `/change-password` | shown | → `/change-password` | → `/change-password` | → `/change-password` |
 | Farmer, profile incomplete | → `/complete-profile` | → `/complete-profile` | shown | → `/` | → `/` | → `/` | → `/` |
 | Farmer, profile complete, no approved device | → `/devices` | shown | → `/` | → `/` | → `/` | → `/` | → `/` |
 | Farmer, profile complete, ≥1 approved device | shown | shown | → `/` | → `/` | → `/` | → `/` | → `/` |
-| Manager | → `/manager` | `/profile` shown; others → `/manager` | → `/manager` | → `/manager` | shown | → `/manager` | → `/manager` |
+| Manager | → `/manager` | `/profile` shown; `/messages` → `/manager/messages`; others → `/manager` | → `/manager` | → `/manager` | shown | → `/manager` | → `/manager` |
 | Admin | → `/admin` | `/profile` shown; others → `/admin` | → `/admin` | → `/admin` | → `/admin` | shown | → `/admin` |
 
 `/link-device` redirects to `/devices`. While the initial `/api/auth/me` is in flight (`loading: true`), a minimal loading state renders instead of any redirect.
@@ -540,8 +543,8 @@ prohori-dashboard/
 - `GET /api/readings/latest | daily-averages | log | calendar | day/:date | export` — `?deviceId=` rules per role via `resolveDevice` (CORS exposes `X-Export-Truncated`, `X-Export-Row-Cap`, `Content-Disposition`)
 - `GET /api/meta/thresholds` → `THRESHOLDS` (no auth)
 - `GET /api/alerts`, `POST /api/alerts/:id/read`, `POST /api/alerts/read-all` (farmer, manager; admin 403)
-- `GET /api/messages?limit=&before=`, `POST /api/messages`, `POST /api/messages/read`, `GET /api/messages/unread-count` (farmer only; admin 403)
-- `GET /api/manager/conversations`, `GET /api/manager/farmers/:farmerId/messages`, `POST /api/manager/farmers/:farmerId/messages`, `POST /api/manager/farmers/:farmerId/messages/read`, `GET /api/manager/messages/unread-count` (manager only; admin 403)
+- `GET /api/messages?limit=&before=`, `POST /api/messages`, `POST /api/messages/read`, `GET /api/messages/unread-count` (farmer only; admin 403; limit: 1–100 integer default 30; before: canonical 24-hex ObjectId; invalid limit or before returns 400 `INVALID_QUERY_PARAMETERS`; body: 1–1000 trimmed plain text; missing body returns 400 `INVALID_MESSAGE`; no district manager returns 409 `NO_MANAGER_ASSIGNED`)
+- `GET /api/manager/conversations`, `GET /api/manager/farmers/:farmerId/messages?limit=&before=`, `POST /api/manager/farmers/:farmerId/messages`, `POST /api/manager/farmers/:farmerId/messages/read`, `GET /api/manager/messages/unread-count` (manager only; admin 403; same limit, before, and body validation rules; out-of-district farmer returns 404 `FARMER_NOT_FOUND`)
 - `GET /health` — no auth; checks MongoDB connection state (`200 { status: 'ok', db: 'connected' }` / `503 { status: 'degraded', db: 'disconnected' }`)
 - **Removed:** `POST /api/auth/link-device` (replaced by `POST /api/device-requests`; now 404).
 - **Socket.IO:** JWT in `auth.token`; rooms per role; `new-reading` payload matches `/api/readings/latest` (includes `device_id`); `new-alert` (serialized alert) and `alert-resolved` `{ id, deviceId, metric, resolvedAt }` go to `device:<id>` rooms; realtime messaging uses per-user `user:<userId>` rooms (`new-message` event); admins cannot connect.
@@ -586,7 +589,7 @@ prohori-dashboard/
 - `app.set('trust proxy', ...)` must be configured in the deployment phase so `express-rate-limit` identifies client IPs behind a reverse proxy.
 - Existing JWTs are not revoked on a normal password change (they expire after 7 days; removed managers are rejected via `requireAuth` and periodic `revalidateSocket`).
 - A removed manager's email stays taken (email index covers all users).
-- Admins cannot open a socket (farmers and managers with zero devices can connect to receive `user:<userId>` messaging events).
+- Admins cannot connect. Managers now receive live new-alert and new-reading events for all district devices on every page.
 - The alert engine keeps its confirmed zones in memory; a server restart re-seeds from each device's latest reading and resolves stale open alerts (no phantom alerts).
 - On `/devices` and `/profile` a farmer has no live reading socket, so the bell updates through the 60 s poll and tab-focus refetch.
 - Mongoose may print a deprecation warning on some update options; harmless.

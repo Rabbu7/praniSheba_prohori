@@ -86,9 +86,10 @@ export default function ChatThread({
             <h3 className="font-headline-md text-base font-bold text-on-background truncate leading-tight">
               {title || (partner ? `${partner.firstName} ${partner.lastName}` : t('messages.title'))}
             </h3>
-            {subtitle ? (
+            {subtitle && (
               <p className="text-xs text-secondary truncate">{subtitle}</p>
-            ) : partner?.phone ? (
+            )}
+            {partner?.phone && (
               <a
                 href={`tel:${partner.phone}`}
                 className="text-xs text-primary hover:underline flex items-center gap-1 leading-tight mt-0.5"
@@ -96,7 +97,7 @@ export default function ChatThread({
                 <span className="material-symbols-outlined text-[14px]">call</span>
                 <span>{partner.phone}</span>
               </a>
-            ) : null}
+            )}
           </div>
         </div>
       </div>

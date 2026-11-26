@@ -10,7 +10,7 @@ import { isServerUnreachable } from '../utils/isServerUnreachable';
 
 export default function Messages() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, translateError } = useLanguage();
   const {
     messages,
     hasMore,
@@ -29,8 +29,14 @@ export default function Messages() {
       <div className="flex-1 md:ml-sidebar-width flex flex-col h-screen overflow-hidden bg-background">
         <Header title={t('messages.title')} showDevice={false} />
         <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-hidden max-w-[1200px] w-full mx-auto flex flex-col pb-24 md:pb-6">
-          {error && isServerUnreachable(error) ? (
-            <ServerUnreachable />
+          {error ? (
+            isServerUnreachable(error) ? (
+              <ServerUnreachable />
+            ) : (
+              <p className="rounded-lg border border-error/30 bg-surface-white p-8 text-center text-error">
+                {translateError(error, 'common.failed')}
+              </p>
+            )
           ) : (
             <ChatThread
               partner={partner}
@@ -39,7 +45,7 @@ export default function Messages() {
               loading={loading}
               loadingMore={loadingMore}
               sending={sending}
-              disabled={!loading && !partner}
+              disabled={!loading && !error && !partner}
               currentUserId={user?._id || user?.id}
               onLoadMore={loadMore}
               onSend={send}

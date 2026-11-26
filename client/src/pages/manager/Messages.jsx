@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Sidebar from '../../components/layout/Sidebar';
 import Header from '../../components/layout/Header';
@@ -23,6 +23,11 @@ export default function ManagerMessages() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const conversationsRef = useRef(conversations);
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
 
   // Active thread hook
   const {
@@ -61,25 +66,29 @@ export default function ManagerMessages() {
 
     const handleNewMessage = (newMsg) => {
       if (!newMsg) return;
-      setConversations((prev) => {
-        const msgFarmerId = (newMsg.farmerId || '').toString();
-        const index = prev.findIndex((c) => c.farmer.id === msgFarmerId);
+      const msgFarmerId = (newMsg.farmerId || '').toString();
+      const currentList = conversationsRef.current || [];
+      const index = currentList.findIndex((c) => c.farmer.id === msgFarmerId);
 
-        if (index === -1) {
-          // If a new farmer not yet in list, reload
-          loadConversations();
-          return prev;
-        }
+      if (index === -1) {
+        // If a new farmer not yet in list, reload
+        loadConversations();
+        return;
+      }
+
+      setConversations((prev) => {
+        const prevIndex = prev.findIndex((c) => c.farmer.id === msgFarmerId);
+        if (prevIndex === -1) return prev;
 
         const updated = [...prev];
-        const target = { ...updated[index] };
+        const target = { ...updated[prevIndex] };
         target.lastMessage = newMsg;
 
         if (newMsg.senderRole === 'farmer' && farmerId !== msgFarmerId) {
           target.unreadCount = (target.unreadCount || 0) + 1;
         }
 
-        updated.splice(index, 1);
+        updated.splice(prevIndex, 1);
         return [target, ...updated];
       });
     };

@@ -31,7 +31,7 @@ router.get('/device-requests', rejectOperatorKeys, listManagerRequests);
 router.post('/device-requests/:id/approve', approveRequest);
 router.post('/device-requests/:id/reject', rejectRequest);
 router.get('/conversations', listConversations);
-router.get('/farmers/:farmerId/messages', getFarmerMessages);
+router.get('/farmers/:farmerId/messages', rejectOperatorKeys, getFarmerMessages);
 router.post('/farmers/:farmerId/messages', messageLimiter, sendFarmerMessage);
 router.post('/farmers/:farmerId/messages/read', markFarmerMessagesRead);
 router.get('/messages/unread-count', getManagerUnreadCount);

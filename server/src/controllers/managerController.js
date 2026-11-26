@@ -157,15 +157,29 @@ async function getFarmerMessages(req, res, next) {
       throw createError('Farmer not found', 404, 'FARMER_NOT_FOUND');
     }
 
-    const rawLimit = Number.parseInt(req.query.limit, 10);
-    const limit = Number.isInteger(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 30;
+    let limit = 30;
+    if (req.query.limit !== undefined) {
+      if (!/^[1-9]\d*$/.test(req.query.limit)) {
+        throw createError('Invalid query parameters', 400, 'INVALID_QUERY_PARAMETERS');
+      }
+      const parsed = parseInt(req.query.limit, 10);
+      if (parsed < 1 || parsed > 100) {
+        throw createError('Invalid query parameters', 400, 'INVALID_QUERY_PARAMETERS');
+      }
+      limit = parsed;
+    }
 
     const query = { farmerId: farmer._id };
-    if (req.query.before) {
-      if (!mongoose.isValidObjectId(req.query.before)) {
-        throw createError('Invalid cursor', 400, 'BAD_REQUEST');
-      }
-      query._id = { $lt: new mongoose.Types.ObjectId(req.query.before) };
+    const before = req.query.before;
+    if (before !== undefined && (
+      typeof before !== 'string'
+      || !mongoose.Types.ObjectId.isValid(before)
+      || String(new mongoose.Types.ObjectId(before)) !== before
+    )) {
+      throw createError('Invalid query parameters', 400, 'INVALID_QUERY_PARAMETERS');
+    }
+    if (before) {
+      query._id = { $lt: new mongoose.Types.ObjectId(before) };
     }
 
     const docs = await Message.find(query)
@@ -207,7 +221,7 @@ async function sendFarmerMessage(req, res, next) {
       throw createError('Farmer not found', 404, 'FARMER_NOT_FOUND');
     }
 
-    const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
+    const body = typeof req.body?.body === 'string' ? req.body.body.trim() : '';
     if (!body || body.length > 1000) {
       throw createError('Message must be between 1 and 1000 characters', 400, 'INVALID_MESSAGE');
     }
