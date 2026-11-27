@@ -77,7 +77,7 @@ export default function Requests() {
       </div>
 
       {message && (
-        <p className={`mb-4 rounded-md p-3 text-body-sm ${message.ok ? 'bg-status-online/10 text-status-online' : 'bg-error/10 text-error'}`}>
+        <p className={`mb-4 rounded-md p-3 text-body-sm border ${message.ok ? 'bg-status-online/10 text-on-background border-status-online/30' : 'bg-error/10 text-error border-error/30'}`}>
           {message.text}
         </p>
       )}

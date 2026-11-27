@@ -32,7 +32,7 @@ export default function SensorCard({
 
   return (
     <div
-      className={`bg-surface-white border border-[#D1D5DB] rounded-lg p-4 relative overflow-hidden flex flex-col justify-between hover:-translate-y-1 hover:shadow-md transition-all duration-300 ease-in-out cursor-default ${
+      className={`bg-surface-white border border-border-subtle rounded-lg p-4 relative overflow-hidden flex flex-col justify-between hover:-translate-y-1 hover:shadow-md transition-all duration-300 ease-in-out cursor-default ${
         changed ? 'card-highlight-flash' : ''
       }`}
     >

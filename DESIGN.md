@@ -149,7 +149,7 @@ Spacing follows an 8px base rhythm. "Gutter" units (16px) separate grid items, w
 ## Elevation & Depth
 Depth is primarily conveyed through **Low-Contrast Outlines** and **Tonal Layering** rather than heavy shadows.
 - **Base Level:** Background canvas (`#f9f9f8`).
-- **Elevated Level:** Cards and containers use a white background (`#FFFFFF`) with a 1px solid border (`#D1D5DB`).
+- **Elevated Level:** Cards and containers use a white background (`var(--color-surface-white)`) with a 1px solid border (`var(--color-border-subtle)`).
 - **Interactive State:** On hover, cards lift slightly (`translate-y-[-4px]`) and gain a soft, neutral shadow to indicate clickability.
 - **Indicator Layer:** High-priority cards use a 4px left-border accent to denote status, creating a clear vertical visual scan line.
 
@@ -174,3 +174,59 @@ The shape language is "Soft-Industrial."
   - **Text-transform:** Disabled (`text-transform: none !important`). Uppercase transformations are not applicable in Bengali and introduce layout artifacts.
   - **Line-height:** Raised to `1.5` to prevent clipping of top and bottom vowel diacritics (কার ও মাত্রা).
 - **Numerals & Metrics:** Sensor reading values, chart axes, calendar min/max cell values, and measurement units (`ppm`, `%`, `°F`) stay in Latin digits across both languages for industrial IoT readability.
+
+## Dark Theme
+
+The dark theme uses dark values for existing token names only (no new token names, fonts, radii or shadows).
+
+| Token | Dark value |
+|---|---|
+| `surface`, `background` | `#121413` |
+| `surface-dim` | `#0e100f` |
+| `surface-bright` | `#373a39` |
+| `surface-white` | `#1b1d1c` |
+| `surface-container-lowest` | `#151716` |
+| `surface-container-low` | `#1f2221` |
+| `surface-container` | `#252827` |
+| `surface-container-high` | `#2d302f` |
+| `surface-container-highest` | `#373a39` |
+| `surface-variant` | `#373a39` |
+| `on-surface`, `on-background` | `#e3e3e2` |
+| `on-surface-variant` | `#c3c6d6` |
+| `inverse-surface` | `#e3e3e2` |
+| `inverse-on-surface` | `#2f3130` |
+| `outline` | `#8d909f` |
+| `outline-variant` | `#434654` |
+| `border-subtle` | `#2f3231` |
+| `chart-grid` | `#2a2d2c` |
+| `surface-tint` | `#b4c5ff` |
+| `primary` | `#b4c5ff` |
+| `on-primary` | `#002a78` |
+| `primary-container` | `#8aa4ff` |
+| `on-primary-container` | `#00174b` |
+| `inverse-primary` | `#003594` |
+| `primary-fixed` | `#1a2f66` |
+| `on-primary-fixed` | `#dbe1ff` |
+| `on-primary-fixed-variant` | `#b4c5ff` |
+| `secondary` | `#c8c6c6` |
+| `on-secondary` | `#1c1b1c` |
+| `secondary-container` | `#3a3939` |
+| `on-secondary-container` | `#e2dfdf` |
+| `tertiary` | `#bec6e0` |
+| `on-tertiary` | `#283046` |
+| `tertiary-container` | `#3f465c` |
+| `on-tertiary-container` | `#dae2fd` |
+| `error` | `#ffb4ab` |
+| `on-error` | `#690005` |
+| `error-container` | `#93000a` |
+| `on-error-container` | `#ffdad6` |
+
+### Dark Theme Rules
+- **Unchanged tokens:** `status-online` (`#16A34A`), `status-warning` (`#D97706`), `status-danger` (`#DC2626`), `status-offline` (`#9CA3AF`), and `sidebar-bg` (`#0F172A`) remain unchanged in dark mode.
+- **Primary container rationale:** Dark `primary-container` stays light (`#8aa4ff`) on purpose. Buttons use `hover:bg-primary-container` with `text-on-primary`, and a dark container would make the hover text unreadable.
+- **Sidebar exception:** The Sidebar may keep its white/gray utilities, because it sits on `bg-sidebar-bg`, which is dark in both themes.
+- **Status badges:** Use a tinted background (`bg-status-*/10`, `border-status-*/30`) plus a colored dot. The text uses `on-background`, not green/red/amber text.
+- **Type sizes:** Named type tokens are defined in `rem` (same values at a 16px root) so Large text scaling works properly.
+- **Contrast:** All text and interactive states must meet WCAG AA contrast standards in both themes.
+- **Bangla rules:** The Bangla typography overrides apply consistently in both themes.
+

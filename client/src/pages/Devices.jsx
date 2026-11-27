@@ -164,7 +164,7 @@ export default function Devices() {
 
           {/* Unmanaged district info banner */}
           {isUnmanagedDistrict && (
-            <div className="mb-6 rounded-lg border border-status-warning/30 bg-amber-50 p-4 text-amber-900 flex items-center gap-3">
+            <div className="mb-6 rounded-lg border border-status-warning/30 bg-status-warning/10 p-4 text-on-background flex items-center gap-3">
               <span className="material-symbols-outlined text-status-warning">info</span>
               <span className="text-body-sm font-medium">
                 {t('profile.noManagerDesc')}

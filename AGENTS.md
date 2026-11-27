@@ -10,7 +10,37 @@
 Reference product: https://iot.pranisheba.com.bd/#/home
 Company site: https://www.pranisheba.com.bd/-eng
 
-## Current Phase: Phase 11 — Farmer ↔ Manager Messaging (COMPLETE)
+## Current Phase: Phase 12 — Dark Mode and Settings (COMPLETE)
+
+Phase 12 adds system-wide dark mode support and a comprehensive client-side Settings page (`/settings`) across all user roles, built with strict adherence to `DESIGN.md`.
+
+### Phase 12 stages
+
+- **12a** Docs (DONE) · **12b** Preferences infrastructure (DONE) · **12c** Hardcoded color sweep (DONE) · **12d** Settings page and entry points (DONE) · **12e** Verification and closeout (DONE)
+
+### Phase 12 decisions (authoritative)
+
+1. **Scope:** Exactly two features: dark mode and a Settings page (`/settings`). No server, schema, API, `mqtt-bridge`, or `mimic-device` changes. Automated tests and deployment are not planned.
+2. **Client-side preferences only** in `localStorage`:
+   - `prohori_theme`: `'light'`, `'dark'`, or `'system'` (default `'system'`).
+   - `prohori_text_size`: `'normal'` or `'large'` (default `'normal'`).
+   - `prohori_reduce_motion`: `'true'` or `'false'`. If absent, follow OS `prefers-reduced-motion`.
+   - Existing keys `prohori_lang`, `prohori_selected_device`, and `prohori_token` are unchanged.
+3. **DOM attributes mechanism:** HTML attributes `data-theme` (resolved to `'light'` or `'dark'`), `data-text-size` (`'normal'` or `'large'`), and `data-reduce-motion` (`'true'` or `'false'`). They are set before first paint by an inline script in `index.html` to prevent theme flash, and kept in sync by `PreferencesContext`.
+4. **Context hierarchy:** `PreferencesContext` exposes `{ theme, resolvedTheme, setTheme, textSize, setTextSize, reduceMotion, setReduceMotion, resetPreferences }`. Provider order in `main.jsx`: `LanguageProvider > PreferencesProvider > ErrorBoundary > AuthProvider > DeviceProvider > App`.
+5. **Text sizing:** Large text mode sets the HTML root font-size to `112.5%`. This scales named type tokens defined in `rem` (`display-data`, `headline-*`, `body-*`, `label-caps`, `unit-label`), while leaving arbitrary `text-[Npx]` alone.
+6. **Motion reduction:** `data-reduce-motion='true'` enforces zero-duration animations and transitions via CSS. Smooth scrolling in `ChatThread` uses `behavior: reduceMotion ? 'auto' : 'smooth'`, and Recharts line animation is disabled (`isAnimationActive={!reduceMotion}`).
+7. **Settings page (`/settings`):** Shared Sidebar + Header shell under `ProfileGuard` for all roles (`farmer`, `manager`, `admin`).
+   - **Left column (`lg:col-span-8`):** Appearance (Theme, Text size, Reduce motion), Language (EN / বাং), Threshold guide (`useThresholds()` read-only breakdown with Latin digits and localized units).
+   - **Right column (`lg:col-span-4`):** Account (link to `/profile`), About (app name, version `__APP_VERSION__`, manager contact for farmers), Reset preferences.
+8. **Reset preferences:** Uses `ConfirmDialog` to restore theme, text size, motion, language (`resetLanguage()` in `LanguageContext`), and selected device (`selectDevice(null)`) to defaults. Never logs out and never touches `prohori_token`.
+9. **Entry points:**
+   - Desktop Sidebar includes an active Settings item for all roles (desktop-only; not on the mobile bottom bar).
+   - Mobile Header includes a settings gear icon leading to `/settings`.
+   - Desktop Header and `AuthShell` include a `ThemeToggle` icon button.
+10. **Strict adherence to DESIGN.md:** Uses only tokens from `DESIGN.md` / `client/src/index.css`. No new token names, no inline hex values, no raw palette classes (except inside Sidebar). Dark `primary-container` stays light (`#8aa4ff`) so button hover text remains readable.
+
+## Previous Phase: Phase 11 — Farmer ↔ Manager Messaging (COMPLETE)
 
 Phase 11 adds direct, real-time messaging between farmers and their assigned district manager, built with strict adherence to `DESIGN.md`.
 
@@ -494,13 +524,14 @@ prohori-dashboard/
 │   │   │   ├── views/     # DashboardView, HistoryView, CalendarView (take deviceId)
 │   │   │   ├── profile/   # ProfileForm, PasswordForm, ManagerCard, DistrictCard
 │   │   │   ├── messages/  # ChatThread
+│   │   │   ├── settings/  # SettingsCard, SegmentedControl, SwitchRow, ThresholdGuide
 │   │   │   ├── location/  # LocationSelect
 │   │   │   └── common/    # StatusBadge, RequestStatusBadge, MetricCard, ConfirmDialog,
-│   │   │   │              #   ErrorBoundary, ServerUnreachable, LanguageToggle
-│   │   ├── context/       # AuthContext, DeviceContext, LanguageContext
-│   │   ├── locales/       # en.json, bn.json (362 keys each)
+│   │   │   │              #   ErrorBoundary, ServerUnreachable, LanguageToggle, ThemeToggle
+│   │   ├── context/       # AuthContext, DeviceContext, LanguageContext, PreferencesContext
+│   │   ├── locales/       # en.json, bn.json (394 keys each)
 │   │   ├── pages/         # Login, Register, CompleteProfile, ChangePassword, Dashboard,
-│   │   │                  #   History, Calendar, Devices, Profile, Messages, manager/*, admin/*
+│   │   │                  #   History, Calendar, Devices, Profile, Messages, Settings, manager/*, admin/*
 │   │   ├── hooks/         # reading hooks, useLocations, useThresholds, useAlerts, useFarmerSync,
 │   │   │                      #   useUnreadMessages, useMessageThread, manager/admin data hooks
 │   │   ├── services/      # api.js, socket.js
@@ -598,10 +629,9 @@ prohori-dashboard/
 
 *(None — cleared in Phase 9c.)*
 
-## Out of Scope (Deferred beyond Phase 11)
+## Out of Scope (Deferred)
 
-- Deployment (deferred to Phase 13)
-- Automated unit/API test suite (planned for Phase 12)
+- Automated unit/API test suites and production deployment are not planned
 - Offline-device alerts (cancelled)
 - Multiple managers per district and automatic manager selection
 - Farms / cow rooms hierarchy
@@ -611,7 +641,6 @@ prohori-dashboard/
 - Device limit per account
 - Email-based flows (password reset, email verification, email invites)
 - Push/email/SMS notifications and per-user alert rules
-- Settings page
 
 ## Phase History
 
@@ -626,3 +655,4 @@ prohori-dashboard/
 - **Phase 9 (COMPLETE)**: Security hardening (rate limiting, `helmet`, body limit, Mongo operator sanitization, forced first-login password change, timing-safe login, socket revalidation, startup env validation, secrets hygiene), cleanup, reliability (stable `error.code`, graceful shutdown, structured redacting logger, `/health` DB check, React `ErrorBoundary` + `ServerUnreachable`, `farmerId` on alerts), and account/device management (device nicknames, device unlink, removed-manager restore, admin manager password reset, Reading Log CSV export).
 - **Phase 10 (COMPLETE)**: Localization (English and Bangla) — zero-dependency `LanguageContext` + `prohori_lang` persistence (browser auto-detect fallback), `Noto Sans Bengali` font integration, identical English and Bangla JSON dictionaries (341 keys each, 0 unused keys) verified via `npm run i18n:check`, `LanguageToggle` header/shell integration, `Intl.RelativeTimeFormat` date formatting with Latin numerals, complete translations across all authentication, farmer, manager, admin, and profile views, localized divisions/districts, complete server error code translation with network fallback, and dead-key cleanup.
 - **Phase 11 (COMPLETE)**: Farmer ↔ Manager Messaging — 1-on-1 thread per farmer scoped to district manager, `user:<userId>` socket rooms, unread badges in Header, chat thread UI conforming strictly to DESIGN.md, dictionary expanded to 362 keys each in EN and BN (0 errors, 0 unused keys), and methane threshold update (1,000–12,500 warning, >12,500 danger).
+- **Phase 12 (COMPLETE)**: Dark Mode and Settings — system-wide dark palette overrides for existing tokens, `localStorage` preferences (`prohori_theme`, `prohori_text_size`, `prohori_reduce_motion`), anti-flash inline script, root `rem` typography scaling (Normal / Large), animation/transition suppression under reduced motion, `/settings` page for all roles with appearance, language, live threshold guide, profile navigation, preferences reset dialog, and dictionary expanded to 394 keys each in EN and BN (0 errors, 0 unused keys).

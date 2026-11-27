@@ -166,7 +166,7 @@ export default function Managers() {
       </div>
 
       {banner && (
-        <p className="mb-4 rounded-md bg-status-online/10 p-3 text-body-sm text-status-online">
+        <p className="mb-4 rounded-md bg-status-online/10 border border-status-online/30 p-3 text-body-sm text-on-background">
           {banner}
         </p>
       )}

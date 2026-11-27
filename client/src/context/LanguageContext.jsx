@@ -7,6 +7,25 @@ const LanguageContext = createContext(null);
 const STORAGE_KEY = 'prohori_lang';
 const DICTIONARIES = { en, bn };
 
+function getDefaultLanguage() {
+  if (typeof navigator !== 'undefined' && navigator.language?.startsWith('bn')) {
+    return 'bn';
+  }
+  return 'en';
+}
+
+function getInitialLanguage() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === 'bn' || saved === 'en') {
+      return saved;
+    }
+  } catch {
+    // storage unavailable
+  }
+  return getDefaultLanguage();
+}
+
 function getNestedValue(obj, path) {
   if (!obj || !path) return undefined;
   const parts = path.split('.');
@@ -22,20 +41,7 @@ function getNestedValue(obj, path) {
 }
 
 export function LanguageProvider({ children }) {
-  const [language, setLanguageState] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === 'bn' || saved === 'en') {
-        return saved;
-      }
-      if (typeof navigator !== 'undefined' && navigator.language?.startsWith('bn')) {
-        return 'bn';
-      }
-      return 'en';
-    } catch {
-      return 'en';
-    }
-  });
+  const [language, setLanguageState] = useState(getInitialLanguage);
 
   const setLanguage = useCallback((lang) => {
     const next = lang === 'bn' ? 'bn' : 'en';
@@ -45,6 +51,15 @@ export function LanguageProvider({ children }) {
     } catch {
       // storage unavailable
     }
+  }, []);
+
+  const resetLanguage = useCallback(() => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // storage unavailable
+    }
+    setLanguageState(getDefaultLanguage());
   }, []);
 
   useEffect(() => {
@@ -111,11 +126,12 @@ export function LanguageProvider({ children }) {
   const value = useMemo(() => ({
     language,
     setLanguage,
+    resetLanguage,
     t,
     translateError,
     translateLocation,
     isBangla: language === 'bn'
-  }), [language, setLanguage, t, translateError, translateLocation]);
+  }), [language, setLanguage, resetLanguage, t, translateError, translateLocation]);
 
   return (
     <LanguageContext.Provider value={value}>

@@ -1,6 +1,7 @@
 import React from 'react';
 import logo from '../../assets/logo.jpeg';
 import LanguageToggle from '../common/LanguageToggle';
+import ThemeToggle from '../common/ThemeToggle';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function AuthShell({ title, eyebrow, children, footer }) {
@@ -32,7 +33,8 @@ export default function AuthShell({ title, eyebrow, children, footer }) {
       </section>
 
       <section className="relative flex min-h-screen items-center justify-center px-6 py-12 sm:px-10 lg:px-16 xl:px-24">
-        <div className="absolute top-6 right-6 z-10">
+        <div className="absolute top-6 right-6 z-10 flex items-center gap-3">
+          <ThemeToggle />
           <LanguageToggle />
         </div>
         <div className="w-full max-w-md">

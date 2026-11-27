@@ -12,7 +12,7 @@ export default function HistoryTable({ data = [], loading = false, page = 1, tot
   const { t, language } = useLanguage();
 
   return (
-    <div className="bg-surface-white border border-[#D1D5DB] rounded-lg p-6">
+    <div className="bg-surface-white border border-border-subtle rounded-lg p-6">
       <h3 className="font-headline-md text-headline-md font-bold text-on-background mb-4">
         {t('log.title')}
       </h3>

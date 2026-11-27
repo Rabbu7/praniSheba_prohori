@@ -25,6 +25,7 @@ export default function Sidebar() {
         { to: '/admin', icon: 'dashboard', label: t('nav.overview'), mobileLabel: t('nav.overview'), end: true },
         { to: '/admin/managers', icon: 'group', label: t('nav.managers'), mobileLabel: t('nav.managers') },
         { to: '/profile', icon: 'account_circle', label: t('nav.profile'), mobileLabel: t('nav.profile') },
+        { to: '/settings', icon: 'settings', label: t('nav.settings'), mobileLabel: t('nav.settings'), desktopOnly: true },
       ];
     }
     if (role === 'manager') {
@@ -33,6 +34,7 @@ export default function Sidebar() {
         { to: '/manager/farmers', icon: 'group', label: t('nav.farmers'), mobileLabel: t('nav.farmers') },
         { to: '/manager/requests', icon: 'pending_actions', label: t('nav.requests'), mobileLabel: t('nav.requests') },
         { to: '/profile', icon: 'account_circle', label: t('nav.profile'), mobileLabel: t('nav.profile') },
+        { to: '/settings', icon: 'settings', label: t('nav.settings'), mobileLabel: t('nav.settings'), desktopOnly: true },
       ];
     }
     // Farmer
@@ -42,6 +44,7 @@ export default function Sidebar() {
       { to: '/calendar', icon: 'calendar_month', label: t('nav.calendar'), mobileLabel: t('nav.calendar') },
       { to: '/devices', icon: 'devices', label: t('nav.myDevices'), mobileLabel: t('nav.myDevices') },
       { to: '/profile', icon: 'account_circle', label: t('nav.profile'), mobileLabel: t('nav.profile') },
+      { to: '/settings', icon: 'settings', label: t('nav.settings'), mobileLabel: t('nav.settings'), desktopOnly: true },
     ];
   };
 
@@ -71,17 +74,6 @@ export default function Sidebar() {
               <span className="material-symbols-outlined">{item.icon}</span>
             </NavLink>
           ))}
-          {isFarmer && (
-            <a
-              className="flex items-center justify-center w-12 h-12 text-gray-600 cursor-not-allowed rounded-lg transition-all duration-300 ease-in-out"
-              href="#"
-              title={t('nav.settings')}
-              aria-label={t('nav.settings')}
-              onClick={(e) => e.preventDefault()}
-            >
-              <span className="material-symbols-outlined">settings</span>
-            </a>
-          )}
         </div>
         <div className="mt-auto flex flex-col items-center gap-3 px-2">
           <button
@@ -106,7 +98,7 @@ export default function Sidebar() {
 
       {/* Mobile Bottom Navigation Bar */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-sidebar-bg border-t border-white/10 flex items-center justify-around z-20 px-1">
-        {navItems.map((item) => (
+        {navItems.filter((item) => !item.desktopOnly).map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

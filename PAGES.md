@@ -3,7 +3,43 @@
 > Defines the screens/pages/sections that exist in the app for the current phase.
 > Updated at the start of every new phase — sections marked "future" are NOT to be built yet.
 
-## Current Phase: Phase 11 — Farmer ↔ Manager Messaging — STATUS: COMPLETE
+## Current Phase: Phase 12 — Dark Mode and Settings — STATUS: COMPLETE
+
+Phase 12 introduces comprehensive dark theme support across the entire interface and an accessible client-side Settings page (`/settings`) for all user roles, strictly adhering to `DESIGN.md`.
+
+### Settings View (`/settings`)
+- Accessible to all roles (`farmer`, `manager`, `admin`) wrapped under `ProfileGuard`.
+- Uses the standard `Sidebar` and `Header` shell (`title={t('nav.settings')}`, `showDevice={false}`).
+- **Layout:** Responsive 2-column grid (`grid grid-cols-1 lg:grid-cols-12 gap-6 pb-24 md:pb-8`).
+  - **Left Column (`lg:col-span-8`):**
+    - **Appearance:** Theme segmented control (Light / Dark / System), Text size segmented control (Normal / Large), Reduce motion accessible switch row.
+    - **Language:** English / বাংলা segmented control.
+    - **Threshold Guide:** Live environmental threshold guide populated from `GET /api/meta/thresholds` via `useThresholds`, detailing Safe, Warning, and Danger bands for Ammonia, Methane, Humidity, and Temperature with Latin digits and localized units.
+  - **Right Column (`lg:col-span-4`):**
+    - **Account:** Overview card with link navigating to `/profile`.
+    - **About:** Platform title, semantic version (`__APP_VERSION__`, e.g. `1.0.0` in `font-mono`), and for farmers, manager contact details with direct `tel:` call link (or `profile.noManagerAssigned`).
+    - **Reset Preferences:** Reset action with `ConfirmDialog` restoring theme, text size, motion, language, and selected device without clearing auth credentials.
+- **Header & Navigation Entry Points:**
+  - Desktop Sidebar contains an enabled `Settings` item for all roles (desktop-only; hidden on mobile bottom bar).
+  - Mobile Header features a settings gear icon leading directly to `/settings`.
+  - Desktop Header and `AuthShell` feature a quick `ThemeToggle` button switching between light and dark themes.
+
+### Phase 12 Acceptance Checks
+1. `oxlint` has 0 errors, `vite build` succeeds, and `npm run i18n:check` passes with 0 missing keys and 0 unused-key warnings.
+2. **Matrix:** Every route (`/login`, `/register`, `/complete-profile`, `/change-password`, `/`, `/history`, `/calendar`, `/devices`, `/profile`, `/messages`, `/settings`, `/manager`, `/manager/farmers`, `/manager/farmers/:id`, `/manager/farmers/:id/devices/:deviceId`, `/manager/requests`, `/manager/messages`, `/admin`, `/admin/managers`) in light and dark, EN and BN, desktop and 360px. Text, placeholders, and disabled states are readable, with no invisible borders and no overflow.
+3. **Theme:** Dark persists across reload with no flash of the wrong theme. System follows the OS and updates live. The `ThemeToggle` in the desktop header and `AuthShell` stays in sync with the Settings selector.
+4. **Text size:** Large works on every route, including 360px, with no overflow, no clipped bottom-nav labels (EN and BN) and dialogs that still fit and scroll.
+5. **Reduce motion:** ON stops all pulse, flash, and hover animations, the chart does not animate, and chat scrolling is instant. OFF brings them back. When nothing is stored, it follows the OS.
+6. **Threshold guide:** Matches `GET /api/meta/thresholds` for all four metrics. Latin digits with separators in BN too (`12,500`, `1,000`). Humidity and temperature show both low and high bands.
+7. **About:** Version shows 1.0.0. A farmer with a manager sees the name and a working `tel:` link. A farmer without a manager sees the "no manager" note. Managers and admins see no contact row.
+8. **Reset:** Confirm dialog appears. After confirming: theme is System, text size is Normal, motion follows the OS, language is back to the default, and the selected device is cleared. The user stays logged in (token intact). Cancel changes nothing.
+9. **Guards:** `/settings` behaves like `/profile` for every state. A farmer with no devices can open it.
+10. **Entry points:** The Settings item is in the desktop Sidebar for all roles. The mobile bottom bar is unchanged. The mobile gear is present for all roles. The 360px header fits in EN and BN.
+11. **Regression:** Device request dialog, notification bell, messaging send/receive, CSV export dialog, and manager approve/reject work without regression.
+12. **No scope creep:** No changes under `server/`, `mqtt-bridge/`, or `mimic-device/`. No new color token names. The final grep shows no hardcoded hex or palette classes outside allowed exceptions.
+13. **Design compliance:** The new screens use only existing tokens, with no inline hex values and no new colors. They match DESIGN.md for typography, radius, elevation, and layout on desktop and at 360px, in EN and BN, in both themes.
+
+## Previous Phase: Phase 11 — Farmer ↔ Manager Messaging (COMPLETE)
 
 Phase 11 introduces direct, real-time 1-on-1 messaging between farmers and their assigned district manager, strictly adhering to `DESIGN.md` design tokens, responsive typography, and bilingual rules.
 
@@ -251,9 +287,9 @@ Phase 7 added **role-based access**: `farmer` (existing site, extended), `manage
 
 | Role | Home | Sidebar items |
 |---|---|---|
-| Farmer | `/` | Dashboard, History, Calendar, My Devices, Profile (Settings disabled) |
-| Manager | `/manager` | Overview, Farmers, Requests, Profile |
-| Admin | `/admin` | Overview, Managers, Profile |
+| Farmer | `/` | Dashboard, History, Calendar, My Devices, Profile, Settings (desktop) |
+| Manager | `/manager` | Overview, Farmers, Requests, Profile, Settings (desktop) |
+| Admin | `/admin` | Overview, Managers, Profile, Settings (desktop) |
 
 Mobile uses the bottom navigation with the same items per role (short labels). The header's `account_circle` icon links to `/profile` for every role. Manager and admin headers hide the device label, switcher, status badge and last-updated chip.
 
@@ -383,15 +419,15 @@ Metric cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged dis
 
 ## Route Guard Summary (single source of truth for `App.jsx`)
 
-| State | Farmer pages `/`, `/history`, `/calendar` | `/devices`, `/profile`, `/messages` | `/complete-profile` | `/change-password` | `/manager/*` | `/admin/*` | `/login`, `/register` |
+| State | Farmer pages `/`, `/history`, `/calendar` | `/devices`, `/profile`, `/messages`, `/settings` | `/complete-profile` | `/change-password` | `/manager/*` | `/admin/*` | `/login`, `/register` |
 |---|---|---|---|---|---|---|---|
 | Not authenticated | → `/login` | → `/login` | → `/login` | → `/login` | → `/login` | → `/login` | shown |
 | Authenticated, `mustChangePassword` | → `/change-password` | → `/change-password` | → `/change-password` | shown | → `/change-password` | → `/change-password` | → `/change-password` |
 | Farmer, profile incomplete | → `/complete-profile` | → `/complete-profile` | shown | → `/` | → `/` | → `/` | → `/` |
 | Farmer, complete, no approved device | → `/devices` | shown | → `/` | → `/` | → `/` | → `/` | → `/` |
 | Farmer, complete, ≥1 approved device | shown | shown | → `/` | → `/` | → `/` | → `/` | → `/` |
-| Manager | → `/manager` | `/profile` shown; `/messages` → `/manager/messages`; others → `/manager` | → `/manager` | → `/manager` | shown | → `/manager` | → `/manager` |
-| Admin | → `/admin` | `/profile` shown; others → `/admin` | → `/admin` | → `/admin` | → `/admin` | shown | → `/admin` |
+| Manager | → `/manager` | `/profile`, `/settings` shown; `/messages` → `/manager/messages`; others → `/manager` | → `/manager` | → `/manager` | shown | → `/manager` | → `/manager` |
+| Admin | → `/admin` | `/profile`, `/settings` shown; others → `/admin` | → `/admin` | → `/admin` | → `/admin` | shown | → `/admin` |
 
 `/link-device` redirects to `/devices`. A minimal loading state renders while the initial `/api/auth/me` check is in flight.
 
@@ -423,7 +459,6 @@ Metric cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged dis
 - Deployment and `trust proxy` configuration
 - MQTT admin / health pages; managers registering new devices
 - Email-based password reset, email verification, email invites
-- Settings page
 - OAuth / third-party login
 
 ---
@@ -441,3 +476,4 @@ Metric cards: **Managers**, **Farmers**, **Devices** (approved), **Unmanaged dis
 - **Phase 9 (COMPLETE)**: Security hardening (rate limiting with `skipSuccessfulRequests` on login, `helmet`, 100 KB body limit, `req.body` sanitization + `rejectOperatorKeys` query validation, forced first-login password change, `PASSWORD_UNCHANGED` check, socket revalidation), cleanup, reliability (`error.code`, graceful shutdown, structured redacting logger, `/health` DB check, React `ErrorBoundary` + `ServerUnreachable`, `NO_READINGS_FOUND` empty state, `farmerId` on alerts), and account/device management (device nicknames, device unlink + `unlinked` status + alert engine reset, removed-manager restore, admin manager password reset, Reading Log CSV export).
 - **Phase 10 (COMPLETE)**: Localization (English and Bangla) — zero-dependency `LanguageContext` + `prohori_lang` persistence (browser auto-detect fallback), `Noto Sans Bengali` font integration, identical English and Bangla JSON dictionaries (341 keys each, 0 unused keys) verified via `npm run i18n:check`, `LanguageToggle` header/shell integration, `Intl.RelativeTimeFormat` date formatting with Latin numerals, complete translations across all authentication, farmer, manager, admin, and profile views, localized divisions/districts, complete server error code translation with network fallback, and dead-key cleanup.
 - **Phase 11 (COMPLETE)**: Farmer ↔ Manager direct messaging, per-user socket rooms (`user:<userId>`), methane threshold bands parity update (warning 1,000–12,500, danger >12,500), 0-device socket connection support for farmers and managers, unread badge in header, responsive mobile chat UX strictly adhering to `DESIGN.md`.
+- **Phase 12**: Dark Mode and Settings — system-wide dark palette overrides for existing tokens, `localStorage` preferences (`prohori_theme`, `prohori_text_size`, `prohori_reduce_motion`), anti-flash inline script, root `rem` typography scaling (Normal / Large), animation/transition suppression under reduced motion, `/settings` page for all roles with appearance, language, live threshold guide, profile navigation, and preferences reset dialog.

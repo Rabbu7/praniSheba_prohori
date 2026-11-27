@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { usePreferences } from '../../context/PreferencesContext';
 import { formatAbsoluteDate } from '../../utils/dateFormatter';
 
 export default function ChatThread({
@@ -19,6 +20,7 @@ export default function ChatThread({
   subtitle
 }) {
   const { t, language, translateError } = useLanguage();
+  const { reduceMotion } = usePreferences();
   const [inputText, setInputText] = useState('');
   const [sendError, setSendError] = useState('');
   const messagesEndRef = useRef(null);
@@ -34,11 +36,11 @@ export default function ChatThread({
         scrollContainerRef.current.scrollHeight - scrollContainerRef.current.scrollTop - scrollContainerRef.current.clientHeight < 120;
 
       if (prevMessagesLengthRef.current === 0 || wasAtBottom) {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        messagesEndRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' });
       }
     }
     prevMessagesLengthRef.current = messages.length;
-  }, [messages.length]);
+  }, [messages.length, reduceMotion]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,7 +52,7 @@ export default function ChatThread({
       await onSend(trimmed);
       setInputText('');
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        messagesEndRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' });
       }, 50);
     } catch (err) {
       setSendError(translateError(err, 'common.failed'));

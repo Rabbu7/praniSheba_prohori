@@ -12,6 +12,7 @@ import {
 import { formatChartDate } from '../../utils/dateFormatter';
 import useThresholds from '../../hooks/useThresholds';
 import { useLanguage } from '../../context/LanguageContext';
+import { usePreferences } from '../../context/PreferencesContext';
 
 const METRICS = [
   { id: 'ammonia', label: 'Ammonia', key: 'ammonia_avg', defaultUnit: 'ppm' },
@@ -67,6 +68,7 @@ export default function TrendChart({ data = [], loading = false, _range = '7d' }
   const [selectedMetric, setSelectedMetric] = useState('ammonia');
   const { thresholds } = useThresholds();
   const { t, language } = useLanguage();
+  const { reduceMotion } = usePreferences();
 
   const currentMetric = useMemo(
     () => METRICS.find((m) => m.id === selectedMetric) || METRICS[0],
@@ -210,6 +212,7 @@ export default function TrendChart({ data = [], loading = false, _range = '7d' }
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 5 }}
+              isAnimationActive={!reduceMotion}
             />
           </LineChart>
         </ResponsiveContainer>

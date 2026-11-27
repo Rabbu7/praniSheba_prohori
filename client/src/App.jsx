@@ -13,6 +13,7 @@ import Devices from './pages/Devices';
 import CompleteProfile from './pages/CompleteProfile';
 import ChangePassword from './pages/ChangePassword';
 import Profile from './pages/Profile';
+import Settings from './pages/Settings';
 import Messages from './pages/Messages';
 import ManagerOverview from './pages/manager/Overview';
 import ManagerFarmers from './pages/manager/Farmers';
@@ -187,8 +188,9 @@ export default function App() {
         {/* Messages */}
         <Route path="/messages" element={<FarmerMessagesGuard><Messages /></FarmerMessagesGuard>} />
 
-        {/* Profile (all roles) */}
+        {/* Profile and Settings (all roles) */}
         <Route path="/profile" element={<ProfileGuard><Profile /></ProfileGuard>} />
+        <Route path="/settings" element={<ProfileGuard><Settings /></ProfileGuard>} />
 
         {/* Manager routes */}
         <Route path="/manager" element={<ManagerGuard><ManagerOverview /></ManagerGuard>} />

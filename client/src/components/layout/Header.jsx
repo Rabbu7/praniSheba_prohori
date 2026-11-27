@@ -4,6 +4,7 @@ import StatusBadge from '../common/StatusBadge';
 import DeviceSwitcher from './DeviceSwitcher';
 import NotificationBell from './NotificationBell';
 import LanguageToggle from '../common/LanguageToggle';
+import ThemeToggle from '../common/ThemeToggle';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import useAlerts from '../../hooks/useAlerts';
@@ -38,7 +39,7 @@ export default function Header({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3 text-on-surface-variant">
+        <div className="flex items-center gap-2 text-on-surface-variant">
           <LanguageToggle />
           {isMessagesRole && (
             <Link
@@ -68,6 +69,14 @@ export default function Header({
           ) : (
             <span className="material-symbols-outlined">notifications</span>
           )}
+          <Link
+            to="/settings"
+            title={t('nav.settings')}
+            aria-label={t('nav.settings')}
+            className="flex items-center text-on-surface-variant hover:text-primary transition-colors"
+          >
+            <span className="material-symbols-outlined">settings</span>
+          </Link>
           <Link
             to="/profile"
             title={t('nav.profile')}
@@ -105,6 +114,7 @@ export default function Header({
         </div>
         <div className="flex items-center gap-4">
           <LanguageToggle />
+          <ThemeToggle />
           <div className="flex items-center gap-4 text-on-surface-variant">
             {isMessagesRole && (
               <Link

@@ -2,6 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+    (function(){try{var d=document.documentElement,s=localStorage;var t=s.getItem('prohori_theme');if(t!=='light'&&t!=='dark')t='system';var dark=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);d.setAttribute('data-theme',dark?'dark':'light');d.style.colorScheme=dark?'dark':'light';d.setAttribute('data-text-size',s.getItem('prohori_text_size')==='large'?'large':'normal');var m=s.getItem('prohori_reduce_motion');var r=m==='true'||(m!=='false'&&matchMedia('(prefers-reduced-motion: reduce)').matches);d.setAttribute('data-reduce-motion',r?'true':'false');}catch(e){}})();
+    </script>
     <link rel="icon" type="image/jpeg" href="/src/assets/logo.jpeg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PraniSheba Prohori</title>

@@ -28,12 +28,13 @@ function DeviceRow({ device, farmerId, onUnlink, busy }) {
           <span className="font-mono text-body-sm">{id}</span>
         </div>
         <span
-          className={`rounded-full px-3 py-1 text-xs ${
+          className={`inline-flex items-center rounded-full px-3 py-1 text-xs border ${
             status === 'online'
-              ? 'bg-status-online/10 text-status-online'
-              : 'bg-status-offline/10 text-secondary'
+              ? 'bg-status-online/10 text-on-background border-status-online/30'
+              : 'bg-status-offline/10 text-on-background border-status-offline/30'
           }`}
         >
+          <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${status === 'online' ? 'bg-status-online' : 'bg-status-offline'}`} />
           {t(`common.${status}`)} · {lastUpdated ? formatRelativeTime(lastUpdated, language, t('common.justNow')) : '—'}
         </span>
       </Link>
