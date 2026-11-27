@@ -221,7 +221,10 @@
     "removeManagerTitle": "{{name}}-কে অপসারণ করবেন?",
     "restoreManagerTitle": "{{name}}-কে পুনর্বহাল করবেন?",
     "resetPasswordAria": "{{name}}-এর পাসওয়ার্ড রিসেট করুন",
-    "removeManagerAria": "{{name}}-কে অপসারণ করুন"
+    "removeManagerAria": "{{name}}-কে অপসারণ করুন",
+    "farmerDeviceCount": "ডিভাইস: {{count}}",
+    "showMoreFarmers": "আরও {{count}} জন দেখুন",
+    "showLessFarmers": "কম দেখুন"
   },
   "profile": {
     "title": "একাউন্ট প্রোফাইল",

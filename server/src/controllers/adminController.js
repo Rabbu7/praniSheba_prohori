@@ -16,6 +16,17 @@ const BCRYPT_COST = 10;
 
 function managerSummary(manager) {
   const id = manager._id ? manager._id.toString() : (manager.id ? manager.id.toString() : '');
+  const farmers = Array.isArray(manager.farmers)
+    ? manager.farmers.map((farmer) => ({
+        id: farmer._id ? farmer._id.toString() : (farmer.id ? farmer.id.toString() : ''),
+        firstName: farmer.firstName || '',
+        lastName: farmer.lastName || '',
+        email: farmer.email || '',
+        phone: farmer.phone || '',
+        deviceCount: typeof farmer.deviceCount === 'number' ? farmer.deviceCount : 0
+      }))
+    : [];
+
   return {
     id,
     firstName: manager.firstName,
@@ -25,7 +36,8 @@ function managerSummary(manager) {
     division: manager.division || '',
     district: manager.district || '',
     status: manager.status || 'active',
-    farmerCount: typeof manager.farmerCount === 'number' ? manager.farmerCount : 0,
+    farmerCount: typeof manager.farmerCount === 'number' ? manager.farmerCount : farmers.length,
+    farmers,
     createdAt: manager.createdAt
   };
 }
@@ -100,9 +112,24 @@ async function listManagers(req, res, next) {
                 }
               }
             },
-            { $count: 'count' }
+            {
+              $project: {
+                _id: 1,
+                firstName: 1,
+                lastName: 1,
+                email: 1,
+                phone: 1,
+                deviceCount: { $size: { $ifNull: ['$devices', []] } }
+              }
+            },
+            {
+              $sort: {
+                firstName: 1,
+                lastName: 1
+              }
+            }
           ],
-          as: 'farmerStats'
+          as: 'farmers'
         }
       },
       {
@@ -116,9 +143,8 @@ async function listManagers(req, res, next) {
           district: 1,
           status: 1,
           createdAt: 1,
-          farmerCount: {
-            $ifNull: [{ $arrayElemAt: ['$farmerStats.count', 0] }, 0]
-          }
+          farmers: 1,
+          farmerCount: { $size: '$farmers' }
         }
       },
       {

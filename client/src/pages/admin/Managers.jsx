@@ -16,6 +16,65 @@ import { useLanguage } from '../../context/LanguageContext';
 
 const initial = { firstName: '', lastName: '', email: '', phone: '', division: '', district: '', password: '' };
 
+function AssignedFarmersCell({ farmers = [], farmerCount = 0 }) {
+  const { t } = useLanguage();
+  const [expanded, setExpanded] = useState(false);
+
+  if (!Array.isArray(farmers) || farmers.length === 0) {
+    return <span className="font-mono text-secondary">{farmerCount}</span>;
+  }
+
+  const visibleFarmers = expanded ? farmers : farmers.slice(0, 2);
+  const remaining = farmers.length - 2;
+
+  return (
+    <div className="space-y-2 min-w-[210px]">
+      <div className="flex items-center gap-2">
+        <span className="inline-flex items-center justify-center rounded-full bg-primary/10 px-2 py-0.5 font-mono text-xs font-semibold text-primary">
+          {farmerCount}
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        {visibleFarmers.map((farmer) => {
+          const fullName = `${farmer.firstName} ${farmer.lastName}`.trim() || farmer.email;
+          return (
+            <div
+              key={farmer.id || farmer.email}
+              className="rounded-md border border-border-subtle bg-surface-container-low px-2.5 py-1.5 text-xs"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-on-background truncate">{fullName}</span>
+                <span className="shrink-0 font-mono text-[11px] text-secondary">
+                  {t('admin.farmerDeviceCount', { count: farmer.deviceCount })}
+                </span>
+              </div>
+              <div className="mt-0.5 text-secondary truncate">{farmer.email}</div>
+              {farmer.phone && (
+                <a
+                  href={`tel:${farmer.phone}`}
+                  className="mt-0.5 inline-flex items-center gap-1 text-primary hover:underline"
+                >
+                  <span className="material-symbols-outlined text-[13px]">call</span>
+                  <span className="font-mono">{farmer.phone}</span>
+                </a>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {remaining > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded((prev) => !prev)}
+          className="text-xs font-medium text-primary hover:underline cursor-pointer"
+        >
+          {expanded ? t('admin.showLessFarmers') : t('admin.showMoreFarmers', { count: remaining })}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function Managers() {
   const { t, language, translateLocation, translateError } = useLanguage();
   const [statusFilter, setStatusFilter] = useState('active');
@@ -196,7 +255,9 @@ export default function Managers() {
                 </td>
                 <td className="p-4">{translateLocation(manager.division, 'division')}</td>
                 <td className="p-4">{translateLocation(manager.district, 'district')}</td>
-                <td className="p-4 font-medium">{manager.farmerCount}</td>
+                <td className="p-4 align-top">
+                  <AssignedFarmersCell farmers={manager.farmers} farmerCount={manager.farmerCount} />
+                </td>
                 <td className="p-4 text-secondary">{formatDate(manager.createdAt, language)}</td>
                 <td className="p-4 text-right">
                   {statusFilter === 'active' ? (

@@ -16,7 +16,7 @@ Phase 12 adds system-wide dark mode support and a comprehensive client-side Sett
 
 ### Phase 12 stages
 
-- **12a** Docs (DONE) · **12b** Preferences infrastructure (DONE) · **12c** Hardcoded color sweep (DONE) · **12d** Settings page and entry points (DONE) · **12e** Verification and closeout (DONE)
+- **12a** Docs (DONE) · **12b** Preferences infrastructure (DONE) · **12c** Hardcoded color sweep (DONE) · **12d** Settings page and entry points (DONE) · **12e** Verification and closeout (DONE) · **12f** Admin managers assigned farmers info (DONE)
 
 ### Phase 12 decisions (authoritative)
 
@@ -529,7 +529,7 @@ prohori-dashboard/
 │   │   │   └── common/    # StatusBadge, RequestStatusBadge, MetricCard, ConfirmDialog,
 │   │   │   │              #   ErrorBoundary, ServerUnreachable, LanguageToggle, ThemeToggle
 │   │   ├── context/       # AuthContext, DeviceContext, LanguageContext, PreferencesContext
-│   │   ├── locales/       # en.json, bn.json (394 keys each)
+│   │   ├── locales/       # en.json, bn.json (397 keys each)
 │   │   ├── pages/         # Login, Register, CompleteProfile, ChangePassword, Dashboard,
 │   │   │                  #   History, Calendar, Devices, Profile, Messages, Settings, manager/*, admin/*
 │   │   ├── hooks/         # reading hooks, useLocations, useThresholds, useAlerts, useFarmerSync,
@@ -655,4 +655,4 @@ prohori-dashboard/
 - **Phase 9 (COMPLETE)**: Security hardening (rate limiting, `helmet`, body limit, Mongo operator sanitization, forced first-login password change, timing-safe login, socket revalidation, startup env validation, secrets hygiene), cleanup, reliability (stable `error.code`, graceful shutdown, structured redacting logger, `/health` DB check, React `ErrorBoundary` + `ServerUnreachable`, `farmerId` on alerts), and account/device management (device nicknames, device unlink, removed-manager restore, admin manager password reset, Reading Log CSV export).
 - **Phase 10 (COMPLETE)**: Localization (English and Bangla) — zero-dependency `LanguageContext` + `prohori_lang` persistence (browser auto-detect fallback), `Noto Sans Bengali` font integration, identical English and Bangla JSON dictionaries (341 keys each, 0 unused keys) verified via `npm run i18n:check`, `LanguageToggle` header/shell integration, `Intl.RelativeTimeFormat` date formatting with Latin numerals, complete translations across all authentication, farmer, manager, admin, and profile views, localized divisions/districts, complete server error code translation with network fallback, and dead-key cleanup.
 - **Phase 11 (COMPLETE)**: Farmer ↔ Manager Messaging — 1-on-1 thread per farmer scoped to district manager, `user:<userId>` socket rooms, unread badges in Header, chat thread UI conforming strictly to DESIGN.md, dictionary expanded to 362 keys each in EN and BN (0 errors, 0 unused keys), and methane threshold update (1,000–12,500 warning, >12,500 danger).
-- **Phase 12 (COMPLETE)**: Dark Mode and Settings — system-wide dark palette overrides for existing tokens, `localStorage` preferences (`prohori_theme`, `prohori_text_size`, `prohori_reduce_motion`), anti-flash inline script, root `rem` typography scaling (Normal / Large), animation/transition suppression under reduced motion, `/settings` page for all roles with appearance, language, live threshold guide, profile navigation, preferences reset dialog, and dictionary expanded to 394 keys each in EN and BN (0 errors, 0 unused keys).
+- **Phase 12 (COMPLETE)**: Dark Mode and Settings — system-wide dark palette overrides for existing tokens, `localStorage` preferences (`prohori_theme`, `prohori_text_size`, `prohori_reduce_motion`), anti-flash inline script, root `rem` typography scaling (Normal / Large), animation/transition suppression under reduced motion, `/settings` page for all roles with appearance, language, live threshold guide, profile navigation, preferences reset dialog, Stage 12f assigned farmers info in Admin Managers table, and dictionary expanded to 397 keys each in EN and BN (0 errors, 0 unused keys).

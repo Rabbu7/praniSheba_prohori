@@ -221,7 +221,10 @@
     "removeManagerTitle": "Delete {{name}}?",
     "restoreManagerTitle": "Restore {{name}}?",
     "resetPasswordAria": "Reset password for {{name}}",
-    "removeManagerAria": "Remove {{name}}"
+    "removeManagerAria": "Remove {{name}}",
+    "farmerDeviceCount": "Devices: {{count}}",
+    "showMoreFarmers": "Show {{count}} more",
+    "showLessFarmers": "Show less"
   },
   "profile": {
     "title": "Account Profile",

@@ -237,16 +237,15 @@ export default function Settings() {
           </div>
         </div>
 
-        <ConfirmDialog
-          open={confirmResetOpen}
-          title={t('settings.resetConfirmTitle')}
-          message={t('settings.resetConfirmMessage')}
-          confirmLabel={t('settings.reset')}
-          cancelLabel={t('common.cancel')}
-          onConfirm={handleReset}
-          onCancel={() => setConfirmResetOpen(false)}
-          variant="danger"
-        />
+        {confirmResetOpen && (
+          <ConfirmDialog
+            title={t('settings.resetConfirmTitle')}
+            message={t('settings.resetConfirmMessage')}
+            confirmLabel={t('settings.reset')}
+            onConfirm={handleReset}
+            onCancel={() => setConfirmResetOpen(false)}
+          />
+        )}
       </main>
     </div>
   );
